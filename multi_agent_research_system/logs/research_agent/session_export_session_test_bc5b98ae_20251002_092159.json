@@ -1,0 +1,17 @@
+{
+  "session_id": "session_test_bc5b98ae",
+  "agent_name": "research_agent",
+  "export_timestamp": "2025-10-02T09:21:59.834262",
+  "session_summary": {
+    "session_id": "session_test_bc5b98ae",
+    "agent_name": "research_agent",
+    "total_activities": 0,
+    "successful_activities": 0,
+    "failed_activities": 0,
+    "success_rate": 0.0,
+    "average_execution_time": 0.0,
+    "activity_type_counts": {},
+    "log_directory": "logs/research_agent"
+  },
+  "activities": []
+}

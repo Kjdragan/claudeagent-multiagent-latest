@@ -1,0 +1,42 @@
+{
+  "simple_request": {
+    "topic": "Benefits of Renewable Energy",
+    "depth": "Quick Overview",
+    "audience": "General Public",
+    "format": "Standard Report",
+    "requirements": "Basic overview with key benefits and examples",
+    "timeline": "ASAP"
+  },
+  "standard_request": {
+    "topic": "The Impact of Remote Work on Employee Productivity",
+    "depth": "Standard Research",
+    "audience": "Business",
+    "format": "Business Brief",
+    "requirements": "Focus on recent studies from 2020-2024, include statistics and company examples",
+    "timeline": "Within 24 hours"
+  },
+  "comprehensive_request": {
+    "topic": "Artificial Intelligence in Healthcare: Current Applications and Future Prospects",
+    "depth": "Comprehensive Analysis",
+    "audience": "Technical",
+    "format": "Technical Documentation",
+    "requirements": "Include current technologies, case studies, regulatory considerations, challenges, and future trends. Focus on medical diagnostics, treatment planning, drug discovery, and patient monitoring.",
+    "timeline": "Within 1 week"
+  },
+  "academic_request": {
+    "topic": "Climate Change Impact on Global Food Security",
+    "depth": "Comprehensive Analysis",
+    "audience": "Academic",
+    "format": "Academic Paper",
+    "requirements": "Peer-reviewed sources, quantitative data, methodology review, policy implications, and future research directions. Include citations in APA format.",
+    "timeline": "Within 3 days"
+  },
+  "policy_request": {
+    "topic": "Regulatory Frameworks for Cryptocurrency and Digital Assets",
+    "depth": "Standard Research",
+    "audience": "Policy Makers",
+    "format": "Policy Brief",
+    "requirements": "Current regulatory approaches across major economies, compliance challenges, consumer protection, and recommendations for balanced regulation.",
+    "timeline": "Within 1 week"
+  }
+}
