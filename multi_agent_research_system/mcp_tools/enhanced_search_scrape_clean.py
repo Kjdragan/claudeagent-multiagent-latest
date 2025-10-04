@@ -26,6 +26,7 @@ except ImportError:
 
 # Import the enhanced search functionality
 from utils.z_search_crawl_utils import search_crawl_and_clean_direct, news_search_and_crawl_direct
+from utils.serp_search_utils import expanded_query_search_and_extract
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,11 @@ def create_enhanced_search_mcp_server():
                 "type": "string",
                 "default": "default",
                 "description": "Session identifier for tracking and work products"
+            },
+            "workproduct_prefix": {
+                "type": "string",
+                "default": "",
+                "description": "Optional prefix for work product filenames (e.g., 'editor research' for editorial work)"
             }
         }
     )
@@ -131,6 +137,7 @@ def create_enhanced_search_mcp_server():
             anti_bot_level = int(args.get("anti_bot_level", 1))
             max_concurrent = int(args.get("max_concurrent", 15))
             session_id = args.get("session_id", "default")
+            workproduct_prefix = args.get("workproduct_prefix", "")
 
             # Validate parameters
             if anti_bot_level < 0 or anti_bot_level > 3:
@@ -351,11 +358,180 @@ Complete news articles and analysis are available in the work product files save
                 "error_details": str(e)
             }
 
+    @tool(
+        "expanded_query_search_and_extract",
+        "Corrected query expansion workflow with master result consolidation. Generates multiple search queries, executes SERP searches for each, deduplicates results into master list, ranks by relevance, and scrapes from master list within budget limits. Eliminates excessive searching while providing comprehensive coverage.",
+        {
+            "query": {
+                "type": "string",
+                "description": "Original search query or topic to research"
+            },
+            "search_type": {
+                "type": "string",
+                "enum": ["search", "news"],
+                "default": "search",
+                "description": "Type of search: 'search' for web search, 'news' for news search"
+            },
+            "num_results": {
+                "type": "integer",
+                "default": 15,
+                "minimum": 1,
+                "maximum": 50,
+                "description": "Number of search results per expanded query"
+            },
+            "auto_crawl_top": {
+                "type": "integer",
+                "default": 10,
+                "minimum": 0,
+                "maximum": 20,
+                "description": "Maximum number of URLs to crawl from master ranked list"
+            },
+            "crawl_threshold": {
+                "type": "number",
+                "default": 0.3,
+                "minimum": 0.0,
+                "maximum": 1.0,
+                "description": "Minimum relevance score threshold for crawling (0.0-1.0)"
+            },
+            "session_id": {
+                "type": "string",
+                "default": "default",
+                "description": "Session identifier for tracking and work products"
+            },
+            "max_expanded_queries": {
+                "type": "integer",
+                "default": 3,
+                "minimum": 1,
+                "maximum": 5,
+                "description": "Maximum number of expanded queries to generate"
+            }
+        }
+    )
+    async def expanded_query_search_and_extract_tool(args: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Expanded query search and extract functionality with corrected workflow.
+
+        This tool implements the proper workflow that eliminates excessive searching:
+        1. Generate multiple related search queries using query expansion
+        2. Execute SERP searches for each expanded query
+        3. Collect & deduplicate all results into one master list
+        4. Rank results by relevance score
+        5. Scrape from master ranked list within budget limits (15 successful scrapes)
+
+        Args:
+            args: Dictionary containing tool parameters
+
+        Returns:
+            Dictionary with content and metadata
+        """
+        try:
+            # Extract parameters with defaults
+            query = args.get("query")
+            if not query:
+                return {
+                    "content": [{"type": "text", "text": "❌ **Error**: 'query' parameter is required"}],
+                    "is_error": True
+                }
+
+            search_type = args.get("search_type", "search")
+            num_results = int(args.get("num_results", 15))
+            auto_crawl_top = int(args.get("auto_crawl_top", 10))
+            crawl_threshold = float(args.get("crawl_threshold", 0.3))
+            session_id = args.get("session_id", "default")
+            max_expanded_queries = int(args.get("max_expanded_queries", 3))
+
+            # Set up work product directory
+            workproduct_dir = os.environ.get('KEVIN_WORKPRODUCTS_DIR')
+            if not workproduct_dir:
+                # Use session-based directory structure
+                base_session_dir = f"/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/sessions/{session_id}"
+                research_dir = f"{base_session_dir}/research"
+                workproduct_dir = research_dir
+
+            # Ensure workproduct directory exists
+            Path(workproduct_dir).mkdir(parents=True, exist_ok=True)
+
+            logger.info(f"Executing expanded query search: query='{query}', max_expanded_queries={max_expanded_queries}")
+
+            # Execute the corrected expanded query search and extract functionality
+            result = await expanded_query_search_and_extract(
+                query=query,
+                search_type=search_type,
+                num_results=num_results,
+                auto_crawl_top=auto_crawl_top,
+                crawl_threshold=crawl_threshold,
+                session_id=session_id,
+                kevin_dir=Path(workproduct_dir).parent.parent,
+                max_expanded_queries=max_expanded_queries
+            )
+
+            # Check result length for token management
+            if len(result) > 20000:  # Leave room for other content
+                # Create a summary version for the response
+                summary = f"""# Expanded Query Search Results Summary
+
+**Original Query**: {query}
+**Search Type**: {search_type}
+**Expanded Queries Generated**: {max_expanded_queries}
+**Processing**: Corrected query expansion workflow with master result consolidation
+
+## Results Overview
+✅ **Multiple SERP searches executed** for expanded queries
+✅ **Results deduplicated** into master ranked list
+✅ **Content extraction completed** from most relevant sources
+📄 **Detailed work product saved** to KEVIN work_products directory
+
+## Key Findings
+The expanded query search process has completed successfully with comprehensive coverage.
+Multiple related queries were searched, results were consolidated and deduplicated,
+then ranked by relevance for optimal content extraction.
+
+## Accessing Full Results
+Complete detailed results including all expanded queries, master results list,
+and extracted content are available in the work product files saved to the KEVIN directory.
+
+---
+*Results generated by Expanded Query Search tool with corrected workflow*
+"""
+                result = summary
+                logger.info("Result truncated for token limits, full content saved to work products")
+
+            return {
+                "content": [{"type": "text", "text": result}],
+                "metadata": {
+                    "query": query,
+                    "search_type": search_type,
+                    "max_expanded_queries": max_expanded_queries,
+                    "session_id": session_id,
+                    "workproduct_dir": workproduct_dir,
+                    "expanded_query_search": True
+                }
+            }
+
+        except Exception as e:
+            error_msg = f"""❌ **Expanded Query Search Error**
+
+Failed to execute expanded query search and content extraction: {str(e)}
+
+This tool uses the corrected workflow that consolidates searches properly.
+Please check:
+- SERP_API_KEY is configured
+- Network connectivity
+- Query parameters are valid
+- Expanded query parameters are within limits
+"""
+            logger.error(f"Expanded query search failed: {e}")
+            return {
+                "content": [{"type": "text", "text": error_msg}],
+                "is_error": True,
+                "error_details": str(e)
+            }
+
     # Create the MCP server
     server = create_sdk_mcp_server(
         name="enhanced_search_scrape_clean",
         version="1.0.0",
-        tools=[enhanced_search_scrape_clean, enhanced_news_search]
+        tools=[enhanced_search_scrape_clean, enhanced_news_search, expanded_query_search_and_extract_tool]
     )
 
     logger.info("Enhanced Search, Scrape & Clean MCP server created successfully")

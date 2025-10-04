@@ -5,8 +5,7 @@ This is a single, comprehensive MCP tool that exactly mirrors the zPlayground1
 topic-based search, scrape, and clean functionality. No multiple tool calls -
 just one complete implementation that handles everything in Python.
 
-Based on the exact working implementation from:
-/wsl.localhost/Ubuntu-24.04/home/kjdragan/lrepos/z-playground1
+Based on the proven zPlayground1 implementation, fully integrated for standalone operation.
 """
 
 import logging
@@ -100,6 +99,11 @@ def create_zplayground1_mcp_server():
                 "type": "string",
                 "default": "default",
                 "description": "Session identifier for tracking and work products"
+            },
+            "workproduct_prefix": {
+                "type": "string",
+                "default": "",
+                "description": "Optional prefix for work product filenames (e.g., 'editor research' for editorial work)"
             }
         }
     )
@@ -141,6 +145,7 @@ def create_zplayground1_mcp_server():
             anti_bot_level = int(args.get("anti_bot_level", 1))
             max_concurrent = int(args.get("max_concurrent", 15))
             session_id = args.get("session_id", "default")
+            workproduct_prefix = args.get("workproduct_prefix", "")
 
             # Validate parameters
             if anti_bot_level < 0 or anti_bot_level > 3:

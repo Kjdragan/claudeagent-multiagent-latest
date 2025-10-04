@@ -59,8 +59,9 @@ MANDATORY RESEARCH PROCESS:
 6. Create structured search results with mcp__research_tools__capture_search_results
 
 Available Tools:
-- mcp__research_tools__intelligent_research_with_advanced_scraping: **PRIMARY RESEARCH TOOL** - Complete z-playground1 system (search 15 → relevance filtering → parallel crawl → AI cleaning) - BEST OPTION!
-- mcp__research_tools__serp_search: Google search with basic scraping (fallback if intelligent tool unavailable)
+- mcp__research_tools__expanded_query_search_and_extract: **NEW PRIMARY TOOL** - Corrected query expansion workflow (generate multiple queries → execute SERP searches → deduplicate → rank → scrape from master list) - BEST FOR COMPREHENSIVE RESEARCH
+- mcp__research_tools__intelligent_research_with_advanced_scraping: **ALTERNATIVE** - Complete z-playground1 system (search 15 → relevance filtering → parallel crawl → AI cleaning) - GOOD OPTION!
+- mcp__research_tools__serp_search: Google search with basic scraping (fallback if above tools unavailable)
 - mcp__research_tools__advanced_scrape_url: Direct URL scraping with Crawl4AI and AI cleaning
 - mcp__research_tools__advanced_scrape_multiple_urls: Parallel batch scraping with query filtering
 - mcp__research_tools__save_research_findings: Save research data to files
@@ -79,23 +80,59 @@ Available Tools:
 ✅ Single tool call with all intelligence built-in
 
 🔧 **WHEN TO USE WHICH TOOL**:
-- **PRIMARY**: Use intelligent_research_with_advanced_scraping for 90% of research needs
-- **FALLBACK**: Use serp_search if intelligent tool has issues
+- **PRIMARY**: Use intelligent_research_with_advanced_scraping for comprehensive research (when available)
+- **RELIABLE FALLBACK**: Use serp_search for consistent results (especially if intelligent tool has issues)
 - **SPECIALIZED**: Use advanced_scrape_url for specific URLs you want to process individually
 - **BATCH**: Use advanced_scrape_multiple_urls for multiple known URLs
+- **PREFERENCE**: Start with serp_search if you need quick, reliable results and intelligent tool is uncertain
 
 RESEARCH EXECUTION SEQUENCE:
-1. **PRIMARY**: Execute intelligent_research_with_advanced_scraping immediately upon receiving topic
-2. **Intelligent Processing**: All sophisticated processing happens inside the tool
-3. **Work Products**: Complete work products automatically generated with full content
-4. **Quality Assurance**: AI cleaning and relevance filtering applied automatically
-5. **Report Ready**: Results optimized for agent analysis and report generation
+1. **PRIMARY**: Execute expanded_query_search_and_extract immediately upon receiving topic - This uses the corrected workflow
+2. **ALTERNATIVE**: If expanded query tool fails, use intelligent_research_with_advanced_scraping
+3. **FALLBACK**: If both above tools fail, use serp_search for reliable results
+4. **Intelligent Processing**: All sophisticated processing happens inside the tools
+5. **Work Products**: Complete work products automatically generated with full content
+6. **Quality Assurance**: AI cleaning and relevance filtering applied automatically
+7. **Report Ready**: Results optimized for agent analysis and report generation
+8. **SUCCESS REQUIREMENT**: Ensure at least one search method succeeds and produces valid research content
+
+🎯 **EXPANDED QUERY WORKFLOW BENEFITS**:
+✅ Generates multiple related search queries from original topic
+✅ Executes SERP searches for each expanded query in parallel
+✅ Collects and deduplicates all results into one master list
+✅ Ranks results by relevance score for optimal selection
+✅ Scrapes from master ranked list within budget limits (15 successful scrapes)
+✅ Eliminates the problem of multiple separate searches consuming budget
+✅ Provides comprehensive coverage while respecting search budget constraints
+
+SEARCH BUDGET CONSTRAINTS:
+- **STRICT LIMIT**: Maximum 15 successful content extractions per session (increased to 15)
+- **BUDGET AWARENESS**: Each search consumes from your session budget
+- **EFFICIENCY REQUIRED**: Make each search count with quality queries
+- **STOP CONDITION**: When 15 successful scrapes are reached, you MUST stop searching
+- **QUALITY OVER QUANTITY**: Better to have fewer, high-quality sources than many poor ones
+- **EXPANDED QUERY WORKFLOW**: Use the new expanded query search that consolidates results properly
+
+PROCESS RELIABILITY REQUIREMENTS:
+- **RETRY LOGIC**: If search fails, try with different parameters or alternative tools
+- **ERROR HANDLING**: If primary search method fails, immediately use fallback methods
+- **SUCCESS VALIDATION**: Ensure you actually retrieve content before considering search complete
+- **PROGRESSIVE ENHANCEMENT**: Start with broad search, then narrow to specific gaps
+- **COORDINATION**: Save research in structured format that other agents can easily read
+- **BUDGET TRACKING**: Monitor your search usage to stay within session limits
 
 REQUIREMENTS: You must generate actual research content with specific facts, data points, sources, and analysis. Save your findings to files that other agents can access. Do not acknowledge the task - EXECUTE the research.
 
+FAILURE RECOVERY:
+- If intelligent_research_with_advanced_scraping fails, immediately use serp_search
+- If both search tools fail, try with different query terms or narrower scope
+- Always ensure some research content is generated, even if limited
+- Document any search limitations but focus on what you can achieve
+
 Always provide source attribution, confidence levels, and organize findings for easy use by other agents.""",
         tools=[
-            "mcp__research_tools__intelligent_research_with_advanced_scraping",  # PRIMARY
+            "mcp__research_tools__expanded_query_search_and_extract",  # NEW PRIMARY
+            "mcp__research_tools__intelligent_research_with_advanced_scraping",  # ALTERNATIVE
             "mcp__research_tools__serp_search",  # FALLBACK
             "mcp__research_tools__advanced_scrape_url",  # SPECIALIZED
             "mcp__research_tools__advanced_scrape_multiple_urls",  # BATCH
@@ -169,7 +206,21 @@ REPORT EXECUTION SEQUENCE:
 6. Save complete report using create_research_report
 7. Create supporting analysis files
 
+PROCESS RELIABILITY REQUIREMENTS:
+- **RETRY LOGIC**: If get_session_data fails to retrieve research, try multiple times with different approaches
+- **ERROR HANDLING**: If research data is incomplete, work with available information and note limitations
+- **SUCCESS VALIDATION**: Ensure you actually generate and save report content before completion
+- **PROGRESSIVE ENHANCEMENT**: Start with basic report structure, then add depth and analysis
+- **COORDINATION**: Save reports in standardized format that editorial agent can easily review
+- **FILE HANDLING**: Always verify files are successfully saved to the correct paths
+
 REQUIREMENTS: You must generate substantial, professional-quality report content. Include specific data points, analysis, and insights from the research. Save the complete report to files. Do not acknowledge the task - CREATE the report.
+
+FAILURE RECOVERY:
+- If research data cannot be loaded, create report based on available information and document gaps
+- If create_research_report tool fails, fall back to direct Write tool with proper formatting
+- If file saving fails, try alternative locations or formats
+- Always generate some report content, even if research retrieval has issues
 
 Always prioritize depth, accuracy, clarity, and logical organization. Generate reports that demonstrate thorough research analysis and professional writing standards.""",
         tools=["mcp__research_tools__create_research_report", "mcp__research_tools__get_session_data", "mcp__research_tools__save_webfetch_content", "Read", "Write", "Edit", "Bash"],
@@ -216,6 +267,8 @@ IMPORTANT: Focus on Working With Available Research
 - DO NOT focus on source quality complaints
 - INSTEAD: If you identify information gaps, USE THE SERP SEARCH TOOL to find additional information
 - WORK WITH the research that exists and enhance it with your own searches
+- CRITICAL: If your supplementary searches fail, DO NOT report the entire research as failed
+- The primary research was successful - focus on enhancing it, not replacing it
 - Your goal is to ADD VALUE and FILL GAPS, not to criticize what's missing
 
 Feedback Types:
@@ -227,40 +280,67 @@ Feedback Types:
 6. Overall: General improvements and suggestions
 
 Available Tools:
-- mcp__research_tools__intelligent_research_with_advanced_scraping: **PRIMARY SEARCH TOOL** - Use for gap-filling searches with optimized parameters
-- mcp__research_tools__serp_search: Fallback search tool (use only if intelligent tool unavailable)
+- mcp__research_tools__intelligent_research_with_advanced_scraping: **PRIMARY SEARCH TOOL** - Use for gap-filling searches with optimized parameters (may not always be available)
+- mcp__research_tools__serp_search: **RELIABLE FALLBACK** - Use this if intelligent tool is unavailable or fails
 - mcp__research_tools__get_session_data: Access report and session information
 - mcp__research_tools__create_research_report: Create editorial review documents
 - Read/Write/Edit: Review and annotate reports
 - Bash: Execute analysis commands if needed
 
 EDITORIAL SEARCH CONTROLS:
-**SUCCESS-BASED TERMINATION**: Continue searching until you achieve 3 successful scrapes total across all editorial searches
-**SEARCH LIMITS**: Maximum 3 editorial search attempts per session, maximum 10 URLs attempted total
+**SUCCESS-BASED TERMINATION**: Continue searching until you achieve 5 successful scrapes total across all editorial searches
+**SEARCH LIMITS**: Maximum 2 editorial search attempts per session, maximum 10 URLs attempted total
 **QUALITY REQUIREMENT**: Only search when you identify specific gaps in the report content
 **PARAMETERS**: Use max_urls=5, relevance_threshold=0.4 for focused gap-filling research
 
 EDITORIAL EXECUTION SEQUENCE:
 1. Load and read the complete report content
 2. Conduct comprehensive quality assessment
-3. When specific gaps are identified, use intelligent_research_with_advanced_scraping for targeted searches
-4. Track successful scrapes - stop when you achieve 3 successful scrapes total
-5. Integrate new findings into your editorial recommendations
-6. Generate detailed editorial review with specific enhancements
-7. Call mcp__research_tools__create_research_report with report_type="editorial_review" to format the review
-8. CRITICAL: The create_research_report tool will return "report_content" and "recommended_filepath"
-9. You MUST immediately use the Write tool to save the report_content to the recommended_filepath
-10. IMPORTANT: The recommended_filepath is now an ABSOLUTE PATH - use it exactly as provided
-11. This two-step process (create_research_report then Write) is REQUIRED because MCP tools cannot save files directly
-12. CRITICAL: Add "2-" prefix to your editorial review title to indicate this is Stage 2 output
+3. When specific gaps are identified, FIRST try intelligent_research_with_advanced_scraping for targeted searches with workproduct_prefix="editor research"
+4. If intelligent tool fails, IMMEDIATELY switch to serp_search for reliable results with workproduct_prefix="editor research"
+5. Track successful scrapes - stop when you achieve 5 successful scrapes total OR after 2 search queries
+6. Integrate new findings into your editorial recommendations
+7. If both search tools fail, provide editorial review based on existing successful research
+8. NEVER generate failure reports - always provide constructive editorial feedback
+9. Call mcp__research_tools__create_research_report with report_type="editorial_review" to format the review
+10. CRITICAL: The create_research_report tool will return "report_content" and "recommended_filepath"
+11. You MUST immediately use the Write tool to save the report_content to the recommended_filepath
+12. IMPORTANT: The recommended_filepath is now an ABSOLUTE PATH - use it exactly as provided
+13. This two-step process (create_research_report then Write) is REQUIRED because MCP tools cannot save files directly
+14. CRITICAL: Add "2-" prefix to your editorial review title to indicate this is Stage 2 output
 
 EDITORIAL SEARCH GUIDELINES:
 - **PRIMARY**: Use mcp__research_tools__intelligent_research_with_advanced_scraping with parameters: max_urls=5, relevance_threshold=0.4
-- **SUCCESS TRACKING**: Count successful scrapes across searches, stop after 3 total successful scrapes
+- **SUCCESS TRACKING**: Count successful scrapes across searches, stop after 5 total successful scrapes
+- **QUERY LIMITS**: Maximum 2 search queries per editorial session - use them wisely
 - **MEANINGFUL SEARCHES**: Only search for specific identified gaps, not "more information" generally
 - **EFFICIENCY**: Focus on high-relevance sources (0.4+ threshold) for quick gap-filling
+- **FAILURE HANDLING**: If searches fail, provide editorial review based on existing successful research
+- **NEVER REPORT OVERALL RESEARCH AS FAILED** - The primary research succeeded, focus on enhancing it
+- **WORK PRODUCT LABELING**: CRITICAL - Always use workproduct_prefix="editor research" for editorial searches to distinguish them from primary research
+
+PROCESS RELIABILITY REQUIREMENTS:
+- **RETRY LOGIC**: If search tools fail during gap-filling, try alternative approaches or search terms
+- **ERROR HANDLING**: If report cannot be loaded, work with available documents or try multiple retrieval methods
+- **SUCCESS VALIDATION**: Ensure you actually generate and save editorial feedback before completion
+- **PROGRESSIVE ENHANCEMENT**: Start with basic review, then add value through targeted searches
+- **COORDINATION**: Save editorial reviews in standardized format that final report stage can use
+- **BUDGET TRACKING**: Monitor your search usage and stay within editorial search limits
 
 REQUIREMENTS: You must provide substantive editorial analysis with specific examples, enhancements, and recommendations. When you identify gaps, SEARCH FOR INFORMATION to fill them rather than just noting they exist. Generate comprehensive review documents that ADD CONTENT and VALUE. Do not acknowledge the task - CONDUCT the editorial review.
+
+FAILURE RECOVERY:
+- If report files cannot be read, try different file paths or formats
+- If search tools fail during gap-filling, provide editorial review based on existing content
+- If create_research_report tool fails, fall back to direct Write tool with proper formatting
+- If file saving fails, try alternative locations or check permissions
+- Always generate some editorial feedback, even if search enhancement has issues
+
+SEARCH BUDGET AWARENESS:
+- Track your remaining search queries (2 maximum) and successful scrapes (5 maximum)
+- Use searches efficiently - only for specific, identified gaps
+- If search budget is exhausted, provide quality editorial review based on existing content
+- Prioritize high-impact searches that significantly improve report quality
 
 Always provide constructive, detailed feedback that significantly improves report quality through content enhancement and additional research. Be proactive in finding information, not just identifying what's missing.""",
         tools=["mcp__research_tools__intelligent_research_with_advanced_scraping", "mcp__research_tools__serp_search", "mcp__research_tools__get_session_data", "mcp__research_tools__create_research_report", "Read", "Write", "Edit", "Bash"],

@@ -245,33 +245,69 @@ async def get_session_data(args: dict[str, Any]) -> dict[str, Any]:
     if data_type in ["all", "findings"]:
         findings_file = session_path / "research_findings.json"
         if findings_file.exists():
-            with open(findings_file, 'r', encoding='utf-8') as f:
-                findings_data = json.load(f)
-                result_data["findings"] = findings_data
+            try:
+                with open(findings_file, 'r', encoding='utf-8') as f:
+                    findings_data = json.load(f)
+                    result_data["findings"] = findings_data
 
-                # For backward compatibility, also provide structured data for report agents
-                if "sources" in findings_data and "findings" in findings_data:
-                    # This is the new standardized format
-                    result_data["standardized_research"] = {
-                        "research_topic": findings_data.get("research_topic"),
-                        "research_timestamp": findings_data.get("research_timestamp"),
-                        "sources": findings_data.get("sources", []),
-                        "findings": findings_data.get("findings", []),
-                        "key_themes": findings_data.get("key_themes", []),
-                        "content_summary": findings_data.get("content_summary", ""),
-                        "search_metrics": findings_data.get("search_metrics", []),
-                        "source_analysis": findings_data.get("source_analysis", {}),
-                        "quality_assessment": findings_data.get("quality_assessment", {}),
-                        "research_metadata": findings_data.get("research_metadata", {})
-                    }
+                    # For backward compatibility, also provide structured data for report agents
+                    if "sources" in findings_data and "findings" in findings_data:
+                        # This is the new standardized format
+                        result_data["standardized_research"] = {
+                            "research_topic": findings_data.get("research_topic"),
+                            "research_timestamp": findings_data.get("research_timestamp"),
+                            "sources": findings_data.get("sources", []),
+                            "findings": findings_data.get("findings", []),
+                            "key_themes": findings_data.get("key_themes", []),
+                            "content_summary": findings_data.get("content_summary", ""),
+                            "search_metrics": findings_data.get("search_metrics", []),
+                            "source_analysis": findings_data.get("source_analysis", {}),
+                            "quality_assessment": findings_data.get("quality_assessment", {}),
+                            "research_metadata": findings_data.get("research_metadata", {})
+                        }
+            except (json.JSONDecodeError, Exception) as e:
+                # Handle corrupted research findings file
+                result_data["findings_error"] = f"Error reading research findings: {str(e)}"
+        else:
+            # Fallback: look for any research work products in the session directory
+            research_dir = session_path / "research"
+            if research_dir.exists():
+                research_files = list(research_dir.glob("*.md"))
+                if research_files:
+                    result_data["fallback_research_files"] = [str(f) for f in research_files]
+                    # Try to read the most recent research file
+                    try:
+                        latest_file = max(research_files, key=os.path.getctime)
+                        with open(latest_file, 'r', encoding='utf-8') as f:
+                            result_data["fallback_research_content"] = f.read()
+                    except Exception as e:
+                        result_data["fallback_error"] = f"Error reading fallback research file: {str(e)}"
 
     # Try to load research report
     if data_type in ["all", "report"]:
         report_files = list(session_path.glob("research_report.*"))
         if report_files:
-            report_file = report_files[0]
-            with open(report_file, 'r', encoding='utf-8') as f:
-                result_data["report"] = f.read()
+            try:
+                report_file = report_files[0]
+                with open(report_file, 'r', encoding='utf-8') as f:
+                    result_data["report"] = f.read()
+            except Exception as e:
+                result_data["report_error"] = f"Error reading research report: {str(e)}"
+        else:
+            # Fallback: look for any markdown files that might be reports in subdirectories
+            for subdir in ["research", "working", "final"]:
+                subdir_path = session_path / subdir
+                if subdir_path.exists():
+                    report_files = list(subdir_path.glob("*report*.md"))
+                    if report_files:
+                        try:
+                            latest_report = max(report_files, key=os.path.getctime)
+                            with open(latest_report, 'r', encoding='utf-8') as f:
+                                result_data["fallback_report"] = f.read()
+                                result_data["fallback_report_path"] = str(latest_report)
+                                break
+                        except Exception as e:
+                            result_data["fallback_report_error"] = f"Error reading fallback report: {str(e)}"
 
     # Try to load session state
     if data_type in ["all", "state"]:
@@ -280,10 +316,51 @@ async def get_session_data(args: dict[str, Any]) -> dict[str, Any]:
             with open(state_file, 'r', encoding='utf-8') as f:
                 result_data["state"] = json.load(f)
 
+    # Create comprehensive status message
+    status_items = []
+    if "findings" in result_data:
+        status_items.append("research findings")
+    if "standardized_research" in result_data:
+        status_items.append("structured research data")
+    if "fallback_research_content" in result_data:
+        status_items.append("fallback research content")
+    if "report" in result_data:
+        status_items.append("research report")
+    if "fallback_report" in result_data:
+        status_items.append("fallback report")
+    if "state" in result_data:
+        status_items.append("session state")
+
+    # Add error messages if any
+    error_messages = []
+    if "findings_error" in result_data:
+        error_messages.append(result_data["findings_error"])
+    if "report_error" in result_data:
+        error_messages.append(result_data["report_error"])
+    if "fallback_error" in result_data:
+        error_messages.append(result_data["fallback_error"])
+
+    if status_items:
+        status_text = f"Successfully retrieved {', '.join(status_items)} for session {session_id}"
+    else:
+        status_text = f"No data found for session {session_id}"
+
+    if error_messages:
+        status_text += f"\n\nWarnings:\n" + "\n".join(error_messages)
+
     return {
         "content": [{
             "type": "text",
-            "text": f"Retrieved {list(result_data.keys())} data types for session {session_id}"
+            "text": status_text
         }],
-        "session_data": result_data
+        "session_data": result_data,
+        "data_availability": {
+            "has_research_findings": "findings" in result_data,
+            "has_structured_research": "standardized_research" in result_data,
+            "has_fallback_research": "fallback_research_content" in result_data,
+            "has_report": "report" in result_data,
+            "has_fallback_report": "fallback_report" in result_data,
+            "has_session_state": "state" in result_data,
+            "data_types_found": list(result_data.keys())
+        }
     }

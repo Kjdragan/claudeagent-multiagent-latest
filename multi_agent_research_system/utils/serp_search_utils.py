@@ -41,7 +41,7 @@ except ImportError:
         default_max_concurrent = 15
 
         # Target-based scraping settings
-        target_successful_scrapes = 8
+        target_successful_scrapes = 10
         url_deduplication_enabled = True
         progressive_retry_enabled = True
 
@@ -474,7 +474,7 @@ def save_search_work_product(
 async def target_based_scraping(
     search_results: List[SearchResult],
     session_id: str,
-    target_successful_scrapes: int = 8,
+    target_successful_scrapes: int = 10,
     crawl_threshold: float = 0.3,
     max_concurrent: int = 10
 ) -> Tuple[List[str], List[str]]:
@@ -502,9 +502,10 @@ async def target_based_scraping(
 
     # Get ALL candidates at once for parallel processing
     # Start with 0.3 threshold, expand to 0.2 for additional candidates
+    # Reduced multipliers to prevent excessive URL processing
     primary_candidates = select_urls_for_crawling(
         search_results=search_results,
-        limit=target_count * 2,  # Primary candidates at 0.3 threshold
+        limit=int(target_count * 1.5),  # Reduced multiplier: 1.5x instead of 2x
         min_relevance=0.3,
         session_id=session_id,
         use_deduplication=True
@@ -512,7 +513,7 @@ async def target_based_scraping(
 
     secondary_candidates = select_urls_for_crawling(
         search_results=search_results,
-        limit=target_count * 3,  # Secondary candidates at 0.2 threshold
+        limit=target_count * 2,  # Reduced multiplier: 2x instead of 3x
         min_relevance=0.2,
         session_id=session_id,
         use_deduplication=True
@@ -548,7 +549,7 @@ async def target_based_scraping(
     if len(successful_content) < target_count:
         fallback_candidates = select_urls_for_crawling(
             search_results=search_results,
-            limit=target_count * 4,  # Even larger pool
+            limit=target_count * 2,  # Reduced multiplier: 2x instead of 4x
             min_relevance=0.1,  # Very low threshold as last resort
             session_id=session_id,
             use_deduplication=True
@@ -799,7 +800,7 @@ Total articles successfully extracted: {len(crawled_content)}
 
 - **Search executed**: SERP API {search_type} search for "{query}"
 - **Results found**: {len(search_results)} search results
-- **URLs selected for extraction**: {len(urls_to_extract)} (threshold: {crawl_threshold})
+- **URLs selected for extraction**: {len(successful_urls)} (threshold: 0.3)
 - **Successful extractions**: {len(crawled_content)} articles
 - **Total processing time**: {total_duration:.2f} seconds
 - **Work product file**: {work_product_path}
@@ -832,10 +833,483 @@ This is the complete search data for research analysis and report generation.
         return f"❌ **Search Error**\n\nFailed to execute SERP API search: {str(e)}"
 
 
+async def expanded_query_search_and_extract(
+    query: str,
+    search_type: str = "search",
+    num_results: int = 15,
+    auto_crawl_top: int = 5,
+    crawl_threshold: float = 0.3,
+    session_id: str = "default",
+    kevin_dir: Path = None,
+    max_expanded_queries: int = 3
+) -> str:
+    """
+    Corrected query expansion workflow with master result consolidation.
+
+    This function implements the proper workflow:
+    1. Generate multiple related search queries using query expansion
+    2. Execute SERP searches for each expanded query
+    3. Collect & deduplicate all results into one master list
+    4. Rank results by relevance
+    5. Scrape from master ranked list within budget limits
+
+    Args:
+        query: Original search query
+        search_type: "search" or "news"
+        num_results: Number of results per SERP search
+        auto_crawl_top: Maximum number of URLs to crawl from master list
+        crawl_threshold: Minimum relevance threshold for crawling
+        session_id: Session identifier
+        kevin_dir: KEVIN directory path
+        max_expanded_queries: Maximum number of expanded queries to generate
+
+    Returns:
+        Full detailed content for agent processing
+    """
+    try:
+        start_time = datetime.now()
+        logger.info(f"Starting expanded query search+extract for query: '{query}'")
+
+        # Set default KEVIN directory if not provided
+        if kevin_dir is None:
+            kevin_dir = Path.home() / "lrepos" / "claude-agent-sdk-python" / "KEVIN"
+
+        # Step 1: Generate expanded queries
+        expanded_queries = await generate_expanded_queries(query, max_expanded_queries)
+        logger.info(f"Generated {len(expanded_queries)} expanded queries: {expanded_queries}")
+
+        # Step 2: Execute SERP searches for each expanded query
+        all_search_results = []
+        for expanded_query in expanded_queries:
+            logger.info(f"Executing SERP search for expanded query: '{expanded_query}'")
+            search_results = await execute_serp_search(
+                query=expanded_query,
+                search_type=search_type,
+                num_results=num_results
+            )
+            all_search_results.extend(search_results)
+            logger.info(f"Retrieved {len(search_results)} results for expanded query: '{expanded_query}'")
+
+        # Step 3: Deduplicate all results into one master list
+        master_results = deduplicate_search_results(all_search_results)
+        logger.info(f"Deduplicated results: {len(all_search_results)} -> {len(master_results)} unique results")
+
+        # Step 4: Rank results by relevance
+        master_results.sort(key=lambda x: x.relevance_score, reverse=True)
+        logger.info(f"Ranked {len(master_results)} results by relevance score")
+
+        # Step 5: Scrape from master ranked list within budget limits
+        config = get_enhanced_search_config()
+
+        # Use target-based scraping with budget limits
+        logger.info(f"Using target-based scraping: threshold={crawl_threshold}, target={config.target_successful_scrapes}")
+
+        crawled_content, successful_urls = await target_based_scraping(
+            search_results=master_results,
+            session_id=session_id,
+            target_successful_scrapes=config.target_successful_scrapes,
+            crawl_threshold=crawl_threshold,
+            max_concurrent=config.default_max_concurrent
+        )
+
+        end_time = datetime.now()
+        total_duration = (end_time - start_time).total_seconds()
+
+        # Step 6: Save work product with expanded query information
+        work_product_path = save_expanded_search_work_product(
+            original_query=query,
+            expanded_queries=expanded_queries,
+            master_results=master_results,
+            crawled_content=crawled_content,
+            successful_urls=successful_urls,
+            session_id=session_id,
+            kevin_dir=kevin_dir,
+            total_duration=total_duration
+        )
+
+        # Step 7: Build comprehensive results for agents
+        if crawled_content:
+            orchestrator_data = f"""# EXPANDED QUERY SEARCH RESULTS
+
+**Original Query**: {query}
+**Expanded Queries**: {', '.join(expanded_queries)}
+**Search Type**: {search_type}
+**Total Master Results**: {len(master_results)} found (after deduplication)
+**URLs Extracted**: {len(crawled_content)} successfully processed
+**Processing Time**: {total_duration:.2f}s
+**Work Product Saved**: {work_product_path}
+
+---
+
+## QUERY EXPANSION ANALYSIS
+
+**Original Query**: {query}
+**Generated Expanded Queries**:
+"""
+
+            for i, eq in enumerate(expanded_queries, 1):
+                orchestrator_data += f"{i}. {eq}\n"
+
+            orchestrator_data += f"""
+**Total Queries Executed**: {len(expanded_queries)}
+**Total Raw Results**: {len(all_search_results)}
+**Deduplicated Results**: {len(master_results)}
+**Deduplication Rate**: {(1 - len(master_results)/len(all_search_results)):.1%}
+
+---
+
+## MASTER SEARCH RESULTS (Top {min(20, len(master_results))} by Relevance)
+
+"""
+
+            # Add top master results with full metadata
+            for i, result in enumerate(master_results[:20], 1):
+                orchestrator_data += f"""### {i}. {result.title}
+**URL**: {result.link}
+**Source**: {result.source}
+**Date**: {result.date}
+**Relevance Score**: {result.relevance_score:.2f}
+**Snippet**: {result.snippet}
+
+"""
+
+            if crawled_content:
+                orchestrator_data += f"""---
+
+## EXTRACTED CONTENT
+
+Total articles successfully extracted: {len(crawled_content)}
+
+"""
+
+                # Add all extracted content
+                for i, (content, url) in enumerate(zip(crawled_content, successful_urls), 1):
+                    # Find corresponding search result for metadata
+                    title = f"Article {i}"
+                    source = "Unknown"
+                    for result in master_results:
+                        if result.link == url:
+                            title = result.title
+                            source = result.source or "Unknown"
+                            break
+
+                    orchestrator_data += f"""### Extracted Article {i}: {title}
+**URL**: {url}
+**Source**: {source}
+**Content Length**: {len(content)} characters
+
+**EXTRACTED CONTENT**:
+{content}
+
+---
+
+"""
+
+            orchestrator_data += f"""
+## PROCESSING SUMMARY
+
+- **Original query**: "{query}"
+- **Expanded queries executed**: {len(expanded_queries)}
+- **Total raw results found**: {len(all_search_results)}
+- **Deduplicated results**: {len(master_results)} unique URLs
+- **URLs selected for extraction**: {len(successful_urls)} (threshold: {crawl_threshold})
+- **Successful extractions**: {len(crawled_content)} articles
+- **Total processing time**: {total_duration:.2f} seconds
+- **Work product file**: {work_product_path}
+- **Performance**: Expanded query search with master result consolidation
+
+This is the complete search data for research analysis and report generation.
+"""
+
+            logger.info(f"✅ Expanded query search+extract completed in {total_duration:.2f}s")
+            return orchestrator_data
+
+        else:
+            # Content extraction failed: Return master search results only
+            search_section = format_expanded_search_results(query, expanded_queries, master_results)
+
+            failed_result = f"""{search_section}
+
+---
+
+**Note**: Content extraction failed for selected URLs. Master search results provided above.
+**Execution Time**: {total_duration:.2f}s
+**Work Product Saved**: {work_product_path}
+"""
+
+            logger.warning(f"Content extraction failed, returning master search results only. Duration: {total_duration:.2f}s")
+            return failed_result
+
+    except Exception as e:
+        logger.error(f"Error in expanded query search+extract: {e}")
+        return f"❌ **Expanded Query Search Error**\n\nFailed to execute expanded query search: {str(e)}"
+
+
+async def generate_expanded_queries(original_query: str, max_queries: int = 3) -> List[str]:
+    """
+    Generate expanded search queries using simple query expansion techniques.
+
+    Args:
+        original_query: Original search query
+        max_queries: Maximum number of expanded queries to generate
+
+    Returns:
+        List of expanded queries including the original
+    """
+    # Start with the original query
+    queries = [original_query]
+
+    # Simple query expansion techniques
+    query_lower = original_query.lower()
+
+    # Technique 1: Add context terms
+    if "news" not in query_lower and "latest" not in query_lower:
+        queries.append(f"{original_query} latest news")
+
+    # Technique 2: Add comprehensive/overview terms
+    if "overview" not in query_lower and "comprehensive" not in query_lower:
+        queries.append(f"{original_query} overview comprehensive")
+
+    # Technique 3: Add analysis/in-depth terms
+    if "analysis" not in query_lower and "in-depth" not in query_lower:
+        queries.append(f"{original_query} analysis in-depth")
+
+    # Technique 4: Add research/study terms
+    if "research" not in query_lower and "study" not in query_lower:
+        queries.append(f"{original_query} research study")
+
+    # Technique 5: Add developments/trends terms
+    if "developments" not in query_lower and "trends" not in query_lower:
+        queries.append(f"{original_query} recent developments trends")
+
+    # Return limited number of queries (original + expanded)
+    return queries[:max_queries]
+
+
+def deduplicate_search_results(search_results: List[SearchResult]) -> List[SearchResult]:
+    """
+    Deduplicate search results based on URL, keeping the highest relevance score.
+
+    Args:
+        search_results: List of search results that may contain duplicates
+
+    Returns:
+        Deduplicated list of search results
+    """
+    seen_urls = set()
+    deduplicated_results = []
+
+    for result in search_results:
+        if result.link not in seen_urls:
+            seen_urls.add(result.link)
+            deduplicated_results.append(result)
+        else:
+            # If we've seen this URL before, keep the one with higher relevance score
+            for i, existing_result in enumerate(deduplicated_results):
+                if existing_result.link == result.link and result.relevance_score > existing_result.relevance_score:
+                    deduplicated_results[i] = result
+                    break
+
+    return deduplicated_results
+
+
+def format_expanded_search_results(original_query: str, expanded_queries: List[str], search_results: List[SearchResult]) -> str:
+    """
+    Format expanded search results for display.
+
+    Args:
+        original_query: Original search query
+        expanded_queries: List of expanded queries
+        search_results: List of search results
+
+    Returns:
+        Formatted search results string
+    """
+    if not search_results:
+        return "No search results found."
+
+    result_parts = [
+        f"# Expanded Query Search Results ({len(search_results)} found)",
+        "",
+        f"**Original Query**: {original_query}",
+        f"**Expanded Queries**: {', '.join(expanded_queries)}",
+        "",
+        "---",
+        ""
+    ]
+
+    for i, result in enumerate(search_results, 1):
+        result_parts.extend([
+            f"## {i}. {result.title}",
+            f"**URL**: {result.link}",
+            f"**Source**: {result.source}" if result.source else "",
+            f"**Date**: {result.date}" if result.date else "",
+            f"**Relevance Score**: {result.relevance_score:.2f}",
+            "",
+            result.snippet,
+            "",
+            "---",
+            ""
+        ])
+
+    return "\n".join(result_parts)
+
+
+def save_expanded_search_work_product(
+    original_query: str,
+    expanded_queries: List[str],
+    master_results: List[SearchResult],
+    crawled_content: List[str],
+    successful_urls: List[str],
+    session_id: str,
+    kevin_dir: Path,
+    total_duration: float
+) -> str:
+    """
+    Save detailed expanded search and crawl results to work product file.
+
+    Args:
+        original_query: Original search query
+        expanded_queries: List of expanded queries
+        master_results: Master list of deduplicated search results
+        crawled_content: List of cleaned content strings
+        successful_urls: List of successfully crawled URLs
+        session_id: Session identifier
+        kevin_dir: KEVIN directory path
+        total_duration: Total processing time
+
+    Returns:
+        Path to saved work product file
+    """
+    try:
+        # Use session-based directory structure
+        sessions_dir = kevin_dir / "sessions" / session_id
+        research_dir = sessions_dir / "research"
+        research_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate timestamp and filename with numbered prefix
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"1-expanded_search_workproduct_{timestamp}.md"
+        filepath = research_dir / filename
+
+        # Build work product content
+        workproduct_content = [
+            "# Expanded Query Search Results Work Product",
+            "",
+            f"**Session ID**: {session_id}",
+            f"**Export Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            f"**Original Query**: {original_query}",
+            f"**Expanded Queries**: {', '.join(expanded_queries)}",
+            f"**Total Queries Executed**: {len(expanded_queries)}",
+            f"**Total Master Results**: {len(master_results)}",
+            f"**Successfully Crawled**: {len(crawled_content)}",
+            f"**Processing Time**: {total_duration:.2f}s",
+            "",
+            "---",
+            "",
+            "## 🔍 Query Expansion Analysis",
+            "",
+            f"**Original Query**: {original_query}",
+            "",
+            "**Expanded Queries Generated**:",
+        ]
+
+        for i, eq in enumerate(expanded_queries, 1):
+            workproduct_content.append(f"{i}. {eq}")
+
+        workproduct_content.extend([
+            "",
+            f"**Query Expansion Strategy**: Simple context and scope enhancement",
+            f"**Deduplication Applied**: {len(master_results)} unique URLs from all searches",
+            "",
+            "---",
+            "",
+            "## 📊 Master Search Results Summary",
+            "",
+        ])
+
+        # Add master search results overview
+        for i, result in enumerate(master_results, 1):
+            workproduct_content.extend([
+                f"### {i}. {result.title}",
+                f"**URL**: {result.link}",
+                f"**Source**: {result.source}" if result.source else "",
+                f"**Date**: {result.date}" if result.date else "",
+                f"**Relevance Score**: {result.relevance_score:.2f}",
+                "",
+                f"**Snippet**: {result.snippet}",
+                "",
+                "---",
+                ""
+            ])
+
+        if crawled_content:
+            workproduct_content.extend([
+                "",
+                "## 📄 Extracted Content",
+                ""
+            ])
+
+            # Add detailed crawled content
+            for i, (content, url) in enumerate(zip(crawled_content, successful_urls), 1):
+                # Find corresponding search result for title
+                title = f"Article {i}"
+                for result in master_results:
+                    if result.link == url:
+                        title = result.title
+                        break
+
+                workproduct_content.extend([
+                    f"## 🌐 {i}. {title}",
+                    "",
+                    f"**URL**: {url}",
+                    f"**Content Length**: {len(content)} characters",
+                    "",
+                    "### 📄 Extracted Content",
+                    "",
+                    "---",
+                    "",
+                    content,
+                    "",
+                    "---",
+                    ""
+                ])
+
+        # Add footer
+        workproduct_content.extend([
+            "",
+            "## 📊 Processing Summary",
+            "",
+            f"- **Original Query**: {original_query}",
+            f"- **Expanded Queries**: {len(expanded_queries)} queries executed",
+            f"- **Master Results Found**: {len(master_results)} unique URLs",
+            f"- **URLs Successfully Crawled**: {len(crawled_content)}",
+            f"- **Processing**: Expanded query search + content extraction",
+            f"- **Total Processing Time**: {total_duration:.2f} seconds",
+            f"- **Deduplication Applied**: Yes (URL-based)",
+            "",
+            "*Generated by Multi-Agent Research System - Expanded Query Search Integration*"
+        ])
+
+        # Write to file
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(workproduct_content))
+
+        logger.info(f"✅ Expanded search work product saved to: {filepath}")
+        return str(filepath)
+
+    except Exception as e:
+        logger.error(f"Error saving expanded search work product: {e}")
+        return ""
+
+
 # Export commonly used functions
 __all__ = [
     'serp_search_and_extract',
+    'expanded_query_search_and_extract',
     'execute_serp_search',
     'format_search_results',
-    'save_search_work_product'
+    'save_search_work_product',
+    'generate_expanded_queries',
+    'deduplicate_search_results'
 ]

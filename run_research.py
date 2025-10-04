@@ -76,22 +76,28 @@ class ResearchCLI:
         timestamp = datetime.now().strftime('%H:%M:%S')
         print(f"⏱️  [{timestamp}] {stage}: {message}")
 
-    async def run_research(self, topic, requirements=None, debug_agents=False):
+    async def run_research(self, topic, requirements=None, debug_agents=False, quick_start=False):
         """Run the research with full visibility."""
         self.start_time = datetime.now()
 
         try:
             # Initialize orchestrator
-            self.print_progress_update("INIT", "Creating research orchestrator")
-            self.orchestrator = ResearchOrchestrator(debug_mode=debug_agents)
+            if quick_start:
+                self.print_progress_update("QUICK", "Quick start mode - minimal initialization")
+                self.orchestrator = ResearchOrchestrator(debug_mode=debug_agents)
+                await self.orchestrator.initialize()
+                self.print_progress_update("QUICK", "Fast initialization complete")
+            else:
+                self.print_progress_update("INIT", "Creating research orchestrator")
+                self.orchestrator = ResearchOrchestrator(debug_mode=debug_agents)
 
-            if debug_agents:
-                self.print_progress_update("DEBUG", "Agent debugging enabled - full stderr capture active")
+                if debug_agents:
+                    self.print_progress_update("DEBUG", "Agent debugging enabled - full stderr capture active")
 
-            # Initialize agent clients
-            self.print_progress_update("AGENTS", "Initializing research agents...")
-            await self.orchestrator.initialize()
-            self.print_progress_update("AGENTS", f"Successfully initialized {len(self.orchestrator.agent_clients)} agents")
+                # Initialize agent clients
+                self.print_progress_update("AGENTS", "Initializing research agents...")
+                await self.orchestrator.initialize()
+                self.print_progress_update("AGENTS", f"Successfully initialized {len(self.orchestrator.agent_clients)} agents")
 
             # Start research session
             self.print_progress_update("START", f"Beginning research on: {topic}")
@@ -247,6 +253,8 @@ Examples:
   python run_research.py "latest AI developments"
   python run_research.py "climate change impact" --requirements "focus on economic aspects"
   python run_research.py "space exploration" --debug-agents
+  python run_research.py "US foreign policy" --verify-startup    # Check system health first
+  python run_research.py "quick research" --quick-start        # Fastest startup
         """
     )
 
@@ -274,6 +282,18 @@ Examples:
         help="Set logging level (default: INFO)"
     )
 
+    parser.add_argument(
+        "--verify-startup",
+        action="store_true",
+        help="Run startup health tests before starting research"
+    )
+
+    parser.add_argument(
+        "--quick-start",
+        action="store_true",
+        help="Skip all non-essential initialization for fastest startup"
+    )
+
     args = parser.parse_args()
 
     # Initialize and run CLI
@@ -283,11 +303,36 @@ Examples:
         cli.print_banner()
         cli.setup_environment()
 
+        # Handle startup verification if requested
+        if args.verify_startup:
+            print("🔍 Running startup health tests...")
+            try:
+                from multi_agent_research_system.tests.test_startup_health import StartupHealthTester
+                tester = StartupHealthTester(verbose=args.log_level == "DEBUG")
+                health_report = asyncio.run(tester.run_all_tests())
+                tester.print_report(health_report)
+
+                if health_report["overall_status"] != "healthy":
+                    print("\n⚠️  Health issues found. Use --quick-start to skip tests or fix issues before continuing.")
+                    if health_report["overall_status"] == "initialization_failed":
+                        sys.exit(1)
+
+                    response = input("\nContinue with research despite health issues? (y/N): ")
+                    if response.lower() != 'y':
+                        print("Research cancelled.")
+                        sys.exit(0)
+                else:
+                    print("\n✅ System health verified, starting research...")
+            except ImportError as e:
+                print(f"⚠️  Could not run health tests: {e}")
+                print("Continuing with research...")
+
         # Run research
         asyncio.run(cli.run_research(
             topic=args.topic,
             requirements=args.requirements,
-            debug_agents=args.debug_agents
+            debug_agents=args.debug_agents,
+            quick_start=args.quick_start
         ))
 
     except KeyboardInterrupt:

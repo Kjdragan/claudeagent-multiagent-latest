@@ -88,16 +88,113 @@ except ImportError:
     )
 # Hook system removed - using simplified implementation
 
-# Fix agent_logging import - hook system disabled
-from agent_logging import (
-    StructuredLogger,
-    AgentLogger,
-    ResearchAgentLogger,
-    ReportAgentLogger,
-    EditorAgentLogger,
-    UICoordinatorLogger,
-    create_agent_logger
-)
+# Use standard Python logging instead of complex agent_logging
+import logging
+StructuredLogger = logging.getLogger
+AgentLogger = logging.getLogger
+ResearchAgentLogger = logging.getLogger
+ReportAgentLogger = logging.getLogger
+EditorAgentLogger = logging.getLogger
+UICoordinatorLogger = logging.getLogger
+
+
+class SessionSearchBudget:
+    """Manages search budget and limits for a research session."""
+
+    def __init__(self, session_id: str):
+        self.session_id = session_id
+
+        # Primary research limits
+        self.primary_successful_scrapes_limit = 10  # User requested limit
+        self.primary_urls_processed = 0
+        self.primary_successful_scrapes = 0
+        self.primary_search_queries = 0
+
+        # Editorial research limits
+        self.editorial_successful_scrapes_limit = 5  # User requested limit
+        self.editorial_search_queries_limit = 2  # User requested limit
+        self.editorial_urls_processed = 0
+        self.editorial_successful_scrapes = 0
+        self.editorial_search_queries = 0
+
+        # Global session limits
+        self.total_urls_processed_limit = 100  # Safety limit
+        self.total_urls_processed = 0
+
+        self.logger = logging.getLogger(f"search_budget.{session_id}")
+
+    def can_primary_research_proceed(self, urls_to_process: int = 1) -> tuple[bool, str]:
+        """Check if primary research can proceed with given URL count."""
+        # Check successful scrapes limit
+        if self.primary_successful_scrapes >= self.primary_successful_scrapes_limit:
+            return False, f"Primary research limit reached: {self.primary_successful_scrapes}/{self.primary_successful_scrapes_limit} successful scrapes"
+
+        # Check total URL limit
+        if self.total_urls_processed + urls_to_process > self.total_urls_processed_limit:
+            return False, f"Session URL limit would be exceeded: {self.total_urls_processed + urls_to_process}/{self.total_urls_processed_limit}"
+
+        return True, "Primary research can proceed"
+
+    def can_editorial_research_proceed(self, urls_to_process: int = 1) -> tuple[bool, str]:
+        """Check if editorial research can proceed."""
+        # Check search queries limit
+        if self.editorial_search_queries >= self.editorial_search_queries_limit:
+            return False, f"Editorial search query limit reached: {self.editorial_search_queries}/{self.editorial_search_queries_limit}"
+
+        # Check successful scrapes limit
+        if self.editorial_successful_scrapes >= self.editorial_successful_scrapes_limit:
+            return False, f"Editorial scrape limit reached: {self.editorial_successful_scrapes}/{self.editorial_successful_scrapes_limit} successful scrapes"
+
+        # Check total URL limit
+        if self.total_urls_processed + urls_to_process > self.total_urls_processed_limit:
+            return False, f"Session URL limit would be exceeded: {self.total_urls_processed + urls_to_process}/{self.total_urls_processed_limit}"
+
+        return True, "Editorial research can proceed"
+
+    def record_primary_research(self, urls_processed: int, successful_scrapes: int, search_queries: int = 1):
+        """Record primary research activity."""
+        self.primary_urls_processed += urls_processed
+        self.primary_successful_scrapes += successful_scrapes
+        self.primary_search_queries += search_queries
+        self.total_urls_processed += urls_processed
+
+        self.logger.info(f"Primary research recorded: {urls_processed} URLs, {successful_scrapes} successful scrapes")
+
+    def record_editorial_research(self, urls_processed: int, successful_scrapes: int, search_queries: int = 1):
+        """Record editorial research activity."""
+        self.editorial_urls_processed += urls_processed
+        self.editorial_successful_scrapes += successful_scrapes
+        self.editorial_search_queries += search_queries
+        self.total_urls_processed += urls_processed
+
+        self.logger.info(f"Editorial research recorded: {urls_processed} URLs, {successful_scrapes} successful scrapes")
+
+    def get_budget_status(self) -> dict[str, Any]:
+        """Get current budget status."""
+        return {
+            "session_id": self.session_id,
+            "primary": {
+                "successful_scrapes": f"{self.primary_successful_scrapes}/{self.primary_successful_scrapes_limit}",
+                "urls_processed": self.primary_urls_processed,
+                "search_queries": self.primary_search_queries,
+                "can_proceed": self.can_primary_research_proceed()[0]
+            },
+            "editorial": {
+                "successful_scrapes": f"{self.editorial_successful_scrapes}/{self.editorial_successful_scrapes_limit}",
+                "search_queries": f"{self.editorial_search_queries}/{self.editorial_search_queries_limit}",
+                "urls_processed": self.editorial_urls_processed,
+                "can_proceed": self.can_editorial_research_proceed()[0]
+            },
+            "global": {
+                "total_urls_processed": f"{self.total_urls_processed}/{self.total_urls_processed_limit}",
+                "remaining_urls": self.total_urls_processed_limit - self.total_urls_processed
+            }
+        }
+
+
+def create_agent_logger(session_id: str, agent_type: str) -> logging.Logger:
+    """Create a simple logger for an agent."""
+    return logging.getLogger(f"{agent_type}_{session_id}")
 from .simple_research_tools import (
     create_research_report,
     get_session_data,
@@ -791,6 +888,86 @@ class ResearchOrchestrator:
             self.logger.error(f"❌ {agent_name} query failed: {e}")
             raise
 
+    def _validate_research_completion(self, research_result: dict[str, Any]) -> bool:
+        """Validate that research stage completed successfully.
+
+        Args:
+            research_result: Result from execute_agent_query
+
+        Returns:
+            True if research completed successfully, False otherwise
+        """
+        # Check basic success
+        if not research_result.get("success", False):
+            return False
+
+        # Check for substantive responses
+        if research_result.get("substantive_responses", 0) < 1:
+            return False
+
+        # Check for tool executions (research should have used search tools)
+        tool_executions = research_result.get("tool_executions", [])
+        if len(tool_executions) < 1:
+            return False
+
+        # Check for required tools
+        tool_names = [tool.get("name", "") for tool in tool_executions]
+        required_tools = ["serp_search"]  # At minimum should do search
+
+        has_required_tools = any(
+            any(req_tool in tool_name for req_tool in required_tools)
+            for tool_name in tool_names
+        )
+
+        if not has_required_tools:
+            self.logger.warning(f"Research validation failed: required tools not found. Tools: {tool_names}")
+            return False
+
+        return True
+
+    def _validate_report_completion(self, report_result: dict[str, Any]) -> bool:
+        """Validate that report generation stage completed successfully.
+
+        Args:
+            report_result: Result from execute_agent_query
+
+        Returns:
+            True if report generation completed successfully, False otherwise
+        """
+        # Check basic success
+        if not report_result.get("success", False):
+            return False
+
+        # Check for substantive responses
+        if report_result.get("substantive_responses", 0) < 1:
+            return False
+
+        # Check for tool executions (should save findings/create report)
+        tool_executions = report_result.get("tool_executions", [])
+        if len(tool_executions) < 1:
+            return False
+
+        return True
+
+    def _validate_editorial_completion(self, editorial_result: dict[str, Any]) -> bool:
+        """Validate that editorial review stage completed successfully.
+
+        Args:
+            editorial_result: Result from execute_agent_query
+
+        Returns:
+            True if editorial review completed successfully, False otherwise
+        """
+        # Check basic success
+        if not editorial_result.get("success", False):
+            return False
+
+        # Check for substantive responses
+        if editorial_result.get("substantive_responses", 0) < 1:
+            return False
+
+        return True
+
     async def verify_tool_execution(self, agent_name: str = "research_agent") -> dict[str, Any]:
         """Verify that critical tools can be executed by agents."""
         self.logger.info(f"🔧 Verifying tool execution for {agent_name}...")
@@ -1183,7 +1360,8 @@ class ResearchOrchestrator:
             "created_at": datetime.now().isoformat(),
             "current_stage": "research",
             "workflow_history": [],
-            "final_report": None
+            "final_report": None,
+            "search_budget": SessionSearchBudget(session_id)  # Add search budget tracking
         }
 
         # Save session state
@@ -1232,47 +1410,9 @@ class ResearchOrchestrator:
                                         session_id=session_id,
                                         log_directory=str(kevin_sessions_dir))
 
-            # Perform agent health check before starting research
-            self.logger.info("🏥 Pre-research agent health check...")
-            health_report = await self.check_agent_health()
-
-            # Log health check results
-            if self.agent_logger:
-                self.agent_logger.log_activity(
-                    agent_name="orchestrator",
-                    activity_type="health_check",
-                    stage="initialization",
-                    input_data={"health_report": health_report},
-                    metadata={"event": "pre_research_health_check"}
-                )
-
-            # Warn if there are issues but continue
-            if health_report["issues"]:
-                self.logger.warning(f"⚠️ Starting research with {len(health_report['issues'])} known issues")
-            else:
-                self.logger.info("✅ All systems healthy, starting research")
-
-            # Verify critical tools are working
-            self.logger.info("🔧 Verifying critical tool execution...")
-            tool_verification = await self.verify_tool_execution("research_agent")
-
-            # Log tool verification results
-            if self.agent_logger:
-                self.agent_logger.log_activity(
-                    agent_name="orchestrator",
-                    activity_type="tool_verification",
-                    stage="initialization",
-                    input_data={"tool_verification": tool_verification},
-                    metadata={"event": "critical_tool_verification"}
-                )
-
-            # Warn about tool issues but continue with research
-            if tool_verification["success_rate"] < 0.5:
-                self.logger.error(f"🚨 Critical tool verification failed: {tool_verification['summary']}")
-            elif tool_verification["issues"]:
-                self.logger.warning(f"⚠️ Some tools have issues: {tool_verification['summary']}")
-            else:
-                self.logger.info("✅ All critical tools verified, starting research")
+            # Health checks and tool verification moved to dedicated test suite
+            # Use: python tests/test_startup_health.py to verify system health
+            self.logger.info("🚀 Starting research workflow...")
 
             session_data = self.active_sessions[session_id]
             topic = session_data["topic"]
@@ -1497,37 +1637,83 @@ class ResearchOrchestrator:
 
         await self.update_session_status(session_id, "researching", "Conducting initial research")
 
-        # Create comprehensive research prompt with natural language agent selection
-        research_prompt = f"""
-        Use the research_agent agent to conduct comprehensive research on the topic: "{topic}"
+        # Validate search budget before starting
+        search_budget = self.active_sessions[session_id]["search_budget"]
+        can_proceed, budget_message = search_budget.can_primary_research_proceed(10)
+        if not can_proceed:
+            self.logger.error(f"Session {session_id}: Cannot proceed with research: {budget_message}")
+            raise RuntimeError(f"Search budget limit reached: {budget_message}")
 
-        User Requirements:
-        {json.dumps(user_requirements, indent=2)}
+        max_attempts = 3
+        research_successful = False
+        research_result = None
 
-        MANDATORY RESEARCH INSTRUCTIONS:
-        1. IMMEDIATELY execute mcp__research_tools__serp_search with the topic
-        2. Set num_results to 15 for comprehensive coverage
-        3. Set auto_crawl_top to 8 for detailed content extraction
-        4. Set crawl_threshold to 0.3 for relevance filtering
-        5. Use mcp__research_tools__save_research_findings to save your findings
-        6. Use mcp__research_tools__capture_search_results to structure results
+        for attempt in range(max_attempts):
+            try:
+                self.logger.info(f"Session {session_id}: Research attempt {attempt + 1}/{max_attempts}")
 
-        REQUIREMENTS:
-        - Execute actual searches using the SERP API tool
-        - Gather specific facts, data points, and expert opinions
-        - Validate source credibility and authority
-        - Save comprehensive findings to files for other agents
-        - Do not acknowledge the task - EXECUTE the research immediately
+                # Create comprehensive research prompt with natural language agent selection
+                research_prompt = f"""
+                Use the research_agent agent to conduct comprehensive research on the topic: "{topic}"
 
-        Session ID: {session_id}
-        """
+                User Requirements:
+                {json.dumps(user_requirements, indent=2)}
 
-        # Execute research using the new single client pattern with natural language agent selection
-        research_result = await self.execute_agent_query(
-            "research_agent", research_prompt, session_id, timeout_seconds=180
-        )
+                MANDATORY RESEARCH INSTRUCTIONS:
+                1. IMMEDIATELY execute mcp__research_tools__serp_search with the topic
+                2. Set num_results to 15 for comprehensive coverage
+                3. Set auto_crawl_top to 8 for detailed content extraction
+                4. Set crawl_threshold to 0.3 for relevance filtering
+                5. Use mcp__research_tools__save_research_findings to save your findings
+                6. Use mcp__research_tools__capture_search_results to structure results
 
-        self.logger.info(f"✅ Research execution completed: {research_result['substantive_responses']} responses, {research_result['tool_executions']} tools")
+                SEARCH BUDGET CONSTRAINTS:
+                - **STRICT LIMIT**: Maximum 10 successful content extractions per session
+                - **BUDGET AWARENESS**: Each search consumes from your session budget
+                - **EFFICIENCY REQUIRED**: Make each search count with quality sources
+
+                REQUIREMENTS:
+                - Execute actual searches using the SERP API tool
+                - Gather specific facts, data points, and expert opinions
+                - Validate source credibility and authority
+                - Save comprehensive findings to files for other agents
+                - Do not acknowledge the task - EXECUTE the research immediately
+
+                Session ID: {session_id}
+                """
+
+                # Execute research using the new single client pattern with natural language agent selection
+                research_result = await self.execute_agent_query(
+                    "research_agent", research_prompt, session_id, timeout_seconds=180
+                )
+
+                self.logger.info(f"✅ Research execution completed: {research_result['substantive_responses']} responses, {research_result['tool_executions']} tools")
+
+                # Validate research completion
+                if self._validate_research_completion(research_result):
+                    research_successful = True
+                    break
+                else:
+                    self.logger.warning(f"Session {session_id}: Research attempt {attempt + 1} did not complete required work")
+
+            except Exception as e:
+                self.logger.error(f"Session {session_id}: Research attempt {attempt + 1} failed: {e}")
+                if attempt == max_attempts - 1:
+                    raise
+                await asyncio.sleep(2)  # Brief delay before retry
+
+        if not research_successful:
+            raise RuntimeError(f"Research stage failed after {max_attempts} attempts")
+
+        # Record search budget usage
+        if research_result and research_result.get("tool_executions"):
+            # Estimate search usage based on tool executions
+            estimated_scrapes = min(10, len(research_result["tool_executions"]))
+            search_budget.record_primary_research(
+                urls_processed=len(research_result["tool_executions"]) * 10,  # Estimate
+                successful_scrapes=estimated_scrapes,
+                search_queries=1
+            )
 
         # Store research results
         session_data = self.active_sessions[session_id]
@@ -1538,11 +1724,12 @@ class ResearchOrchestrator:
             "completed_at": datetime.now().isoformat(),
             "responses_count": research_result["substantive_responses"],
             "tools_executed": len(research_result["tool_executions"]),
-            "success": research_result["success"]
+            "success": research_result["success"],
+            "attempts": attempt + 1
         })
 
         await self.save_session_state(session_id)
-        self.logger.info(f"Session {session_id}: Research stage completed")
+        self.logger.info(f"Session {session_id}: Research stage completed successfully")
 
     async def stage_generate_report(self, session_id: str):
         """Stage 2: Generate report using Report Agent."""
@@ -1552,30 +1739,67 @@ class ResearchOrchestrator:
 
         session_data = self.active_sessions[session_id]
 
-        report_prompt = f"""
-        Use the report_agent agent to generate a comprehensive report based on the research findings.
+        # Validate that research data exists before generating report
+        if not session_data.get("research_results") or not session_data["research_results"].get("success"):
+            raise RuntimeError("Cannot generate report: research stage did not complete successfully")
 
-        Topic: {session_data['topic']}
-        User Requirements: {json.dumps(session_data['user_requirements'], indent=2)}
+        max_attempts = 3
+        report_successful = False
+        report_result = None
 
-        Research results have been collected and are available in the session data.
+        for attempt in range(max_attempts):
+            try:
+                self.logger.info(f"Session {session_id}: Report generation attempt {attempt + 1}/{max_attempts}")
 
-        Use the mcp__research_tools__create_research_report tool to:
-        1. Create a well-structured report on the topic
-        2. Include all key findings from the research
-        3. Organize content logically with clear sections
-        4. Ensure proper citations and source attribution
-        5. Target the report to the user's specified audience
+                report_prompt = f"""
+                Use the report_agent agent to generate a comprehensive report based on the research findings.
 
-        After generating the report, use the mcp__research_tools__save_research_findings tool to save it to the session directory.
-        """
+                Topic: {session_data['topic']}
+                User Requirements: {json.dumps(session_data['user_requirements'], indent=2)}
 
-        # Execute report generation using the new single client pattern with natural language agent selection
-        report_result = await self.execute_agent_query(
-            "report_agent", report_prompt, session_id, timeout_seconds=150
-        )
+                Research results have been collected and are available in the session data.
 
-        self.logger.info(f"✅ Report generation completed: {report_result['substantive_responses']} responses, {report_result['tool_executions']} tools")
+                Use the mcp__research_tools__get_session_data tool to retrieve research findings, then:
+
+                1. Create a well-structured report on the topic
+                2. Include all key findings from the research
+                3. Organize content logically with clear sections
+                4. Ensure proper citations and source attribution
+                5. Target the report to the user's specified audience
+                6. Use mcp__research_tools__create_research_report to create the report
+                7. CRITICAL: Save the report using the provided filepath from the tool
+
+                REQUIREMENTS:
+                - Execute the create_research_report tool to generate the report
+                - Use the Write tool to save the report to the exact filepath provided
+                - Do not just describe the report - actually create and save it
+                - Ensure the report is comprehensive and well-structured
+
+                Session ID: {session_id}
+                """
+
+                # Execute report generation using the new single client pattern with natural language agent selection
+                report_result = await self.execute_agent_query(
+                    "report_agent", report_prompt, session_id, timeout_seconds=150
+                )
+
+                self.logger.info(f"✅ Report generation completed: {report_result['substantive_responses']} responses, {report_result['tool_executions']} tools")
+
+                # Validate report completion
+                if self._validate_report_completion(report_result):
+                    report_successful = True
+                    break
+                else:
+                    self.logger.warning(f"Session {session_id}: Report generation attempt {attempt + 1} did not complete required work")
+
+            except Exception as e:
+                self.logger.error(f"Session {session_id}: Report generation attempt {attempt + 1} failed: {e}")
+                if attempt == max_attempts - 1:
+                    raise
+                await asyncio.sleep(2)  # Brief delay before retry
+
+        if not report_successful:
+            raise RuntimeError(f"Report generation stage failed after {max_attempts} attempts")
 
         # Store report results
         session_data["report_results"] = report_result
@@ -1585,11 +1809,12 @@ class ResearchOrchestrator:
             "completed_at": datetime.now().isoformat(),
             "responses_count": report_result["substantive_responses"],
             "tools_executed": len(report_result["tool_executions"]),
-            "success": report_result["success"]
+            "success": report_result["success"],
+            "attempts": attempt + 1
         })
 
         await self.save_session_state(session_id)
-        self.logger.info(f"Session {session_id}: Report generation stage completed")
+        self.logger.info(f"Session {session_id}: Report generation stage completed successfully")
 
     async def stage_editorial_review(self, session_id: str):
         """Stage 3: Editorial review using Editor Agent with success-based search controls."""
@@ -1598,59 +1823,102 @@ class ResearchOrchestrator:
         await self.update_session_status(session_id, "editorial_review", "Reviewing report quality")
 
         session_data = self.active_sessions[session_id]
+        search_budget = session_data["search_budget"]
 
-        # Initialize editorial search tracking
-        session_data["editorial_search_stats"] = {
-            "search_attempts": 0,
-            "successful_scrapes": 0,
-            "urls_attempted": 0,
-            "search_limit_reached": False
-        }
+        # Validate search budget before starting editorial research
+        can_proceed, budget_message = search_budget.can_editorial_research_proceed(5)
+        if not can_proceed:
+            self.logger.warning(f"Session {session_id}: Editorial search budget reached: {budget_message}")
+            # Continue with review but no additional searches
 
-        review_prompt = f"""
-        Use the editor_agent agent to review the generated report for quality, accuracy, and completeness.
+        max_attempts = 3
+        editorial_successful = False
+        review_result = None
 
-        Topic: {session_data['topic']}
+        for attempt in range(max_attempts):
+            try:
+                self.logger.info(f"Session {session_id}: Editorial review attempt {attempt + 1}/{max_attempts}")
 
-        EDITORIAL SEARCH CONTROLS:
-        - SUCCESS TARGET: Achieve 3 successful scrapes total across all editorial searches
-        - SEARCH LIMITS: Maximum 3 search attempts, maximum 10 URLs attempted total
-        - QUALITY REQUIREMENT: Only search when you identify specific gaps in the report content
-        - PARAMETERS: Use max_urls=5, relevance_threshold=0.4 for focused gap-filling research
+                # Initialize editorial search tracking
+                session_data["editorial_search_stats"] = {
+                    "search_attempts": 0,
+                    "successful_scrapes": 0,
+                    "urls_attempted": 0,
+                    "search_limit_reached": False
+                }
 
-        CURRENT TRACKING STATUS:
-        - Search attempts: 0/3
-        - Successful scrapes: 0/3 (TARGET)
-        - URLs attempted: 0/10
+                # Create current budget status for the prompt
+                budget_status = search_budget.get_budget_status()
+                editorial_remaining = budget_status["editorial"]["search_queries_remaining"]
 
-        Use the Read tool to examine the generated report files, then provide comprehensive review:
+                review_prompt = f"""
+                Use the editor_agent agent to review the generated report for quality, accuracy, and completeness.
 
-        1. Assess report quality against professional standards
-        2. Check accuracy and proper source attribution
-        3. Evaluate clarity, organization, and completeness
-        4. Identify specific gaps or areas needing improvement
-        5. Provide specific, actionable feedback
+                Topic: {session_data['topic']}
 
-        SEARCH GUIDELINES:
-        - Only search for SPECIFIC identified gaps, not general "more information"
-        - Use intelligent_research_with_advanced_scraping with max_urls=5, relevance_threshold=0.4
-        - STOP searching when you achieve 3 successful scrapes total
-        - Each successful scrape should provide meaningful content for gap-filling
+                EDITORIAL SEARCH CONTROLS:
+                **SUCCESS-BASED TERMINATION**: Continue searching until you achieve 5 successful scrapes total
+                **SEARCH LIMITS**: Maximum {editorial_remaining} editorial search attempts remaining
+                **WORK PRODUCT LABELING**: CRITICAL - Always use workproduct_prefix="editor research"
+                **BUDGET AWARENESS**: Track your search usage to stay within limits
 
-        If you identify research gaps, conduct targeted searches following the guidelines above.
+                CURRENT BUDGET STATUS:
+                - Search queries remaining: {editorial_remaining}/2
+                - Successful scrapes: {budget_status["editorial"]["successful_scrapes"]}
+                - Search limit reached: {budget_status["editorial"]["search_queries_reached_limit"]}
 
-        Provide detailed feedback that will help improve the report to meet professional standards.
-        """
+                Use the Read tool to examine the generated report files, then provide comprehensive review:
 
-        # Execute editorial review with extended timeout for search activities
-        review_result = await self.execute_agent_query(
-            "editor_agent", review_prompt, session_id, timeout_seconds=300  # 5 minutes for editorial searches
-        )
+                1. Assess report quality against professional standards
+                2. Check accuracy and proper source attribution
+                3. Evaluate clarity, organization, and completeness
+                4. Identify specific gaps or areas needing improvement
+                5. Provide specific, actionable feedback
 
-        self.logger.info(f"✅ Editorial review completed: {review_result['substantive_responses']} responses, {review_result['tool_executions']} tools")
+                SEARCH GUIDELINES:
+                - Only search for SPECIFIC identified gaps, not general "more information"
+                - Use workproduct_prefix="editor research" for all editorial searches
+                - STOP searching when you reach your search query limit or 5 successful scrapes
+                - Each successful scrape should provide meaningful content for gap-filling
+
+                If you identify research gaps and budget allows, conduct targeted searches following the guidelines above.
+
+                Provide detailed feedback that will help improve the report to meet professional standards.
+                """
+
+                # Execute editorial review with extended timeout for search activities
+                review_result = await self.execute_agent_query(
+                    "editor_agent", review_prompt, session_id, timeout_seconds=300  # 5 minutes for editorial searches
+                )
+
+                self.logger.info(f"✅ Editorial review completed: {review_result['substantive_responses']} responses, {review_result['tool_executions']} tools")
+
+                # Validate editorial completion
+                if self._validate_editorial_completion(review_result):
+                    editorial_successful = True
+                    break
+                else:
+                    self.logger.warning(f"Session {session_id}: Editorial review attempt {attempt + 1} did not complete required work")
+
+            except Exception as e:
+                self.logger.error(f"Session {session_id}: Editorial review attempt {attempt + 1} failed: {e}")
+                if attempt == max_attempts - 1:
+                    raise
+                await asyncio.sleep(2)  # Brief delay before retry
+
+        if not editorial_successful:
+            raise RuntimeError(f"Editorial review stage failed after {max_attempts} attempts")
+
+        # Record editorial search statistics
+        search_stats = session_data.get("editorial_search_stats", {})
+        if search_stats.get("search_attempts", 0) > 0:
+            search_budget.record_editorial_research(
+                urls_processed=search_stats.get("urls_attempted", 0),
+                successful_scrapes=search_stats.get("successful_scrapes", 0),
+                search_queries=search_stats.get("search_attempts", 0)
+            )
 
         # Log editorial search statistics
-        search_stats = session_data.get("editorial_search_stats", {})
         self.logger.info(f"📊 Editorial search stats: {search_stats.get('search_attempts', 0)} attempts, {search_stats.get('successful_scrapes', 0)} successful scrapes")
 
         # Store review results
@@ -1662,11 +1930,12 @@ class ResearchOrchestrator:
             "responses_count": review_result["substantive_responses"],
             "tools_executed": len(review_result["tool_executions"]),
             "success": review_result["success"],
+            "attempts": attempt + 1,
             "editorial_search_stats": search_stats
         })
 
         await self.save_session_state(session_id)
-        self.logger.info(f"Session {session_id}: Editorial review stage completed")
+        self.logger.info(f"Session {session_id}: Editorial review stage completed successfully")
 
     async def stage_finalize(self, session_id: str):
         """Stage 4: Finalize the report and complete the session."""
@@ -1859,6 +2128,47 @@ class ResearchOrchestrator:
 
         with open(session_file, 'w') as f:
             json.dump(session_data, f, indent=2, default=str)
+
+    def get_search_budget(self, session_id: str) -> Optional[SessionSearchBudget]:
+        """Get the search budget for a session."""
+        if session_id not in self.active_sessions:
+            return None
+        return self.active_sessions[session_id].get("search_budget")
+
+    def validate_research_budget(self, session_id: str, agent_type: str, urls_to_process: int = 1) -> tuple[bool, str]:
+        """Validate if research can proceed based on budget constraints."""
+        budget = self.get_search_budget(session_id)
+        if not budget:
+            return False, "No search budget found for session"
+
+        if agent_type == "research_agent":
+            return budget.can_primary_research_proceed(urls_to_process)
+        elif agent_type == "editor_agent":
+            return budget.can_editorial_research_proceed(urls_to_process)
+        else:
+            return False, f"Unknown agent type: {agent_type}"
+
+    def record_research_activity(self, session_id: str, agent_type: str, urls_processed: int, successful_scrapes: int, search_queries: int = 1):
+        """Record research activity in the budget."""
+        budget = self.get_search_budget(session_id)
+        if not budget:
+            self.logger.warning(f"No search budget found for session {session_id}")
+            return
+
+        if agent_type == "research_agent":
+            budget.record_primary_research(urls_processed, successful_scrapes, search_queries)
+        elif agent_type == "editor_agent":
+            budget.record_editorial_research(urls_processed, successful_scrapes, search_queries)
+        else:
+            self.logger.warning(f"Unknown agent type for research recording: {agent_type}")
+
+    def get_budget_summary(self, session_id: str) -> dict[str, Any]:
+        """Get a summary of the search budget status."""
+        budget = self.get_search_budget(session_id)
+        if not budget:
+            return {"error": "No search budget found for session"}
+
+        return budget.get_budget_status()
 
     async def _diagnose_mcp_timeout_issue(self, agent_name: str, session_id: str, timeout_duration: int):
         """Diagnose MCP timeout issues and log detailed analysis."""

@@ -128,6 +128,7 @@ members = [
 dev = [
     "aiofiles>=24.1.0",
     "anthropic>=0.69.0",
+    "mypy>=1.18.2",
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
     "pytest-mock>=3.15.1",

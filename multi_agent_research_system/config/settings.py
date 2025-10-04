@@ -31,7 +31,7 @@ class EnhancedSearchConfig:
     }
 
     # Target-based scraping settings
-    target_successful_scrapes: int = 8  # Target number of successful scrapes per search
+    target_successful_scrapes: int = 15  # Target number of successful scrapes per search
     url_deduplication_enabled: bool = True  # Prevent duplicate URL crawling
     progressive_retry_enabled: bool = True  # Retry failed URLs with higher anti-bot levels
 
