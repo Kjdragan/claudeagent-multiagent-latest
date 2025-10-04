@@ -31,16 +31,54 @@ try:
     from ..config.settings import get_enhanced_search_config
 except ImportError:
     # Fallback for standalone usage
+    # Simple fallback config with all required attributes
+    class SimpleConfig:
+        # Search settings
+        default_num_results = 15
+        default_auto_crawl_top = 10
+        default_crawl_threshold = 0.3
+        default_anti_bot_level = 1
+        default_max_concurrent = 15
+
+        # Target-based scraping settings
+        target_successful_scrapes = 8
+        url_deduplication_enabled = True
+        progressive_retry_enabled = True
+
+        # Retry logic settings
+        max_retry_attempts = 3
+        progressive_timeout_multiplier = 1.5
+
+        # Token management
+        max_response_tokens = 20000
+        content_summary_threshold = 20000
+
+        # Content cleaning settings
+        default_cleanliness_threshold = 0.7
+        min_content_length_for_cleaning = 500
+        min_cleaned_content_length = 200
+
+        # Crawl settings
+        default_crawl_timeout = 30000
+        max_concurrent_crawls = 15
+        crawl_retry_attempts = 2
+
+        # Anti-bot levels
+        anti_bot_levels = {
+            0: "basic",      # 6/10 sites success
+            1: "enhanced",   # 8/10 sites success
+            2: "advanced",   # 9/10 sites success
+            3: "stealth"     # 9.5/10 sites success
+        }
+
     def get_enhanced_search_config():
-        # Simple fallback config
-        class SimpleConfig:
-            default_crawl_threshold = 0.3
-            target_successful_scrapes = 8
-            url_deduplication_enabled = True
-            progressive_retry_enabled = True
-            max_retry_attempts = 3
-            default_max_concurrent = 15
-        return SimpleConfig()
+        config = SimpleConfig()
+        # Debug: verify the critical attribute exists
+        if not hasattr(config, 'default_max_concurrent'):
+            logger.error("SimpleConfig is missing default_max_concurrent attribute!")
+            logger.error(f"Available attributes: {[attr for attr in dir(config) if not attr.startswith('_')]}")
+            raise AttributeError("SimpleConfig missing required attribute: default_max_concurrent")
+        return config
 
 # Import advanced scraping utilities
 try:
