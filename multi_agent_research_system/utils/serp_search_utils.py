@@ -561,6 +561,11 @@ async def target_based_scraping(
         use_progressive_retry=True  # Enable progressive retry for better success rates
     )
 
+    # Early termination: Check if target already achieved after primary crawl
+    if len(successful_content) >= target_count:
+        logger.info(f"✅ Target achieved after primary crawl: {len(successful_content)}/{target_count} successful scrapes")
+        return successful_content, attempted_urls
+
     # If we still need more and have retry candidates, process them too
     if config.progressive_retry_enabled and len(successful_content) < target_count:
         retry_candidates = url_tracker.get_retry_candidates(attempted_urls)
@@ -574,6 +579,11 @@ async def target_based_scraping(
             )
             successful_content.extend(retry_content)
             attempted_urls.extend(retry_urls)
+
+    # Early termination: Check if target achieved after retry candidates
+    if len(successful_content) >= target_count:
+        logger.info(f"✅ Target achieved after retry candidates: {len(successful_content)}/{target_count} successful scrapes")
+        return successful_content, attempted_urls
 
     # If we still don't have enough, try one more batch with even lower threshold
     if len(successful_content) < target_count:

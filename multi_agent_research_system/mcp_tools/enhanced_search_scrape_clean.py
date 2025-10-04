@@ -409,6 +409,27 @@ def create_enhanced_search_mcp_server():
                 workproduct_dir=workproduct_dir,
             )
 
+            # Extract scrape count from result text for budget tracking
+            import re
+            successful_scrapes = 0
+            urls_attempted = 0
+
+            # Pattern 1: "URLs Crawled: X successfully processed"
+            match = re.search(r'\*\*URLs Crawled\*\*:\s*(\d+)\s+successfully', result)
+            if match:
+                successful_scrapes = int(match.group(1))
+
+            # Pattern 2: "Successful crawls: X"
+            if not successful_scrapes:
+                match = re.search(r'Successful crawls:\s*(\d+)', result)
+                if match:
+                    successful_scrapes = int(match.group(1))
+
+            # Pattern 3: "URLs selected for crawling: X"
+            match = re.search(r'URLs selected for crawling:\s*(\d+)', result)
+            if match:
+                urls_attempted = int(match.group(1))
+
             # Check result length for token management
             if len(result) > 20000:  # Leave room for other content
                 # Use adaptive chunking to split content into multiple blocks
@@ -432,6 +453,9 @@ def create_enhanced_search_mcp_server():
                         "enhanced_search": True,
                         "chunked_content": True,
                         "total_chunks": len(content_blocks),
+                        "successful_scrapes": successful_scrapes,
+                        "urls_attempted": urls_attempted,
+                        "search_queries_executed": 1,
                     },
                 }
             else:
@@ -444,6 +468,9 @@ def create_enhanced_search_mcp_server():
                         "session_id": session_id,
                         "workproduct_dir": workproduct_dir,
                         "enhanced_search": True,
+                        "successful_scrapes": successful_scrapes,
+                        "urls_attempted": urls_attempted,
+                        "search_queries_executed": 1,
                     },
                 }
 
@@ -700,6 +727,10 @@ def create_enhanced_search_mcp_server():
             )
 
             # Execute the corrected expanded query search and extract functionality
+            # kevin_dir should be the KEVIN root directory (e.g., /path/to/KEVIN)
+            # workproduct_dir is /path/to/KEVIN/sessions/{session_id}/research
+            # so we need to go up 3 levels to get to KEVIN root
+            kevin_root = Path(workproduct_dir).parent.parent.parent
             result = await expanded_query_search_and_extract(
                 query=query,
                 search_type=search_type,
@@ -707,9 +738,31 @@ def create_enhanced_search_mcp_server():
                 auto_crawl_top=auto_crawl_top,
                 crawl_threshold=crawl_threshold,
                 session_id=session_id,
-                kevin_dir=Path(workproduct_dir).parent.parent,
+                kevin_dir=kevin_root,
                 max_expanded_queries=max_expanded_queries,
             )
+
+            # Extract scrape count from result text for budget tracking
+            import re
+            successful_scrapes = 0
+            urls_attempted = 0
+            queries_executed = max_expanded_queries
+
+            # Pattern 1: "Successfully Crawled: X"
+            match = re.search(r'\*\*Successfully Crawled\*\*:\s*(\d+)', result)
+            if match:
+                successful_scrapes = int(match.group(1))
+
+            # Pattern 2: "URLs Extracted: X successfully processed"
+            if not successful_scrapes:
+                match = re.search(r'\*\*URLs Extracted\*\*:\s*(\d+)\s+successfully', result)
+                if match:
+                    successful_scrapes = int(match.group(1))
+
+            # Pattern 3: "Total Queries Executed: X"
+            match = re.search(r'Total Queries Executed:\s*(\d+)', result)
+            if match:
+                queries_executed = int(match.group(1))
 
             # Check result length for token management
             actual_chunking_needed = len(result) > 20000
@@ -734,6 +787,9 @@ def create_enhanced_search_mcp_server():
                         "expanded_query_search": True,
                         "chunked_content": True,
                         "total_chunks": len(content_blocks),
+                        "successful_scrapes": successful_scrapes,
+                        "urls_attempted": urls_attempted,
+                        "search_queries_executed": queries_executed,
                     },
                 }
             else:
@@ -746,6 +802,9 @@ def create_enhanced_search_mcp_server():
                         "session_id": session_id,
                         "workproduct_dir": workproduct_dir,
                         "expanded_query_search": True,
+                        "successful_scrapes": successful_scrapes,
+                        "urls_attempted": urls_attempted,
+                        "search_queries_executed": queries_executed,
                     },
                 }
 

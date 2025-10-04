@@ -11,7 +11,12 @@
       "Bash(python3:*)",
       "Bash(find:*)",
       "Bash(tree:*)",
-      "Bash(uv run:*)"
+      "Bash(uv run:*)",
+      "Bash(for f in /home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/sessions/01d302b9-8c97-43ad-a12b-c6dd9f4e70af/research/*.md)",
+      "Bash(head:*)",
+      "Bash(done)",
+      "Bash(for f in *.md)",
+      "Bash(do echo \"=== $f ===\")"
     ],
     "deny": [],
     "ask": []

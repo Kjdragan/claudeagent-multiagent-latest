@@ -44,7 +44,15 @@ try:
         ClaudeSDKClient,
         create_sdk_mcp_server,
     )
-    from claude_agent_sdk.types import HookMatcher, HookContext
+    from claude_agent_sdk.types import (
+        HookMatcher,
+        HookContext,
+        AssistantMessage,
+        UserMessage,
+        ToolUseBlock,
+        ToolResultBlock,
+        ResultMessage
+    )
 except ImportError:
     # Fallback for when the SDK is not installed
     print("Warning: claude_agent_sdk not found. Please install the package.")
@@ -941,8 +949,9 @@ class ResearchOrchestrator:
         tool_names = [tool.get("name", "") for tool in tool_executions]
         required_tools = ["serp_search"]  # At minimum should do search
 
+        # Extract base tool name from MCP-namespaced names (e.g., "mcp__research_tools__serp_search" -> "serp_search")
         has_required_tools = any(
-            any(req_tool in tool_name for req_tool in required_tools)
+            any(req_tool in tool_name.split('__')[-1] for req_tool in required_tools)
             for tool_name in tool_names
         )
 
@@ -951,6 +960,91 @@ class ResearchOrchestrator:
             return False
 
         return True
+
+    def _extract_scrape_count(self, research_result: dict[str, Any]) -> int:
+        """Extract actual scrape count from research results.
+
+        Args:
+            research_result: Result from execute_agent_query
+
+        Returns:
+            Number of successful scrapes extracted from metadata or text
+        """
+        import re
+        from pathlib import Path
+
+        # Method 1: Check metadata from tool executions
+        for tool_exec in research_result.get("tool_executions", []):
+            # Check if tool has result with metadata
+            if isinstance(tool_exec, dict):
+                # Direct metadata check
+                metadata = tool_exec.get("metadata", {})
+                if "successful_scrapes" in metadata:
+                    count = metadata["successful_scrapes"]
+                    self.logger.info(f"Extracted scrape count from tool metadata: {count}")
+                    return count
+
+                # Check result metadata
+                result = tool_exec.get("result", {})
+                if isinstance(result, dict) and "metadata" in result:
+                    metadata = result["metadata"]
+                    if "successful_scrapes" in metadata:
+                        count = metadata["successful_scrapes"]
+                        self.logger.info(f"Extracted scrape count from tool result metadata: {count}")
+                        return count
+
+        # Method 2: Extract from text responses using regex patterns
+        for response in research_result.get("responses", []):
+            if isinstance(response, dict):
+                text = response.get("text", "")
+            elif isinstance(response, str):
+                text = response
+            else:
+                continue
+
+            # Pattern 1: "Successfully Crawled: 20"
+            match = re.search(r'\*\*Successfully Crawled\*\*:\s*(\d+)', text)
+            if match:
+                count = int(match.group(1))
+                self.logger.info(f"Extracted scrape count from text pattern 1: {count}")
+                return count
+
+            # Pattern 2: "URLs Extracted: 20 successfully processed"
+            match = re.search(r'\*\*URLs Extracted\*\*:\s*(\d+)', text)
+            if match:
+                count = int(match.group(1))
+                self.logger.info(f"Extracted scrape count from text pattern 2: {count}")
+                return count
+
+            # Pattern 3: "URLs Crawled: 20 successfully"
+            match = re.search(r'\*\*URLs Crawled\*\*:\s*(\d+)', text)
+            if match:
+                count = int(match.group(1))
+                self.logger.info(f"Extracted scrape count from text pattern 3: {count}")
+                return count
+
+        # Method 3: Check most recent work product file
+        session_id = research_result.get("session_id")
+        if session_id:
+            research_dir = Path(f"/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/sessions/{session_id}/research")
+            if research_dir.exists():
+                files = sorted(research_dir.glob("*.md"), key=lambda x: x.stat().st_mtime, reverse=True)
+                if files:
+                    try:
+                        content = files[0].read_text()
+                        match = re.search(r'\*\*Successfully Crawled\*\*:\s*(\d+)', content)
+                        if match:
+                            count = int(match.group(1))
+                            self.logger.info(f"Extracted scrape count from work product file: {count}")
+                            return count
+                    except Exception as e:
+                        self.logger.warning(f"Could not read work product file: {e}")
+
+        # Last resort: estimate from tool count (conservative)
+        tool_count = len(research_result.get("tool_executions", []))
+        estimated = min(10, tool_count * 5) if tool_count > 0 else 0
+        self.logger.warning(f"Could not extract exact scrape count, using conservative estimate: {estimated}")
+        return estimated
 
     def _validate_report_completion(self, report_result: dict[str, Any]) -> bool:
         """Validate that report generation stage completed successfully.
@@ -1613,31 +1707,37 @@ class ResearchOrchestrator:
                             query_result["substantive_responses"] += 1
                             self.logger.debug(f"{agent_name} content: {content_texts[0][:100]}...")
 
-                    # Extract tool use information
-                    if hasattr(message, 'tool_use') and message.tool_use:
-                        message_info["tool_use"] = {
-                            "name": message.tool_use.get("name"),
-                            "id": message.tool_use.get("id")
-                        }
-                        query_result["tool_executions"].append(message_info["tool_use"])
-                        self.logger.info(f"{agent_name} executed tool: {message_info['tool_use']['name']}")
+                    # Extract tool use information from AssistantMessage content blocks
+                    if isinstance(message, AssistantMessage):
+                        for block in message.content:
+                            if isinstance(block, ToolUseBlock):
+                                tool_info = {
+                                    "name": block.name,
+                                    "id": block.id,
+                                    "input": block.input
+                                }
+                                message_info["tool_use"] = tool_info
+                                query_result["tool_executions"].append(tool_info)
+                                self.logger.info(f"{agent_name} executed tool: {block.name}")
 
                     # Extract result information
-                    if hasattr(message, 'result'):
+                    if isinstance(message, ResultMessage):
                         message_info["has_result"] = True
-                        self.logger.debug(f"{agent_name} received result message")
+                        message_info["cost_usd"] = message.total_cost_usd if hasattr(message, 'total_cost_usd') else None
+                        self.logger.debug(f"{agent_name} received ResultMessage with cost: ${message_info.get('cost_usd', 'N/A')}")
 
                     query_result["messages_collected"].append(message_info)
 
-                    # Check for completion or timeout
+                    # Check for timeout (but don't break - let receive_response() complete naturally)
                     if elapsed > timeout_seconds:
-                        self.logger.warning(f"{agent_name} response collection timeout after {elapsed:.1f}s")
-                        break
+                        self.logger.warning(f"{agent_name} query exceeding {timeout_seconds}s, but continuing to collect all messages")
+                        # Don't break - receive_response() auto-stops at ResultMessage
 
-                    # Stop if we have substantive responses and a result
-                    if query_result["substantive_responses"] > 0 and any(msg.get("has_result") for msg in query_result["messages_collected"]):
-                        self.logger.info(f"{agent_name} completed with {len(query_result['messages_collected'])} messages")
-                        break
+                    # Check if we received ResultMessage (natural completion point)
+                    if isinstance(message, ResultMessage):
+                        self.logger.info(f"{agent_name} received ResultMessage - collection complete")
+                        self.logger.info(f"Total messages: {len(query_result['messages_collected'])}, Tools: {len(query_result['tool_executions'])}, Substantive responses: {query_result['substantive_responses']}")
+                        break  # Natural completion point
 
             # Execute with timeout
             await asyncio.wait_for(collect_responses(), timeout=timeout_seconds + 10)
@@ -1664,38 +1764,59 @@ class ResearchOrchestrator:
 
         await self.update_session_status(session_id, "researching", "Conducting initial research")
 
-        # Validate search budget before starting
+        # Initialize cumulative budget tracking for retry loop
         search_budget = self.active_sessions[session_id]["search_budget"]
-        can_proceed, budget_message = search_budget.can_primary_research_proceed(15)
-        if not can_proceed:
-            self.logger.error(f"Session {session_id}: Cannot proceed with research: {budget_message}")
-            raise RuntimeError(f"Search budget limit reached: {budget_message}")
-
+        cumulative_scrapes = 0
         max_attempts = 3
         research_successful = False
         research_result = None
 
         for attempt in range(max_attempts):
             try:
-                self.logger.info(f"Session {session_id}: Research attempt {attempt + 1}/{max_attempts}")
+                # ✅ Check budget BEFORE each attempt (not just once before loop)
+                remaining_budget = search_budget.primary_successful_scrapes_limit - cumulative_scrapes
 
-                # Create comprehensive research prompt with natural language agent selection
+                if remaining_budget <= 0:
+                    self.logger.error(f"Session {session_id}: Budget exhausted before attempt {attempt + 1}")
+                    self.logger.error(f"Cumulative scrapes: {cumulative_scrapes}/{search_budget.primary_successful_scrapes_limit}")
+                    break  # Stop retrying if budget exhausted
+
+                can_proceed, budget_message = search_budget.can_primary_research_proceed(15)
+                if not can_proceed:
+                    self.logger.error(f"Session {session_id}: Cannot proceed with attempt {attempt + 1}: {budget_message}")
+                    break  # Stop retrying if budget check fails
+
+                self.logger.info(f"Session {session_id}: Research attempt {attempt + 1}/{max_attempts}")
+                self.logger.info(f"Budget status: {cumulative_scrapes}/{search_budget.primary_successful_scrapes_limit} used, {remaining_budget} remaining")
+
+                # Create comprehensive research prompt with budget awareness
                 research_prompt = f"""
                 Use the research_agent agent to conduct comprehensive research on the topic: "{topic}"
 
                 User Requirements:
                 {json.dumps(user_requirements, indent=2)}
 
+                CRITICAL BUDGET STATUS FOR THIS ATTEMPT:
+                - Attempt {attempt + 1} of {max_attempts}
+                - Scrapes used in previous attempts: {cumulative_scrapes}
+                - Remaining budget: {remaining_budget} scrapes
+                - YOU MUST STAY WITHIN REMAINING BUDGET
+
+                {"⚠️ BUDGET LOW: Use existing findings from previous attempts if available. Check session directory." if remaining_budget < 5 else ""}
+                {"❌ BUDGET EXHAUSTED: DO NOT execute new searches. Use findings from previous attempts only." if remaining_budget <= 0 else ""}
+
                 MANDATORY RESEARCH INSTRUCTIONS:
                 1. IMMEDIATELY execute mcp__enhanced_search_scrape_clean__expanded_query_search_and_extract with the topic
                 2. This tool consolidates multiple searches into one efficient workflow (query expansion → SERP searches → deduplication → ranked scraping)
                 3. Set max_expanded_queries to 3 for comprehensive coverage
-                4. Set target_successful_scrapes to 15 for detailed content extraction
+                4. Set target_successful_scrapes to {min(15, remaining_budget)} to stay within budget
                 5. Use mcp__research_tools__save_research_findings to save your findings
                 6. Use mcp__research_tools__capture_search_results to structure results
 
                 SEARCH BUDGET CONSTRAINTS:
-                - **STRICT LIMIT**: Maximum 15 successful content extractions per session
+                - **STRICT LIMIT**: Maximum {search_budget.primary_successful_scrapes_limit} successful content extractions per session
+                - **ALREADY USED**: {cumulative_scrapes} scrapes in previous attempts
+                - **REMAINING**: {remaining_budget} scrapes for this attempt
                 - **BUDGET AWARENESS**: Each search consumes from your session budget
                 - **EFFICIENCY REQUIRED**: Make each search count with quality sources
 
@@ -1714,11 +1835,25 @@ class ResearchOrchestrator:
                     "research_agent", research_prompt, session_id, timeout_seconds=180
                 )
 
-                self.logger.info(f"✅ Research execution completed: {research_result['substantive_responses']} responses, {research_result['tool_executions']} tools")
+                self.logger.info(f"✅ Research execution completed: {research_result['substantive_responses']} responses, {len(research_result['tool_executions'])} tools")
+
+                # ✅ Extract actual scrape count from this attempt
+                attempt_scrapes = self._extract_scrape_count(research_result)
+                cumulative_scrapes += attempt_scrapes
+
+                # ✅ Record actual scrapes immediately after each attempt
+                search_budget.record_primary_research(
+                    urls_processed=attempt_scrapes,
+                    successful_scrapes=attempt_scrapes,
+                    search_queries=1
+                )
+
+                self.logger.info(f"Attempt {attempt + 1} scraped {attempt_scrapes} URLs, cumulative: {cumulative_scrapes}/{search_budget.primary_successful_scrapes_limit}")
 
                 # Validate research completion
                 if self._validate_research_completion(research_result):
                     research_successful = True
+                    self.logger.info(f"✅ Research validated successfully on attempt {attempt + 1}")
                     break
                 else:
                     self.logger.warning(f"Session {session_id}: Research attempt {attempt + 1} did not complete required work")
@@ -1731,16 +1866,6 @@ class ResearchOrchestrator:
 
         if not research_successful:
             raise RuntimeError(f"Research stage failed after {max_attempts} attempts")
-
-        # Record search budget usage
-        if research_result and research_result.get("tool_executions"):
-            # Estimate search usage based on tool executions
-            estimated_scrapes = min(10, len(research_result["tool_executions"]))
-            search_budget.record_primary_research(
-                urls_processed=len(research_result["tool_executions"]) * 10,  # Estimate
-                successful_scrapes=estimated_scrapes,
-                search_queries=1
-            )
 
         # Store research results
         session_data = self.active_sessions[session_id]
