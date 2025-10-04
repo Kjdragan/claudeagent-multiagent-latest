@@ -17,6 +17,11 @@ import httpx
 
 from pathlib import Path
 
+# Token limit configuration
+MAX_RESPONSE_TOKENS = 20000  # Conservative limit to stay under 25k token limit
+APPOX_CHARS_PER_TOKEN = 4    # Rough approximation
+MAX_RESPONSE_CHARS = MAX_RESPONSE_TOKENS * APPOX_CHARS_PER_TOKEN
+
 # Import URL tracking system
 try:
     from .url_tracker import get_url_tracker
@@ -25,6 +30,31 @@ except ImportError:
     import sys
     sys.path.append(os.path.dirname(__file__))
     from url_tracker import get_url_tracker
+
+def summarize_content(content: str, max_length: int = 2000) -> str:
+    """
+    Summarize content to fit within token limits.
+
+    Args:
+        content: Original content to summarize
+        max_length: Maximum length of summarized content
+
+    Returns:
+        Summarized content within the specified length limit
+    """
+    if len(content) <= max_length:
+        return content
+
+    # Simple summarization: take first and last portions with an indicator
+    first_part = content[:max_length//2]
+    last_part = content[-max_length//2:]
+
+    return f"""{first_part}
+
+[Content summarized - full content ({len(content)} chars) saved to work product file]
+
+{last_part}"""
+
 
 # Import configuration
 try:
@@ -772,7 +802,13 @@ Total articles successfully extracted: {len(crawled_content)}
 
 """
 
-                # Add all extracted content
+                # Calculate remaining space for content after metadata
+                current_length = len(orchestrator_data)
+                remaining_space = MAX_RESPONSE_CHARS - current_length - 1000  # Leave buffer for summary section
+                content_per_article = remaining_space // len(crawled_content) if crawled_content else 0
+                max_content_length = min(content_per_article, 3000)  # Cap at 3000 chars per article
+
+                # Add extracted content with token limit handling
                 for i, (content, url) in enumerate(zip(crawled_content, successful_urls), 1):
                     # Find corresponding search result for metadata
                     title = f"Article {i}"
@@ -783,10 +819,17 @@ Total articles successfully extracted: {len(crawled_content)}
                             source = result.source or "Unknown"
                             break
 
+                    # Apply content summarization if needed
+                    if len(content) > max_content_length:
+                        content = summarize_content(content, max_content_length)
+                        content_note = f" (summarized from {len(content)} original characters)"
+                    else:
+                        content_note = ""
+
                     orchestrator_data += f"""### Extracted Article {i}: {title}
 **URL**: {url}
 **Source**: {source}
-**Content Length**: {len(content)} characters
+**Content Length**: {len(content)} characters{content_note}
 
 **EXTRACTED CONTENT**:
 {content}
@@ -982,7 +1025,13 @@ Total articles successfully extracted: {len(crawled_content)}
 
 """
 
-                # Add all extracted content
+                # Calculate remaining space for content after metadata
+                current_length = len(orchestrator_data)
+                remaining_space = MAX_RESPONSE_CHARS - current_length - 1000  # Leave buffer for summary section
+                content_per_article = remaining_space // len(crawled_content) if crawled_content else 0
+                max_content_length = min(content_per_article, 3000)  # Cap at 3000 chars per article
+
+                # Add extracted content with token limit handling
                 for i, (content, url) in enumerate(zip(crawled_content, successful_urls), 1):
                     # Find corresponding search result for metadata
                     title = f"Article {i}"
@@ -993,10 +1042,17 @@ Total articles successfully extracted: {len(crawled_content)}
                             source = result.source or "Unknown"
                             break
 
+                    # Apply content summarization if needed
+                    if len(content) > max_content_length:
+                        content = summarize_content(content, max_content_length)
+                        content_note = f" (summarized from {len(content)} original characters)"
+                    else:
+                        content_note = ""
+
                     orchestrator_data += f"""### Extracted Article {i}: {title}
 **URL**: {url}
 **Source**: {source}
-**Content Length**: {len(content)} characters
+**Content Length**: {len(content)} characters{content_note}
 
 **EXTRACTED CONTENT**:
 {content}

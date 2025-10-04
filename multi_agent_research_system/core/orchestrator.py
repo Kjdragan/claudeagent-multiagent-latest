@@ -212,6 +212,7 @@ try:
     from ..tools.advanced_scraping_tool import advanced_scrape_url, advanced_scrape_multiple_urls
     from ..tools.intelligent_research_tool import intelligent_research_with_advanced_scraping
     from ..mcp_tools.zplayground1_search import zplayground1_server
+    from ..mcp_tools.enhanced_search_scrape_clean import enhanced_search_server
 except ImportError:
     # Fallback for when the tools module is not available
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -223,6 +224,11 @@ except ImportError:
     except ImportError:
         zplayground1_server = None
         print("Warning: zPlayground1 search MCP server not available")
+    try:
+        from mcp_tools.enhanced_search_scrape_clean import enhanced_search_server
+    except ImportError:
+        enhanced_search_server = None
+        print("Warning: Enhanced search MCP server not available")
 
 # Import config module with fallback
 try:
@@ -561,17 +567,31 @@ class ResearchOrchestrator:
             # Prepare agents configuration for ClaudeAgentOptions
             agents_config = {}
             for agent_name, agent_def in self.agent_definitions.items():
-                # Create actual AgentDefinition instances with SERP API and research tools
-                extended_tools = agent_def.tools + [
-                    "mcp__research_tools__serp_search",  # High-performance SERP API search via MCP
-                    "mcp__research_tools__save_research_findings",
-                    "mcp__research_tools__create_research_report",
-                    "mcp__research_tools__get_session_data",
-                    "mcp__research_tools__capture_search_results",
-                    "mcp__research_tools__save_webfetch_content",
-                    "mcp__research_tools__create_search_verification_report",
-                    "Read", "Write", "Glob", "Grep"
-                ]
+                # For research agent, preserve its configured tools (including enhanced search)
+                if agent_name == "research_agent":
+                    # Don't override research_agent tools - it has the enhanced search configuration
+                    extended_tools = agent_def.tools + [
+                        "mcp__research_tools__save_research_findings",
+                        "mcp__research_tools__create_research_report",
+                        "mcp__research_tools__get_session_data",
+                        "mcp__research_tools__capture_search_results",
+                        "mcp__research_tools__save_webfetch_content",
+                        "mcp__research_tools__create_search_verification_report",
+                        "Read", "Write", "Glob", "Grep"
+                    ]
+                    self.logger.info("🔍 Preserving research_agent tool configuration (includes enhanced search)")
+                else:
+                    # For other agents, extend with standard tools
+                    extended_tools = agent_def.tools + [
+                        "mcp__research_tools__serp_search",  # High-performance SERP API search via MCP
+                        "mcp__research_tools__save_research_findings",
+                        "mcp__research_tools__create_research_report",
+                        "mcp__research_tools__get_session_data",
+                        "mcp__research_tools__capture_search_results",
+                        "mcp__research_tools__save_webfetch_content",
+                        "mcp__research_tools__create_search_verification_report",
+                        "Read", "Write", "Glob", "Grep"
+                    ]
 
                 # Add zPlayground1 search tool if available
                 if zplayground1_server is not None:
@@ -601,6 +621,13 @@ class ResearchOrchestrator:
                 self.logger.info("✅ zPlayground1 search MCP server added to configuration")
             else:
                 self.logger.warning("⚠️ zPlayground1 search MCP server not available, using standard tools")
+
+            # Add enhanced search server if available
+            if enhanced_search_server is not None:
+                mcp_servers_config["enhanced_search_scrape_clean"] = enhanced_search_server
+                self.logger.info("✅ Enhanced search MCP server added to configuration")
+            else:
+                self.logger.warning("⚠️ Enhanced search MCP server not available, using standard tools")
 
             # Create single options with all agents configured properly
             options = ClaudeAgentOptions(
@@ -1639,7 +1666,7 @@ class ResearchOrchestrator:
 
         # Validate search budget before starting
         search_budget = self.active_sessions[session_id]["search_budget"]
-        can_proceed, budget_message = search_budget.can_primary_research_proceed(10)
+        can_proceed, budget_message = search_budget.can_primary_research_proceed(15)
         if not can_proceed:
             self.logger.error(f"Session {session_id}: Cannot proceed with research: {budget_message}")
             raise RuntimeError(f"Search budget limit reached: {budget_message}")
@@ -1660,15 +1687,15 @@ class ResearchOrchestrator:
                 {json.dumps(user_requirements, indent=2)}
 
                 MANDATORY RESEARCH INSTRUCTIONS:
-                1. IMMEDIATELY execute mcp__research_tools__serp_search with the topic
-                2. Set num_results to 15 for comprehensive coverage
-                3. Set auto_crawl_top to 8 for detailed content extraction
-                4. Set crawl_threshold to 0.3 for relevance filtering
+                1. IMMEDIATELY execute mcp__enhanced_search_scrape_clean__expanded_query_search_and_extract with the topic
+                2. This tool consolidates multiple searches into one efficient workflow (query expansion → SERP searches → deduplication → ranked scraping)
+                3. Set max_expanded_queries to 3 for comprehensive coverage
+                4. Set target_successful_scrapes to 15 for detailed content extraction
                 5. Use mcp__research_tools__save_research_findings to save your findings
                 6. Use mcp__research_tools__capture_search_results to structure results
 
                 SEARCH BUDGET CONSTRAINTS:
-                - **STRICT LIMIT**: Maximum 10 successful content extractions per session
+                - **STRICT LIMIT**: Maximum 15 successful content extractions per session
                 - **BUDGET AWARENESS**: Each search consumes from your session budget
                 - **EFFICIENCY REQUIRED**: Make each search count with quality sources
 

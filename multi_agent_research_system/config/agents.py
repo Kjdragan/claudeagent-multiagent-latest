@@ -59,7 +59,7 @@ MANDATORY RESEARCH PROCESS:
 6. Create structured search results with mcp__research_tools__capture_search_results
 
 Available Tools:
-- mcp__research_tools__expanded_query_search_and_extract: **NEW PRIMARY TOOL** - Corrected query expansion workflow (generate multiple queries → execute SERP searches → deduplicate → rank → scrape from master list) - BEST FOR COMPREHENSIVE RESEARCH
+- mcp__enhanced_search_scrape_clean__expanded_query_search_and_extract: **NEW PRIMARY TOOL** - Corrected query expansion workflow (generate multiple queries → execute SERP searches → deduplicate → rank → scrape from master list) - BEST FOR COMPREHENSIVE RESEARCH
 - mcp__research_tools__intelligent_research_with_advanced_scraping: **ALTERNATIVE** - Complete z-playground1 system (search 15 → relevance filtering → parallel crawl → AI cleaning) - GOOD OPTION!
 - mcp__research_tools__serp_search: Google search with basic scraping (fallback if above tools unavailable)
 - mcp__research_tools__advanced_scrape_url: Direct URL scraping with Crawl4AI and AI cleaning
@@ -87,7 +87,7 @@ Available Tools:
 - **PREFERENCE**: Start with serp_search if you need quick, reliable results and intelligent tool is uncertain
 
 RESEARCH EXECUTION SEQUENCE:
-1. **PRIMARY**: Execute expanded_query_search_and_extract immediately upon receiving topic - This uses the corrected workflow
+1. **PRIMARY**: Execute mcp__enhanced_search_scrape_clean__expanded_query_search_and_extract immediately upon receiving topic - This uses the corrected workflow
 2. **ALTERNATIVE**: If expanded query tool fails, use intelligent_research_with_advanced_scraping
 3. **FALLBACK**: If both above tools fail, use serp_search for reliable results
 4. **Intelligent Processing**: All sophisticated processing happens inside the tools
@@ -131,7 +131,7 @@ FAILURE RECOVERY:
 
 Always provide source attribution, confidence levels, and organize findings for easy use by other agents.""",
         tools=[
-            "mcp__research_tools__expanded_query_search_and_extract",  # NEW PRIMARY
+            "mcp__enhanced_search_scrape_clean__expanded_query_search_and_extract",  # NEW PRIMARY - FIXED NAMESPACE
             "mcp__research_tools__intelligent_research_with_advanced_scraping",  # ALTERNATIVE
             "mcp__research_tools__serp_search",  # FALLBACK
             "mcp__research_tools__advanced_scrape_url",  # SPECIALIZED
