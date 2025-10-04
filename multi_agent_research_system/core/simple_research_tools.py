@@ -223,24 +223,47 @@ async def get_session_data(args: dict[str, Any]) -> dict[str, Any]:
     session_id = args["session_id"]
     data_type = args.get("data_type", "all")
 
-    session_path = Path(f"researchmaterials/sessions/{session_id}")
+    # Try KEVIN directory structure first (primary)
+    kevin_base = os.environ.get('KEVIN_WORKPRODUCTS_DIR', '/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN')
+    session_path = Path(f"{kevin_base}/sessions/{session_id}")
+
+    # Fallback to legacy researchmaterials structure
+    if not session_path.exists():
+        session_path = Path(f"researchmaterials/sessions/{session_id}")
 
     if not session_path.exists():
         return {
             "content": [{
                 "type": "text",
-                "text": f"Session {session_id} not found."
+                "text": f"Session {session_id} not found in KEVIN or researchmaterials directories."
             }]
         }
 
     result_data = {}
 
-    # Try to load research findings
+    # Try to load research findings (new standardized format)
     if data_type in ["all", "findings"]:
         findings_file = session_path / "research_findings.json"
         if findings_file.exists():
             with open(findings_file, 'r', encoding='utf-8') as f:
-                result_data["findings"] = json.load(f)
+                findings_data = json.load(f)
+                result_data["findings"] = findings_data
+
+                # For backward compatibility, also provide structured data for report agents
+                if "sources" in findings_data and "findings" in findings_data:
+                    # This is the new standardized format
+                    result_data["standardized_research"] = {
+                        "research_topic": findings_data.get("research_topic"),
+                        "research_timestamp": findings_data.get("research_timestamp"),
+                        "sources": findings_data.get("sources", []),
+                        "findings": findings_data.get("findings", []),
+                        "key_themes": findings_data.get("key_themes", []),
+                        "content_summary": findings_data.get("content_summary", ""),
+                        "search_metrics": findings_data.get("search_metrics", []),
+                        "source_analysis": findings_data.get("source_analysis", {}),
+                        "quality_assessment": findings_data.get("quality_assessment", {}),
+                        "research_metadata": findings_data.get("research_metadata", {})
+                    }
 
     # Try to load research report
     if data_type in ["all", "report"]:

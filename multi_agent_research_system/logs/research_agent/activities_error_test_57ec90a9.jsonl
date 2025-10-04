@@ -1,1 +1,0 @@
-{"timestamp": "2025-10-02T09:21:59.835479", "session_id": "error_test_57ec90a9", "agent_name": "research_agent", "activity_type": "error", "stage": "search_execution", "input_data": null, "output_data": null, "tool_used": null, "tool_result": null, "execution_time": null, "error": "Search API timeout", "metadata": {"error_code": "TIMEOUT", "retry_count": 3}, "success": false}

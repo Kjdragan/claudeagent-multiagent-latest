@@ -88,12 +88,10 @@ except ImportError:
     )
 # Hook system removed - using simplified implementation
 
-# Fix agent_logging import
+# Fix agent_logging import - hook system disabled
 from agent_logging import (
     StructuredLogger,
     AgentLogger,
-    SessionLifecycleLogger,
-    WorkflowLogger,
     ResearchAgentLogger,
     ReportAgentLogger,
     EditorAgentLogger,
@@ -111,17 +109,23 @@ from .search_analysis_tools import (
     create_search_verification_report,
 )
 
-# Import SERP API search tool, advanced scraping tools, and intelligent research tool
+# Import SERP API search tool, advanced scraping tools, intelligent research tool, and enhanced search MCP
 try:
     from ..tools.serp_search_tool import serp_search
     from ..tools.advanced_scraping_tool import advanced_scrape_url, advanced_scrape_multiple_urls
     from ..tools.intelligent_research_tool import intelligent_research_with_advanced_scraping
+    from ..mcp_tools.zplayground1_search import zplayground1_server
 except ImportError:
     # Fallback for when the tools module is not available
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
     from tools.serp_search_tool import serp_search
     from tools.advanced_scraping_tool import advanced_scrape_url, advanced_scrape_multiple_urls
     from tools.intelligent_research_tool import intelligent_research_with_advanced_scraping
+    try:
+        from mcp_tools.zplayground1_search import zplayground1_server
+    except ImportError:
+        zplayground1_server = None
+        print("Warning: zPlayground1 search MCP server not available")
 
 # Import config module with fallback
 try:
@@ -139,8 +143,7 @@ class ResearchOrchestrator:
         # Initialize structured logging system
         self.logger = get_logger("orchestrator")
         self.structured_logger = get_logger("orchestrator")
-        self.session_lifecycle_logger = SessionLifecycleLogger(log_dir=None)
-        self.workflow_logger = WorkflowLogger(log_dir=None)
+        # Hook system disabled - no loggers initialized
 
         self.logger.info("Initializing ResearchOrchestrator")
         self.structured_logger.info("ResearchOrchestrator initialization started",
@@ -473,6 +476,16 @@ class ResearchOrchestrator:
                     "Read", "Write", "Glob", "Grep"
                 ]
 
+                # Add zPlayground1 search tool if available
+                if zplayground1_server is not None:
+                    zplayground1_tools = [
+                        "mcp__zplayground1_search__zplayground1_search_scrape_clean"  # Single comprehensive tool
+                    ]
+                    extended_tools.extend(zplayground1_tools)
+                    self.logger.info(f"✅ zPlayground1 search tool added to {agent_name}")
+                else:
+                    self.logger.warning(f"⚠️ zPlayground1 search tool not available for {agent_name}")
+
                 agents_config[agent_name] = AgentDefinition(
                     description=agent_def.description,
                     prompt=agent_def.prompt,
@@ -480,12 +493,22 @@ class ResearchOrchestrator:
                     model=agent_def.model
                 )
 
+            # Prepare MCP servers configuration
+            mcp_servers_config = {
+                "research_tools": self.mcp_server,
+            }
+
+            # Add zPlayground1 search server if available
+            if zplayground1_server is not None:
+                mcp_servers_config["zplayground1_search"] = zplayground1_server
+                self.logger.info("✅ zPlayground1 search MCP server added to configuration")
+            else:
+                self.logger.warning("⚠️ zPlayground1 search MCP server not available, using standard tools")
+
             # Create single options with all agents configured properly
             options = ClaudeAgentOptions(
                 agents=agents_config,
-                mcp_servers={
-                    "research_tools": self.mcp_server,
-                },
+                mcp_servers=mcp_servers_config,
                 # Use correct settings for proper response handling
                 include_partial_messages=False,
                 permission_mode="bypassPermissions",
@@ -1082,6 +1105,29 @@ class ResearchOrchestrator:
         """Create a new session ID."""
         return str(uuid.uuid4())
 
+    def _cleanup_sessions_directory(self):
+        """Clean up logs, work products, and sessions directory for clean slate."""
+        import shutil
+
+        # Define directories to clean
+        cleanup_dirs = [
+            "KEVIN/sessions",
+            "logs",
+            "work_products"  # Clean up any legacy work products
+        ]
+
+        for dir_path in cleanup_dirs:
+            full_path = Path(dir_path)
+            if full_path.exists():
+                try:
+                    self.logger.info(f"🧹 Cleaning up directory: {dir_path}")
+                    shutil.rmtree(full_path)
+                    self.logger.info(f"✅ Successfully cleaned: {dir_path}")
+                except Exception as e:
+                    self.logger.warning(f"⚠️ Failed to clean {dir_path}: {e}")
+
+        self.logger.info("🧹 Session cleanup completed - ready for fresh start")
+
     async def start_research_session(self, topic: str, user_requirements: dict[str, Any]) -> str:
         """Start a new research session."""
         session_id = self._create_session_id()
@@ -1100,14 +1146,13 @@ class ResearchOrchestrator:
             "debug_mode": self.debug_mode,
             "available_agents": list(self.agent_definitions.keys())
         }
-        self.session_lifecycle_logger.log_session_creation(
-            session_id=session_id,
-            session_config=session_config,
-            user_context={"initiator": "user", "timestamp": datetime.now().isoformat()}
-        )
+        # Hook system disabled - no session lifecycle logging
 
         self.logger.debug(f"Generated session ID: {session_id}")
         self.structured_logger.debug("Session ID generated", session_id=session_id)
+
+        # Clean up previous sessions, logs, and work products for clean slate
+        self._cleanup_sessions_directory()
 
         # Create session directory in KEVIN structure with absolute path
         # Get the project root directory (where KEVIN should be)
@@ -1121,6 +1166,7 @@ class ResearchOrchestrator:
         (session_path / "research").mkdir(exist_ok=True)
         (session_path / "working").mkdir(exist_ok=True)
         (session_path / "final").mkdir(exist_ok=True)
+        (session_path / "agent_logs").mkdir(exist_ok=True)
 
         self.logger.debug(f"Created session directory: {session_path}")
         self.logger.info(f"KEVIN directory structure: {kevin_dir}")
@@ -1147,14 +1193,7 @@ class ResearchOrchestrator:
                                     session_id=session_id,
                                     session_status="initialized")
 
-        # Use workflow logger for orchestration
-        self.workflow_logger.log_workflow_stage_start(
-            session_id=session_id,
-            workflow_type="research_workflow",
-            stage_name="session_initialization",
-            stage_config={"topic": topic, "requirements": user_requirements},
-            estimated_duration=300.0  # 5 minutes estimated
-        )
+        # Hook system disabled - no workflow logging
 
         # Start the research workflow
         asyncio.create_task(self.execute_research_workflow(session_id))
@@ -1172,17 +1211,7 @@ class ResearchOrchestrator:
                                     event_type="workflow_start",
                                     session_id=session_id)
 
-        # Use workflow logger for orchestration tracking
-        self.workflow_logger.log_workflow_stage_start(
-            session_id=session_id,
-            workflow_type="research_workflow",
-            stage_name="orchestration",
-            stage_config={
-                "participants": ["research_agent", "report_agent", "editor_agent"],
-                "estimated_duration": 600.0,  # 10 minutes estimated
-                "stage_count": 4  # research -> report -> editorial -> finalization
-            }
-        )
+        # Hook system disabled - no workflow logging
 
         try:
             # Initialize agent logger for this session with correct path
@@ -1262,14 +1291,7 @@ class ResearchOrchestrator:
             self.logger.info(f"Session {session_id}: Starting research stage")
             self.agent_logger.log_stage_transition("initialization", "research", "orchestrator", {"topic": topic})
 
-            # Enhanced structured logging for stage transitions
-            self.workflow_logger.log_workflow_stage_start(
-                session_id=session_id,
-                workflow_type="research_workflow",
-                stage_name="research",
-                stage_config={"topic": topic, "user_requirements": user_requirements},
-                estimated_duration=300.0
-            )
+            # Hook system disabled - no workflow logging
             self.structured_logger.info("Research stage started",
                                         session_id=session_id,
                                         from_stage="initialization",
@@ -1282,13 +1304,7 @@ class ResearchOrchestrator:
             self.logger.info(f"Session {session_id}: Starting report generation stage")
             self.agent_logger.log_stage_transition("research", "report_generation", "orchestrator")
 
-            self.workflow_logger.log_workflow_stage_start(
-                session_id=session_id,
-                workflow_type="research_workflow",
-                stage_name="report_generation",
-                stage_config={"based_on_research": True},
-                estimated_duration=180.0
-            )
+            # Hook system disabled - no workflow logging
             self.structured_logger.info("Report generation stage started",
                                         session_id=session_id,
                                         from_stage="research",
@@ -1300,13 +1316,7 @@ class ResearchOrchestrator:
             self.logger.info(f"Session {session_id}: Starting editorial review stage")
             self.agent_logger.log_stage_transition("report_generation", "editorial_review", "orchestrator")
 
-            self.workflow_logger.log_workflow_stage_start(
-                session_id=session_id,
-                workflow_type="research_workflow",
-                stage_name="editorial_review",
-                stage_config={"review_type": "quality_assessment"},
-                estimated_duration=120.0
-            )
+            # Hook system disabled - no workflow logging
             self.structured_logger.info("Editorial review stage started",
                                         session_id=session_id,
                                         from_stage="report_generation",
@@ -1318,13 +1328,7 @@ class ResearchOrchestrator:
             self.logger.info(f"Session {session_id}: Starting finalization stage")
             self.agent_logger.log_stage_transition("editorial_review", "finalization", "orchestrator")
 
-            self.workflow_logger.log_workflow_stage_start(
-                session_id=session_id,
-                workflow_type="research_workflow",
-                stage_name="finalization",
-                stage_config={"final_processing": True},
-                estimated_duration=60.0
-            )
+            # Hook system disabled - no workflow logging
             self.structured_logger.info("Finalization stage started",
                                         session_id=session_id,
                                         from_stage="editorial_review",
@@ -1338,21 +1342,7 @@ class ResearchOrchestrator:
                                         session_id=session_id,
                                         final_stage="finalization")
 
-            # Use workflow logger for completion
-            self.workflow_logger.log_workflow_stage_complete(
-                session_id=session_id,
-                workflow_type="research_workflow",
-                stage_name="finalization",
-                stage_result={"status": "success", "session_id": session_id},
-                execution_time=0.0  # Would be calculated from start time
-            )
-
-            # Log successful workflow completion to session lifecycle logger
-            self.session_lifecycle_logger.log_session_termination(
-                session_id=session_id,
-                termination_reason="workflow_completed_successfully",
-                final_state={"status": "completed", "workflow_stages": 4}
-            )
+            # Hook system disabled - no workflow logging
 
             # Use UI coordinator logger for orchestration summary
             ui_coordinator_logger = self.get_agent_logger("ui_coordinator")
@@ -1386,23 +1376,7 @@ class ResearchOrchestrator:
                                         traceback=traceback.format_exc(),
                                         session_id=session_id)
 
-            # Use workflow logger for error tracking
-            self.workflow_logger.log_workflow_error(
-                session_id=session_id,
-                workflow_type="research_workflow",
-                error_stage="workflow_execution",
-                error_type=type(e).__name__,
-                error_context={"error_message": str(e), "traceback": traceback.format_exc()},
-                recovery_attempted=False
-            )
-
-            # Use session lifecycle logger for session error
-            self.session_lifecycle_logger.log_session_error(
-                session_id=session_id,
-                error_type="workflow_execution_error",
-                error_context={"error": str(e), "stage": "workflow_execution"},
-                recovery_action="session_status_update"
-            )
+            # Hook system disabled - no workflow logging
 
             if self.agent_logger:
                 self.agent_logger.log_error(

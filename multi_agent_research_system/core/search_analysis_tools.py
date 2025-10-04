@@ -58,9 +58,11 @@ async def capture_search_results(args: dict[str, Any]) -> dict[str, Any]:
     sources_found = args["sources_found"]
     session_id = args.get("session_id", str(uuid.uuid4()))
 
-    # Create KEVIN directory if it doesn't exist
-    kevin_dir = Path("/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN")
-    kevin_dir.mkdir(parents=True, exist_ok=True)
+    # Create session-based directory structure
+    base_sessions_dir = Path("/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/sessions")
+    session_dir = base_sessions_dir / session_id
+    research_dir = session_dir / "search_analysis"
+    research_dir.mkdir(parents=True, exist_ok=True)
 
     # Save raw search data with timestamp
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -78,8 +80,8 @@ async def capture_search_results(args: dict[str, Any]) -> dict[str, Any]:
         }
     }
 
-    # Save to KEVIN directory
-    search_file = kevin_dir / f"web_search_results_{timestamp}_{session_id[:8]}.json"
+    # Save to session-based directory
+    search_file = research_dir / f"web_search_results_{timestamp}.json"
     with open(search_file, 'w', encoding='utf-8') as f:
         json.dump(search_data, f, indent=2, ensure_ascii=False)
 
@@ -113,9 +115,11 @@ async def save_webfetch_content(args: dict[str, Any]) -> dict[str, Any]:
     session_id = args.get("session_id", str(uuid.uuid4()))
     content_type = args.get("content_type", "web_content")
 
-    # Create KEVIN directory if it doesn't exist
-    kevin_dir = Path("/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN")
-    kevin_dir.mkdir(parents=True, exist_ok=True)
+    # Create session-based directory structure
+    base_sessions_dir = Path("/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/sessions")
+    session_dir = base_sessions_dir / session_id
+    research_dir = session_dir / "search_analysis"
+    research_dir.mkdir(parents=True, exist_ok=True)
 
     # Save WebFetch data with metadata
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -133,8 +137,8 @@ async def save_webfetch_content(args: dict[str, Any]) -> dict[str, Any]:
         }
     }
 
-    # Save to KEVIN directory
-    fetch_file = kevin_dir / f"web_fetch_content_{timestamp}_{session_id[:8]}.json"
+    # Save to session-based directory
+    fetch_file = research_dir / f"web_fetch_content_{timestamp}.json"
     with open(fetch_file, 'w', encoding='utf-8') as f:
         json.dump(fetch_data, f, indent=2, ensure_ascii=False)
 
@@ -170,9 +174,27 @@ async def create_search_verification_report(args: dict[str, Any]) -> dict[str, A
     kevin_dir = Path("/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN")
     kevin_dir.mkdir(parents=True, exist_ok=True)
 
-    # Scan for search and fetch files in KEVIN directory
-    search_files = list(kevin_dir.glob("web_search_results_*.json"))
-    fetch_files = list(kevin_dir.glob("web_fetch_content_*.json"))
+    # Scan for search and fetch files in both KEVIN root and session directories
+    search_files = []
+    fetch_files = []
+
+    # Check session directories first (organized approach)
+    sessions_dir = kevin_dir / "sessions"
+    if sessions_dir.exists():
+        for session_dir in sessions_dir.iterdir():
+            if session_dir.is_dir():
+                search_analysis_dir = session_dir / "search_analysis"
+                if search_analysis_dir.exists():
+                    search_files.extend(search_analysis_dir.glob("web_search_results_*.json"))
+                    fetch_files.extend(search_analysis_dir.glob("web_fetch_content_*.json"))
+
+    # Also check KEVIN root for backward compatibility (old files)
+    search_files.extend(kevin_dir.glob("web_search_results_*.json"))
+    fetch_files.extend(kevin_dir.glob("web_fetch_content_*.json"))
+
+    # Remove duplicates
+    search_files = list(set(search_files))
+    fetch_files = list(set(fetch_files))
 
     # Create verification report
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')

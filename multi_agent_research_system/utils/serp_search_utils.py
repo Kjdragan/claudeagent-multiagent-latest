@@ -17,6 +17,31 @@ import httpx
 
 from pathlib import Path
 
+# Import URL tracking system
+try:
+    from .url_tracker import get_url_tracker
+except ImportError:
+    # Fallback import for module execution
+    import sys
+    sys.path.append(os.path.dirname(__file__))
+    from url_tracker import get_url_tracker
+
+# Import configuration
+try:
+    from ..config.settings import get_enhanced_search_config
+except ImportError:
+    # Fallback for standalone usage
+    def get_enhanced_search_config():
+        # Simple fallback config
+        class SimpleConfig:
+            default_crawl_threshold = 0.3
+            target_successful_scrapes = 8
+            url_deduplication_enabled = True
+            progressive_retry_enabled = True
+            max_retry_attempts = 3
+            default_max_concurrent = 15
+        return SimpleConfig()
+
 # Import advanced scraping utilities
 try:
     from .crawl4ai_utils import scrape_and_clean_single_url_direct
@@ -42,60 +67,10 @@ class SearchResult:
         self.relevance_score = relevance_score
 
 
-def calculate_enhanced_relevance_score(
-    title: str,
-    snippet: str,
-    position: int,
-    query_terms: List[str]
-) -> float:
-    """
-    Calculate enhanced relevance score based on multiple factors.
-
-    Formula:
-    - Google position weight: 40%
-    - Query term matching in title: 30%
-    - Query term matching in snippet: 30%
-
-    Args:
-        title: Search result title
-        snippet: Search result snippet
-        position: Google search position (1-based)
-        query_terms: List of query terms to match
-
-    Returns:
-        Relevance score between 0.0 and 1.0
-    """
-    # Normalize inputs
-    title_lower = title.lower()
-    snippet_lower = snippet.lower()
-    query_terms_lower = [term.lower() for term in query_terms if term]
-
-    if not query_terms_lower:
-        # Fallback to position-only scoring
-        return max(0.05, 1.0 - (position * 0.05))
-
-    # 1. Position score (40% weight) - higher positions get higher scores
-    if position <= 10:
-        position_score = (11 - position) / 10  # 1.0, 0.9, 0.8, ..., 0.1
-    else:
-        position_score = max(0.05, 0.1 - ((position - 10) * 0.01))  # Gradual decay, min 0.05
-
-    # 2. Title matching score (30% weight)
-    title_matches = sum(1 for term in query_terms_lower if term in title_lower)
-    title_score = min(1.0, title_matches / len(query_terms_lower))
-
-    # 3. Snippet matching score (30% weight)
-    snippet_matches = sum(1 for term in query_terms_lower if term in snippet_lower)
-    snippet_score = min(1.0, snippet_matches / len(query_terms_lower))
-
-    # Combine with weights
-    final_score = (
-        position_score * 0.40 +
-        title_score * 0.30 +
-        snippet_score * 0.30
-    )
-
-    return round(final_score, 3)
+# Import enhanced relevance scorer with domain authority
+from .enhanced_relevance_scorer import (
+    calculate_enhanced_relevance_score_with_domain_authority as calculate_enhanced_relevance_score
+)
 
 
 async def execute_serp_search(
@@ -166,12 +141,13 @@ async def execute_serp_search(
                 snippet = result.get("snippet", "")
                 position = i + 1
 
-                # Calculate enhanced relevance score
+                # Calculate enhanced relevance score with domain authority
                 relevance_score = calculate_enhanced_relevance_score(
                     title=title,
                     snippet=snippet,
                     position=position,
-                    query_terms=query_terms
+                    query_terms=query_terms,
+                    url=result.get("link", "")
                 )
 
                 search_result = SearchResult(
@@ -200,39 +176,60 @@ async def execute_serp_search(
 def select_urls_for_crawling(
     search_results: List[SearchResult],
     limit: int = 10,
-    min_relevance: float = 0.3
+    min_relevance: float = 0.3,
+    session_id: str = "default",
+    use_deduplication: bool = True
 ) -> List[str]:
     """
-    Select URLs for crawling based on relevance scores.
+    Select URLs for crawling based on relevance scores with URL deduplication.
 
     Args:
         search_results: List of search results
         limit: Maximum number of URLs to select
-        min_relevance: Minimum relevance score threshold
+        min_relevance: Minimum relevance score threshold (fixed at 0.3 for better success)
+        session_id: Session identifier for URL tracking
+        use_deduplication: Whether to use URL deduplication
 
     Returns:
         List of URLs to crawl
     """
     try:
-        # Filter by relevance threshold
+        # Get configuration
+        config = get_enhanced_search_config()
+
+        # Filter by relevance threshold (ensure type safety)
         filtered_results = [
             result for result in search_results
-            if result.relevance_score >= min_relevance and result.link
+            if float(result.relevance_score) >= float(min_relevance) and result.link
         ]
 
-        # Sort by relevance score (highest first)
-        filtered_results.sort(key=lambda x: x.relevance_score, reverse=True)
+        # Sort by relevance score (highest first) - ensure float comparison
+        filtered_results.sort(key=lambda x: float(x.relevance_score), reverse=True)
 
         # Extract URLs up to limit
-        urls = [result.link for result in filtered_results[:limit]]
+        candidate_urls = [result.link for result in filtered_results[:limit]]
 
-        # Enhanced logging for URL selection process
-        logger.info(f"URL selection with threshold {min_relevance}:")
-        logger.info(f"  - Total results: {len(search_results)}")
-        logger.info(f"  - Above threshold: {len(filtered_results)}")
-        logger.info(f"  - Selected for crawling: {len(urls)}")
-        logger.info(f"  - Rejected: {len(search_results) - len(filtered_results)} below threshold")
-        return urls
+        # Apply URL deduplication if enabled
+        if use_deduplication and config.url_deduplication_enabled:
+            url_tracker = get_url_tracker()
+            urls_to_crawl, skipped_urls = url_tracker.filter_urls(candidate_urls, session_id)
+
+            logger.info(f"URL selection with threshold {min_relevance}:")
+            logger.info(f"  - Total results: {len(search_results)}")
+            logger.info(f"  - Above threshold: {len(filtered_results)}")
+            logger.info(f"  - Before deduplication: {len(candidate_urls)}")
+            logger.info(f"  - After deduplication: {len(urls_to_crawl)}")
+            logger.info(f"  - Skipped duplicates: {len(skipped_urls)}")
+
+            return urls_to_crawl
+        else:
+            logger.info(f"URL selection with threshold {min_relevance} (no deduplication):")
+            logger.info(f"  - Total results: {len(search_results)}")
+            logger.info(f"  - Above threshold: {len(filtered_results)}")
+            logger.info(f"  - Selected for crawling: {len(candidate_urls)}")
+            logger.info(f"  - Rejected: {len(search_results) - len(filtered_results)} below threshold")
+
+            return candidate_urls
 
     except Exception as e:
         logger.error(f"Error selecting URLs for crawling: {e}")
@@ -338,14 +335,15 @@ def save_search_work_product(
         Path to saved work product file
     """
     try:
-        # Create work product directory if it doesn't exist
-        workproduct_dir = kevin_dir / "work_products" / session_id
-        workproduct_dir.mkdir(parents=True, exist_ok=True)
+        # Use session-based directory structure
+        sessions_dir = kevin_dir / "sessions" / session_id
+        research_dir = sessions_dir / "research"
+        research_dir.mkdir(parents=True, exist_ok=True)
 
-        # Generate timestamp and filename
+        # Generate timestamp and filename with numbered prefix
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"search_workproduct_{timestamp}.md"
-        filepath = workproduct_dir / filename
+        filename = f"1-search_workproduct_{timestamp}.md"
+        filepath = research_dir / filename
 
         # Build work product content
         workproduct_content = [
@@ -435,6 +433,193 @@ def save_search_work_product(
         return ""
 
 
+async def target_based_scraping(
+    search_results: List[SearchResult],
+    session_id: str,
+    target_successful_scrapes: int = 8,
+    crawl_threshold: float = 0.3,
+    max_concurrent: int = 10
+) -> Tuple[List[str], List[str]]:
+    """
+    Perform target-based scraping to achieve desired number of successful extractions.
+
+    This function processes ALL candidates in parallel to achieve the target
+    number of successful scrapes without sequential blocking.
+
+    Args:
+        search_results: List of search results to select from
+        session_id: Session identifier for URL tracking
+        target_successful_scrapes: Target number of successful content extractions
+        crawl_threshold: Initial relevance threshold (fixed at 0.3)
+        max_concurrent: Maximum concurrent crawling operations
+
+    Returns:
+        Tuple of (successful_content, attempted_urls)
+    """
+    config = get_enhanced_search_config()
+    url_tracker = get_url_tracker()
+
+    # Start with current threshold and target from config
+    target_count = target_successful_scrapes or config.target_successful_scrapes
+
+    # Get ALL candidates at once for parallel processing
+    # Start with 0.3 threshold, expand to 0.2 for additional candidates
+    primary_candidates = select_urls_for_crawling(
+        search_results=search_results,
+        limit=target_count * 2,  # Primary candidates at 0.3 threshold
+        min_relevance=0.3,
+        session_id=session_id,
+        use_deduplication=True
+    )
+
+    secondary_candidates = select_urls_for_crawling(
+        search_results=search_results,
+        limit=target_count * 3,  # Secondary candidates at 0.2 threshold
+        min_relevance=0.2,
+        session_id=session_id,
+        use_deduplication=True
+    )
+
+    # Combine and deduplicate all candidates
+    all_candidate_urls = list(dict.fromkeys(primary_candidates + secondary_candidates))  # Preserve order, remove duplicates
+    logger.info(f"Target-based scraping: target={target_count}, total_candidates={len(all_candidate_urls)} (primary: {len(primary_candidates)}, secondary: {len(secondary_candidates)})")
+
+    # Process ALL candidates in parallel using progressive retry
+    successful_content, attempted_urls = await _crawl_urls_with_retry(
+        urls=all_candidate_urls,
+        session_id=session_id,
+        max_concurrent=max_concurrent,
+        use_progressive_retry=True  # Enable progressive retry for better success rates
+    )
+
+    # If we still need more and have retry candidates, process them too
+    if config.progressive_retry_enabled and len(successful_content) < target_count:
+        retry_candidates = url_tracker.get_retry_candidates(attempted_urls)
+        if retry_candidates:
+            logger.info(f"Processing additional retry candidates: {len(retry_candidates)} URLs")
+            retry_content, retry_urls = await _crawl_urls_with_retry(
+                urls=retry_candidates,
+                session_id=session_id,
+                max_concurrent=max_concurrent,
+                is_retry=True
+            )
+            successful_content.extend(retry_content)
+            attempted_urls.extend(retry_urls)
+
+    # If we still don't have enough, try one more batch with even lower threshold
+    if len(successful_content) < target_count:
+        fallback_candidates = select_urls_for_crawling(
+            search_results=search_results,
+            limit=target_count * 4,  # Even larger pool
+            min_relevance=0.1,  # Very low threshold as last resort
+            session_id=session_id,
+            use_deduplication=True
+        )
+
+        # Filter out already attempted URLs
+        new_candidates = [url for url in fallback_candidates if url not in attempted_urls]
+
+        if new_candidates:
+            logger.info(f"Final fallback batch: {len(new_candidates)} URLs at 0.1 threshold")
+            content, urls = await _crawl_urls_with_retry(
+                urls=new_candidates,
+                session_id=session_id,
+                max_concurrent=max_concurrent,
+                use_progressive_retry=True
+            )
+            successful_content.extend(content)
+            attempted_urls.extend(urls)
+
+    # Final statistics
+    success_rate = len(successful_content) / len(attempted_urls) if attempted_urls else 0
+    logger.info(f"Target-based scraping completed: {len(successful_content)}/{target_count} successful "
+               f"({success_rate:.1%} success rate from {len(attempted_urls)} URLs)")
+
+    return successful_content, attempted_urls
+
+
+async def _crawl_urls_with_retry(
+    urls: List[str],
+    session_id: str,
+    max_concurrent: int,
+    is_retry: bool = False,
+    use_progressive_retry: bool = False
+) -> Tuple[List[str], List[str]]:
+    """
+    Helper function to crawl URLs with retry logic.
+
+    Args:
+        urls: URLs to crawl
+        session_id: Session identifier
+        max_concurrent: Maximum concurrent operations
+        is_retry: Whether this is a retry operation
+
+    Returns:
+        Tuple of (successful_content, attempted_urls)
+    """
+    if not urls:
+        return [], []
+
+    config = get_enhanced_search_config()
+    url_tracker = get_url_tracker()
+
+    # Use z-playground1 implementation
+    from utils.crawl4ai_z_playground import crawl_multiple_urls_with_results
+
+    # Always use progressive retry for better parallelization
+    crawl_results = await crawl_multiple_urls_with_results(
+        urls=urls,
+        session_id=session_id,
+        max_concurrent=max_concurrent,
+        extraction_mode="article",
+        include_metadata=True,
+        use_progressive_retry=use_progressive_retry,
+        max_retries=3 if use_progressive_retry else 0
+    )
+
+    # Process results and record attempts
+    successful_content = []
+    attempted_urls = []
+
+    for result in crawl_results:
+        url = result['url']
+        success = result['success']
+        content = result.get('content', '')
+        content_length = len(content) if content else 0
+        duration = result.get('duration', 0.0)
+        error_message = result.get('error_message')
+
+        # Determine anti-bot level used
+        anti_bot_level = 1  # Default
+        if is_retry:
+            anti_bot_level = url_tracker.get_retry_anti_bot_level(url)
+
+        # Record attempt in URL tracker asynchronously to prevent blocking
+        tracking_task = asyncio.create_task(
+            asyncio.to_thread(
+                url_tracker.record_attempt,
+                url=url,
+                success=success and content_length > 100,  # Only count substantial content as success
+                anti_bot_level=anti_bot_level,
+                content_length=content_length,
+                duration=duration,
+                error_message=error_message,
+                session_id=session_id
+            )
+        )
+        # Don't await tracking task to prevent blocking - let it run in background
+
+        attempted_urls.append(url)
+
+        if success and content_length > 100:
+            successful_content.append(content.strip())
+            logger.info(f"✅ Extracted {content_length} chars from {url}")
+        else:
+            logger.warning(f"❌ Failed to extract substantial content from {url}")
+
+    return successful_content, attempted_urls
+
+
 async def serp_search_and_extract(
     query: str,
     search_type: str = "search",
@@ -483,32 +668,21 @@ async def serp_search_and_extract(
         if not search_results:
             return f"❌ **Search Failed**\n\nNo results found for query: '{query}'"
 
-        # Step 2: Select URLs for content extraction based on relevance
-        urls_to_extract = select_urls_for_crawling(
+        # Step 2: Use target-based scraping with improved threshold logic
+        config = get_enhanced_search_config()
+
+        # Use fixed 0.3 threshold and target-based scraping
+        logger.info(f"Using target-based scraping: threshold=0.3, target={config.target_successful_scrapes}")
+
+        crawled_content, successful_urls = await target_based_scraping(
             search_results=search_results,
-            limit=auto_crawl_top,
-            min_relevance=crawl_threshold
+            session_id=session_id,
+            target_successful_scrapes=config.target_successful_scrapes,
+            crawl_threshold=0.3,  # Fixed at 0.3 for better success rates
+            max_concurrent=config.default_max_concurrent
         )
 
-        # Step 3: Extract content from selected URLs
-        crawled_content = []
-        successful_urls = []
-
-        if urls_to_extract:
-            logger.info(f"Extracting content from {len(urls_to_extract)} URLs using advanced scraping")
-
-            # Extract content from URLs concurrently using advanced extraction
-            tasks = [advanced_content_extraction(url, session_id, query) for url in urls_to_extract]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            for i, result in enumerate(results):
-                url = urls_to_extract[i]
-                if isinstance(result, Exception):
-                    logger.error(f"Failed to extract from {url}: {result}")
-                elif result and len(result.strip()) > 100:  # Only keep substantial content
-                    crawled_content.append(result.strip())
-                    successful_urls.append(url)
-
+  
         end_time = datetime.now()
         total_duration = (end_time - start_time).total_seconds()
 
