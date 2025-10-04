@@ -1,22 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git log:*)",
-      "Read(//home/kjdragan/lrepos/z-playground1/**)",
-      "mcp__deepwiki__read_wiki_structure",
-      "mcp__deepwiki__read_wiki_contents",
-      "mcp__deepwiki__ask_question",
-      "Bash(mkdir:*)",
-      "Bash(python:*)",
-      "Bash(python3:*)",
-      "Bash(find:*)",
-      "Bash(tree:*)",
-      "Bash(uv run:*)",
-      "Bash(for f in /home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/sessions/01d302b9-8c97-43ad-a12b-c6dd9f4e70af/research/*.md)",
-      "Bash(head:*)",
-      "Bash(done)",
-      "Bash(for f in *.md)",
-      "Bash(do echo \"=== $f ===\")"
+      "Bash(grep:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

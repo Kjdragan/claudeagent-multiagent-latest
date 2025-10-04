@@ -100,13 +100,31 @@ class ContentCleanerAgent:
         elif PYDAI_AVAILABLE:
             try:
                 # Initialize Pydantic AI agent with OpenAI model
-                model = OpenAIModel(self.model_name, api_key=self.api_key)
+                # Add timeout settings to prevent hanging on slow API responses
+                import httpx
+                http_client = httpx.AsyncClient(
+                    timeout=httpx.Timeout(
+                        connect=5.0,   # 5 seconds to establish connection
+                        read=30.0,     # 30 seconds to read response (per chunk)
+                        write=10.0,    # 10 seconds to write request
+                        pool=10.0      # 10 seconds to acquire connection from pool
+                    )
+                )
+
+                from pydantic_ai.models.openai import Provider
+                provider = Provider(http_client=http_client)
+
+                model = OpenAIModel(
+                    self.model_name,
+                    api_key=self.api_key,
+                    provider=provider
+                )
                 self.agent = Agent(
                     model,
                     system_prompt=self._get_system_prompt(),
                     deps_type=ContentCleaningContext
                 )
-                logger.info(f"Content cleaner agent initialized with model: {model_name}")
+                logger.info(f"Content cleaner agent initialized with model: {model_name} (timeout: 30s)")
             except Exception as e:
                 logger.error(f"Failed to initialize Pydantic AI agent: {e}")
                 self.agent = None
@@ -240,7 +258,9 @@ class ContentCleanerAgent:
         # Log batch summary
         total_time = (datetime.now() - start_time).total_seconds()
         avg_quality = sum(r.quality_score for r in final_results) / len(final_results)
-        successful = sum(1 for r in final_results if r.quality_score >= context.min_quality_threshold)
+        # Use first context's threshold (all should have same threshold)
+        min_threshold = contents[0][1].min_quality_threshold if contents else 50
+        successful = sum(1 for r in final_results if r.quality_score >= min_threshold)
 
         logger.info(f"Batch cleaning completed: {successful}/{len(final_results)} passed quality threshold "
                    f"(avg quality: {avg_quality:.1f}, total time: {total_time:.1f}s)")
@@ -257,8 +277,20 @@ class ContentCleanerAgent:
             # Prepare the cleaning prompt
             cleaning_prompt = self._create_cleaning_prompt(raw_content, context)
 
-            # Run the AI agent
-            result = await self.agent.run(cleaning_prompt, deps=context)
+            logger.debug(f"Starting AI content cleaning for {context.url} ({len(raw_content)} chars)")
+
+            # Run the AI agent with timeout protection
+            import asyncio
+            try:
+                result = await asyncio.wait_for(
+                    self.agent.run(cleaning_prompt, deps=context),
+                    timeout=60.0  # Overall 60s timeout for the entire operation
+                )
+            except asyncio.TimeoutError:
+                logger.warning(f"AI cleaning timed out for {context.url} - falling back to rule-based")
+                return await self._rule_based_clean_content(raw_content, context)
+
+            logger.debug(f"AI cleaning completed for {context.url}")
 
             # Parse the structured result
             cleaned_data = result.data
@@ -519,31 +551,81 @@ class ContentCleanerAgent:
 
 Given raw web content and a search query, you must:
 
-1. **Clean the content** by:
-   - Removing navigation elements, ads, and irrelevant sections
-   - Fixing formatting issues and excessive whitespace
-   - Preserving the core information and structure
-   - Ensuring readability and coherence
+1. **Clean the content by removing ALL of these elements**:
 
-2. **Evaluate quality** (0-100 scale) based on:
+   **Navigation & Menus:**
+   - Header navigation bars (Home, News, World, Politics, Tech, etc.)
+   - Footer navigation links
+   - Breadcrumb navigation
+   - Category/subcategory menus
+
+   **Social Media & Sharing:**
+   - Facebook, Twitter/X, Instagram, TikTok, YouTube, Reddit links
+   - Share buttons and social media widgets
+   - Newsletter signup forms
+
+   **Site Utility Links:**
+   - About Us, Contact Us, Careers, Privacy Policy, Terms & Conditions
+   - Copyright notices, legal disclaimers
+   - Advertise with us, Press Center, Corrections
+   - Site editions (U.S., Japan, Polska, România)
+
+   **Content Recommendations:**
+   - Related articles, "More from author", "Recommended for you"
+   - Author bios and headshots
+   - Opinion pieces from other authors
+   - Trending topics sections
+
+   **Media & Interactive Elements:**
+   - ALL images and photos (remove image URLs and alt text)
+   - Video embeds, video thumbnails, "Related Videos"
+   - Audio players, podcasts embeds
+   - Galleries, slideshows
+
+   **Advertising & Tracking:**
+   - Ad placeholders, sponsored content labels
+   - Tracking pixels, analytics URLs
+   - Newsletter signup prompts
+   - Subscription prompts, paywall messages
+
+   **Repeated/Duplicate Content:**
+   - Duplicate navigation blocks
+   - Repeated category listings
+   - Duplicate footer sections
+
+2. **Preserve ONLY these elements**:
+   - Main article headline and subheadings
+   - Article body content and paragraphs
+   - Quotes and attributed statements
+   - Key data points, statistics, and facts
+   - Direct statements from officials/experts
+   - Context that directly relates to the search query
+
+3. **Format the cleaned content**:
+   - Remove excessive whitespace and blank lines
+   - Fix broken formatting
+   - Ensure proper paragraph structure
+   - Maintain logical flow
+
+4. **Evaluate quality** (0-100 scale) based on:
    - Relevance to the search query
-   - Content depth and substance
+   - Content depth and substance after cleaning
    - Readability and organization
    - Source credibility indicators
    - Information accuracy and completeness
 
-3. **Assess relevance** (0.0-1.0 scale) by:
-   - Matching content to search query terms
+5. **Assess relevance** (0.0-1.0 scale) by:
+   - Matching cleaned content to search query terms
    - Identifying key concepts and topics
    - Evaluating information density
 
-4. **Extract key points** (3-5 main insights)
+6. **Extract key points** (3-5 main insights)
 
-5. **Identify topics** (main subjects covered)
+7. **Identify topics** (main subjects covered)
 
 Return your analysis in this JSON format:
 {
-    "cleaned_content": "The cleaned and formatted content",
+    "cleaned_content": "The cleaned and formatted content with all noise removed",
     "quality_score": 85,
     "relevance_score": 0.78,
     "key_points": ["Point 1", "Point 2", "Point 3"],
@@ -551,7 +633,7 @@ Return your analysis in this JSON format:
     "cleaning_notes": ["Note about cleaning process"]
 }
 
-Focus on preserving valuable information while removing noise and improving readability."""
+IMPORTANT: Be aggressive in removing noise. If content is primarily navigation, ads, or unrelated material, return a low quality score and minimal cleaned content."""
 
     def _create_cleaning_prompt(self, content: str, context: ContentCleaningContext) -> str:
         """Create the cleaning prompt for the AI."""
@@ -561,10 +643,23 @@ URL: {context.url}
 Source Domain: {context.source_domain}
 Query Terms: {', '.join(context.query_terms)}
 
-Raw Content:
-{content[:15000]}  # Limit content to avoid token limits
+INSTRUCTIONS: Remove ALL navigation menus, social media links, footer links, author bios, related articles, images, videos, ads, tracking pixels, and duplicate content. Keep ONLY the main article content that directly relates to the search query.
 
-Please analyze and clean this content according to the instructions. Return your response in valid JSON format."""
+Raw Content (first 15,000 chars):
+{content[:15000]}
+
+CRITICAL REQUIREMENTS:
+1. Remove navigation menus (Home, News, World, Politics, Tech, etc.)
+2. Remove social media links (Facebook, Twitter, Instagram, etc.)
+3. Remove footer links (About Us, Privacy Policy, Terms, etc.)
+4. Remove ALL images and image URLs
+5. Remove videos and video thumbnails
+6. Remove author bios and related articles
+7. Remove tracking pixels and ad URLs
+8. Remove duplicate navigation blocks
+9. Keep ONLY article body content relevant to: "{context.search_query}"
+
+Please analyze and clean this content according to the detailed instructions. Return your response in valid JSON format."""
 
     def _update_stats(self, result: CleanedContent):
         """Update cleaning statistics."""

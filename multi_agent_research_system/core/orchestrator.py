@@ -891,13 +891,18 @@ class ResearchOrchestrator:
                         message_info["content_texts"] = content_texts
                         query_result["substantive_responses"] += 1
 
-                # Extract tool use information
-                if hasattr(message, 'tool_use') and message.tool_use:
-                    message_info["tool_use"] = {
-                        "name": message.tool_use.get("name"),
-                        "id": message.tool_use.get("id")
-                    }
-                    query_result["tool_executions"].append(message_info["tool_use"])
+                # Extract tool use information from AssistantMessage content blocks
+                if isinstance(message, AssistantMessage):
+                    for block in message.content:
+                        if isinstance(block, ToolUseBlock):
+                            tool_info = {
+                                "name": block.name,
+                                "id": block.id,
+                                "input": block.input
+                            }
+                            message_info["tool_use"] = tool_info
+                            query_result["tool_executions"].append(tool_info)
+                            self.logger.info(f"{agent_name} executed tool: {block.name}")
 
                 query_result["messages_collected"].append(message_info)
 
