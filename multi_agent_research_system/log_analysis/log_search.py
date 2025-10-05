@@ -6,11 +6,10 @@ including full-text search, field-based filtering, and pattern matching.
 """
 
 import re
-import json
-from datetime import datetime, timedelta
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union, Tuple
+from datetime import datetime
 from enum import Enum
+from typing import Any
 
 from .log_aggregator import LogEntry
 
@@ -36,9 +35,9 @@ class SearchOperator(Enum):
 @dataclass
 class SearchQuery:
     """Search query structure."""
-    field: Optional[str]  # Field to search in, None for full-text
+    field: str | None  # Field to search in, None for full-text
     operator: SearchOperator
-    value: Union[str, int, float, List]
+    value: str | int | float | list
     case_sensitive: bool = False
     boost: float = 1.0
 
@@ -48,7 +47,7 @@ class SearchResult:
     """Single search result."""
     entry: LogEntry
     score: float
-    highlights: Dict[str, List[str]]
+    highlights: dict[str, list[str]]
 
 
 @dataclass
@@ -66,11 +65,11 @@ class LogSearchEngine:
 
     def __init__(self):
         """Initialize the search engine."""
-        self.index_cache: Dict[str, Dict[Any, set]] = {}
-        self.search_cache: Dict[str, Tuple[List[SearchResult], SearchStats]] = {}
+        self.index_cache: dict[str, dict[Any, set]] = {}
+        self.search_cache: dict[str, tuple[list[SearchResult], SearchStats]] = {}
         self.cache_ttl_minutes = 10
 
-    def build_index(self, entries: List[LogEntry]) -> None:
+    def build_index(self, entries: list[LogEntry]) -> None:
         """
         Build search index from log entries.
 
@@ -123,19 +122,19 @@ class LogSearchEngine:
             self.index_cache[field][value] = set()
         self.index_cache[field][value].add(entry_index)
 
-    def _tokenize_message(self, message: str) -> List[str]:
+    def _tokenize_message(self, message: str) -> list[str]:
         """Tokenize message for full-text search."""
         # Simple tokenization - split on non-alphanumeric characters
         tokens = re.findall(r'\b\w+\b', message.lower())
         return tokens
 
     def search(self,
-               entries: List[LogEntry],
-               query: Union[str, SearchQuery, List[SearchQuery]],
-               limit: Optional[int] = None,
+               entries: list[LogEntry],
+               query: str | SearchQuery | list[SearchQuery],
+               limit: int | None = None,
                offset: int = 0,
                sort_by: str = 'score',
-               include_highlights: bool = True) -> Tuple[List[SearchResult], SearchStats]:
+               include_highlights: bool = True) -> tuple[list[SearchResult], SearchStats]:
         """
         Search log entries with advanced query capabilities.
 
@@ -206,7 +205,7 @@ class LogSearchEngine:
 
         return matched_results, stats
 
-    def _parse_string_query(self, query: str) -> List[SearchQuery]:
+    def _parse_string_query(self, query: str) -> list[SearchQuery]:
         """Parse string query into structured search queries."""
         queries = []
 
@@ -267,7 +266,7 @@ class LogSearchEngine:
 
         return queries
 
-    def _match_entry(self, entry: LogEntry, queries: List[SearchQuery], include_highlights: bool) -> Tuple[float, Dict[str, List[str]]]:
+    def _match_entry(self, entry: LogEntry, queries: list[SearchQuery], include_highlights: bool) -> tuple[float, dict[str, list[str]]]:
         """Check if an entry matches the search queries."""
         total_score = 0.0
         highlights = {}
@@ -284,7 +283,7 @@ class LogSearchEngine:
 
         return total_score, highlights
 
-    def _match_query(self, entry: LogEntry, query: SearchQuery, include_highlights: bool) -> Tuple[float, Dict[str, List[str]]]:
+    def _match_query(self, entry: LogEntry, query: SearchQuery, include_highlights: bool) -> tuple[float, dict[str, list[str]]]:
         """Check if an entry matches a single search query."""
         if query.field is None:
             # Full-text search
@@ -293,7 +292,7 @@ class LogSearchEngine:
             # Field-based search
             return self._match_field(entry, query, include_highlights)
 
-    def _match_full_text(self, entry: LogEntry, query: SearchQuery, include_highlights: bool) -> Tuple[float, Dict[str, List[str]]]:
+    def _match_full_text(self, entry: LogEntry, query: SearchQuery, include_highlights: bool) -> tuple[float, dict[str, list[str]]]:
         """Match entry against full-text search query."""
         search_text = entry.message.lower()
         search_value = str(query.value).lower()
@@ -328,7 +327,7 @@ class LogSearchEngine:
 
         return 0.0, {}
 
-    def _match_field(self, entry: LogEntry, query: SearchQuery, include_highlights: bool) -> Tuple[float, Dict[str, List[str]]]:
+    def _match_field(self, entry: LogEntry, query: SearchQuery, include_highlights: bool) -> tuple[float, dict[str, list[str]]]:
         """Match entry against field-based search query."""
         field_value = self._get_field_value(entry, query.field)
         if field_value is None:
@@ -374,13 +373,7 @@ class LogSearchEngine:
                 field_num = float(field_str)
                 value_num = float(search_value)
 
-                if query.operator == SearchOperator.GT and field_num > value_num:
-                    score = 1.0
-                elif query.operator == SearchOperator.GTE and field_num >= value_num:
-                    score = 1.0
-                elif query.operator == SearchOperator.LT and field_num < value_num:
-                    score = 1.0
-                elif query.operator == SearchOperator.LTE and field_num <= value_num:
+                if query.operator == SearchOperator.GT and field_num > value_num or query.operator == SearchOperator.GTE and field_num >= value_num or query.operator == SearchOperator.LT and field_num < value_num or query.operator == SearchOperator.LTE and field_num <= value_num:
                     score = 1.0
 
                 if score > 0:
@@ -419,7 +412,7 @@ class LogSearchEngine:
 
         return None
 
-    def _generate_cache_key(self, entries: List[LogEntry], query: Any, limit: Optional[int], offset: int, sort_by: str) -> str:
+    def _generate_cache_key(self, entries: list[LogEntry], query: Any, limit: int | None, offset: int, sort_by: str) -> str:
         """Generate cache key for search results."""
         # Simple cache key generation - can be improved
         query_str = str(query) if not isinstance(query, str) else query
@@ -430,7 +423,7 @@ class LogSearchEngine:
         """Clear search cache."""
         self.search_cache.clear()
 
-    def get_field_suggestions(self, field: str, entries: List[LogEntry], limit: int = 10) -> List[str]:
+    def get_field_suggestions(self, field: str, entries: list[LogEntry], limit: int = 10) -> list[str]:
         """Get suggestions for field values."""
         suggestions = set()
 
@@ -444,7 +437,7 @@ class LogSearchEngine:
 
         return list(suggestions)[:limit]
 
-    def get_search_stats(self) -> Dict[str, Any]:
+    def get_search_stats(self) -> dict[str, Any]:
         """Get search engine statistics."""
         return {
             'indexed_fields': list(self.index_cache.keys()),

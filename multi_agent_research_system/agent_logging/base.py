@@ -9,7 +9,7 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from .structured_logger import StructuredLogger
 
@@ -17,7 +17,7 @@ from .structured_logger import StructuredLogger
 class AgentLogger:
     """Base class for all agent-specific loggers."""
 
-    def __init__(self, agent_name: str, session_id: Optional[str] = None, base_log_dir: str = "logs"):
+    def __init__(self, agent_name: str, session_id: str | None = None, base_log_dir: str = "logs"):
         """Initialize the agent logger.
 
         Args:
@@ -40,19 +40,19 @@ class AgentLogger:
         )
 
         # Activity tracking
-        self.activities: list[Dict[str, Any]] = []
+        self.activities: list[dict[str, Any]] = []
 
     def log_activity(self,
                     agent_name: str,
                     activity_type: str,
                     stage: str,
-                    input_data: Optional[Dict[str, Any]] = None,
-                    output_data: Optional[Dict[str, Any]] = None,
-                    tool_used: Optional[str] = None,
-                    tool_result: Optional[Any] = None,
-                    execution_time: Optional[float] = None,
-                    error: Optional[str] = None,
-                    metadata: Optional[Dict[str, Any]] = None) -> None:
+                    input_data: dict[str, Any] | None = None,
+                    output_data: dict[str, Any] | None = None,
+                    tool_used: str | None = None,
+                    tool_result: Any | None = None,
+                    execution_time: float | None = None,
+                    error: str | None = None,
+                    metadata: dict[str, Any] | None = None) -> None:
         """Log a general agent activity.
 
         Args:
@@ -98,7 +98,7 @@ class AgentLogger:
         # Also write to activity log file
         self._write_activity_log(activity_entry)
 
-    def _write_activity_log(self, activity_entry: Dict[str, Any]) -> None:
+    def _write_activity_log(self, activity_entry: dict[str, Any]) -> None:
         """Write activity entry to activity log file."""
         try:
             activity_log_file = self.log_dir / f"activities_{self.session_id}.jsonl"
@@ -112,7 +112,7 @@ class AgentLogger:
 
     def log_agent_initialization(self,
                                 agent_name: str,
-                                config: Dict[str, Any]) -> None:
+                                config: dict[str, Any]) -> None:
         """Log agent initialization.
 
         Args:
@@ -125,7 +125,7 @@ class AgentLogger:
                                    session_id=self.session_id,
                                    config=config)
 
-    def log_session_start(self, session_data: Dict[str, Any]) -> None:
+    def log_session_start(self, session_data: dict[str, Any]) -> None:
         """Log the start of a new session.
 
         Args:
@@ -137,7 +137,7 @@ class AgentLogger:
                                    session_id=self.session_id,
                                    session_data=session_data)
 
-    def log_session_end(self, session_summary: Dict[str, Any]) -> None:
+    def log_session_end(self, session_summary: dict[str, Any]) -> None:
         """Log the end of a session.
 
         Args:
@@ -151,8 +151,8 @@ class AgentLogger:
                                    session_summary=session_summary)
 
     def get_activities(self,
-                      activity_type: Optional[str] = None,
-                      limit: Optional[int] = None) -> list[Dict[str, Any]]:
+                      activity_type: str | None = None,
+                      limit: int | None = None) -> list[dict[str, Any]]:
         """Get activities with optional filtering.
 
         Args:
@@ -172,7 +172,7 @@ class AgentLogger:
 
         return activities
 
-    def get_session_summary(self) -> Dict[str, Any]:
+    def get_session_summary(self) -> dict[str, Any]:
         """Get a summary of the current session.
 
         Returns:
@@ -204,7 +204,7 @@ class AgentLogger:
             "log_directory": str(self.log_dir)
         }
 
-    def export_session_data(self, file_path: Optional[str] = None) -> str:
+    def export_session_data(self, file_path: str | None = None) -> str:
         """Export all session data to a JSON file.
 
         Args:
@@ -228,7 +228,7 @@ class AgentLogger:
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(session_data, f, indent=2)
 
-        self.structured_logger.info(f"Session data exported",
+        self.structured_logger.info("Session data exported",
                                    event_type="session_export",
                                    file_path=file_path,
                                    activities_count=len(self.activities))

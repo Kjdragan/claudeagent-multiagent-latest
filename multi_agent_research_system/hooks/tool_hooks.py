@@ -5,19 +5,20 @@ Provides comprehensive monitoring and tracking of tool execution,
 including performance metrics, success rates, and detailed logging.
 """
 
-import time
 import json
-import sys
 import os
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Set
+import sys
+import time
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
 
 # Add parent directory to path for proper imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from .base_hooks import BaseHook, HookContext, HookResult, HookStatus, HookPriority
-from agent_logging import get_logger, ToolUseLogger
+from agent_logging import ToolUseLogger
+
+from .base_hooks import BaseHook, HookContext, HookPriority, HookResult, HookStatus
 
 
 @dataclass
@@ -31,8 +32,8 @@ class ToolExecutionMetrics:
     min_execution_time: float = float('inf')
     max_execution_time: float = 0.0
     total_data_processed: int = 0
-    last_execution: Optional[datetime] = None
-    error_types: Dict[str, int] = None
+    last_execution: datetime | None = None
+    error_types: dict[str, int] = None
 
     def __post_init__(self):
         if self.error_types is None:
@@ -50,7 +51,7 @@ class ToolExecutionMetrics:
         """Calculate failure rate as percentage."""
         return 100.0 - self.success_rate
 
-    def update_execution(self, execution_time: float, success: bool, error_type: Optional[str] = None, data_size: int = 0):
+    def update_execution(self, execution_time: float, success: bool, error_type: str | None = None, data_size: int = 0):
         """Update metrics with new execution data."""
         self.total_executions += 1
         self.last_execution = datetime.now()
@@ -89,8 +90,8 @@ class ToolExecutionHook(BaseHook):
             retry_count=1
         )
         self.tool_logger = ToolUseLogger()
-        self.tool_metrics: Dict[str, ToolExecutionMetrics] = {}
-        self.active_executions: Dict[str, Dict[str, Any]] = {}
+        self.tool_metrics: dict[str, ToolExecutionMetrics] = {}
+        self.active_executions: dict[str, dict[str, Any]] = {}
 
     async def execute(self, context: HookContext) -> HookResult:
         """Execute tool execution monitoring."""
@@ -143,7 +144,7 @@ class ToolExecutionHook(BaseHook):
         self,
         context: HookContext,
         tool_name: str,
-        tool_input: Dict[str, Any],
+        tool_input: dict[str, Any],
         tool_use_id: str
     ) -> HookResult:
         """Handle tool execution start event."""
@@ -292,7 +293,7 @@ class ToolExecutionHook(BaseHook):
             }
         )
 
-    def get_tool_metrics(self, tool_name: Optional[str] = None) -> Dict[str, Any]:
+    def get_tool_metrics(self, tool_name: str | None = None) -> dict[str, Any]:
         """Get performance metrics for tools."""
         if tool_name:
             if tool_name not in self.tool_metrics:
@@ -319,7 +320,7 @@ class ToolExecutionHook(BaseHook):
                 for tool_name in self.tool_metrics.keys()
             }
 
-    def get_active_executions(self) -> Dict[str, Dict[str, Any]]:
+    def get_active_executions(self) -> dict[str, dict[str, Any]]:
         """Get currently active tool executions."""
         current_time = time.time()
         active = {}
@@ -334,7 +335,7 @@ class ToolExecutionHook(BaseHook):
 
         return active
 
-    def get_slow_tools(self, threshold_seconds: float = 5.0) -> List[str]:
+    def get_slow_tools(self, threshold_seconds: float = 5.0) -> list[str]:
         """Get list of tools with average execution time above threshold."""
         slow_tools = []
         for tool_name, metrics in self.tool_metrics.items():
@@ -342,7 +343,7 @@ class ToolExecutionHook(BaseHook):
                 slow_tools.append(tool_name)
         return sorted(slow_tools, key=lambda t: self.tool_metrics[t].average_execution_time, reverse=True)
 
-    def get_problematic_tools(self, failure_rate_threshold: float = 20.0) -> List[str]:
+    def get_problematic_tools(self, failure_rate_threshold: float = 20.0) -> list[str]:
         """Get list of tools with failure rate above threshold."""
         problematic_tools = []
         for tool_name, metrics in self.tool_metrics.items():
@@ -365,7 +366,7 @@ class ToolPerformanceMonitor(BaseHook):
         )
         self.slow_threshold = slow_threshold
         self.failure_rate_threshold = failure_rate_threshold
-        self.performance_alerts: List[Dict[str, Any]] = []
+        self.performance_alerts: list[dict[str, Any]] = []
         self.max_alerts = 100
 
     async def execute(self, context: HookContext) -> HookResult:
@@ -417,7 +418,7 @@ class ToolPerformanceMonitor(BaseHook):
                 error_type=type(e).__name__
             )
 
-    def _generate_performance_alerts(self, tool_metrics: Dict[str, Any], current_time: float) -> List[Dict[str, Any]]:
+    def _generate_performance_alerts(self, tool_metrics: dict[str, Any], current_time: float) -> list[dict[str, Any]]:
         """Generate performance alerts based on tool metrics."""
         alerts = []
 
@@ -457,7 +458,7 @@ class ToolPerformanceMonitor(BaseHook):
 
         return alerts
 
-    def _generate_performance_summary(self, tool_metrics: Dict[str, Any]) -> Dict[str, Any]:
+    def _generate_performance_summary(self, tool_metrics: dict[str, Any]) -> dict[str, Any]:
         """Generate overall performance summary."""
         if not tool_metrics:
             return {"message": "No tool metrics available"}
@@ -484,7 +485,7 @@ class ToolPerformanceMonitor(BaseHook):
             "performance_grade": self._calculate_performance_grade(tool_metrics)
         }
 
-    def _calculate_performance_grade(self, tool_metrics: Dict[str, Any]) -> str:
+    def _calculate_performance_grade(self, tool_metrics: dict[str, Any]) -> str:
         """Calculate overall performance grade."""
         if not tool_metrics:
             return "N/A"
@@ -511,6 +512,6 @@ class ToolPerformanceMonitor(BaseHook):
         else:
             return "F"
 
-    def get_recent_alerts(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_recent_alerts(self, limit: int = 50) -> list[dict[str, Any]]:
         """Get recent performance alerts."""
         return self.performance_alerts[-limit:] if self.performance_alerts else []

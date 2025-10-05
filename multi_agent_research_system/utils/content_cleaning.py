@@ -6,14 +6,13 @@ navigation, ads, and irrelevant content while preserving main article text.
 Includes optimization with cleanliness assessment to skip unnecessary cleaning.
 """
 
-import logging
-from typing import List, Tuple, Optional
 import asyncio
+import logging
 
 logger = logging.getLogger(__name__)
 
 
-async def assess_content_cleanliness(content: str, url: str, threshold: float = 0.7) -> Tuple[bool, float]:
+async def assess_content_cleanliness(content: str, url: str, threshold: float = 0.7) -> tuple[bool, float]:
     """
     Quickly assess if content is clean enough to use without full cleaning.
 
@@ -196,7 +195,7 @@ async def clean_content_with_judge_optimization(
     search_query: str = None,
     cleanliness_threshold: float = 0.7,
     skip_judge: bool = False
-) -> Tuple[str, dict]:
+) -> tuple[str, dict]:
     """
     Optimized content cleaning with judge assessment to skip unnecessary cleaning.
 
@@ -277,7 +276,7 @@ async def clean_content_with_judge_optimization(
         return content, metadata
 
 
-async def clean_content_batch(content_urls: List[Tuple[str, str]], search_query: str = None) -> List[str]:
+async def clean_content_batch(content_urls: list[tuple[str, str]], search_query: str = None) -> list[str]:
     """
     Clean multiple content pieces in parallel using gpt-5-nano with search query context.
 
@@ -319,7 +318,7 @@ async def clean_content_batch(content_urls: List[Tuple[str, str]], search_query:
         return [content for content, url in content_urls]
 
 
-def format_cleaned_results(cleaned_contents: List[str], urls: List[str], titles: List[str] = None) -> str:
+def format_cleaned_results(cleaned_contents: list[str], urls: list[str], titles: list[str] = None) -> str:
     """
     Format cleaned content results into a structured output.
 
@@ -340,7 +339,7 @@ def format_cleaned_results(cleaned_contents: List[str], urls: List[str], titles:
         ""
     ]
 
-    for i, (content, url) in enumerate(zip(cleaned_contents, urls), 1):
+    for i, (content, url) in enumerate(zip(cleaned_contents, urls, strict=False), 1):
         title = titles[i-1] if titles and len(titles) >= i else f"Article {i}"
 
         result_parts.extend([

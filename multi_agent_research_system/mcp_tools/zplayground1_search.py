@@ -9,17 +9,17 @@ Based on the proven zPlayground1 implementation, fully integrated for standalone
 """
 
 import logging
-from pathlib import Path
-from typing import Any, Dict
 import os
 import sys
+from pathlib import Path
+from typing import Any
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import Claude Agent SDK MCP functionality
 try:
-    from claude_agent_sdk import tool, create_sdk_mcp_server
+    from claude_agent_sdk import create_sdk_mcp_server, tool
     CLAUDE_SDK_AVAILABLE = True
 except ImportError:
     logger = logging.getLogger(__name__)
@@ -27,7 +27,10 @@ except ImportError:
     CLAUDE_SDK_AVAILABLE = False
 
 # Import the exact zPlayground1 search functionality
-from utils.z_search_crawl_utils import search_crawl_and_clean_direct, news_search_and_crawl_direct
+from utils.z_search_crawl_utils import (
+    news_search_and_crawl_direct,
+    search_crawl_and_clean_direct,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +110,7 @@ def create_zplayground1_mcp_server():
             }
         }
     )
-    async def zplayground1_search_scrape_clean(args: Dict[str, Any]) -> Dict[str, Any]:
+    async def zplayground1_search_scrape_clean(args: dict[str, Any]) -> dict[str, Any]:
         """
         Complete zPlayground1 search, scrape, and clean functionality.
 

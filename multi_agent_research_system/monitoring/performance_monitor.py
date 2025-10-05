@@ -7,10 +7,11 @@ with the metrics collector to provide real-time insights into system performance
 
 import asyncio
 import time
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, AsyncGenerator
+from typing import Any
 
 from .metrics_collector import MetricsCollector
 
@@ -34,11 +35,11 @@ class PerformanceAlert:
     metric_name: str
     current_value: float
     threshold_value: float
-    agent_name: Optional[str]
-    tool_name: Optional[str]
-    workflow_id: Optional[str]
+    agent_name: str | None
+    tool_name: str | None
+    workflow_id: str | None
     message: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 class PerformanceMonitor:
@@ -58,10 +59,10 @@ class PerformanceMonitor:
         self.alert_cooldown_minutes = alert_cooldown_minutes
 
         # Performance tracking
-        self.active_sessions: Dict[str, Dict[str, Any]] = {}
-        self.performance_history: List[Dict[str, Any]] = []
-        self.alerts: List[PerformanceAlert] = []
-        self.alert_cooldowns: Dict[str, datetime] = {}
+        self.active_sessions: dict[str, dict[str, Any]] = {}
+        self.performance_history: list[dict[str, Any]] = []
+        self.alerts: list[PerformanceAlert] = []
+        self.alert_cooldowns: dict[str, datetime] = {}
 
         # Performance thresholds
         self.thresholds = {
@@ -103,7 +104,7 @@ class PerformanceMonitor:
         }
 
         # Monitoring task
-        self.monitoring_task: Optional[asyncio.Task] = None
+        self.monitoring_task: asyncio.Task | None = None
         self.is_monitoring = False
 
         self.metrics_collector.logger.info("PerformanceMonitor initialized",
@@ -134,7 +135,7 @@ class PerformanceMonitor:
     async def monitor_tool_execution(self,
                                    tool_name: str,
                                    agent_name: str,
-                                   input_size: int = 0) -> AsyncGenerator[Dict[str, Any], None]:
+                                   input_size: int = 0) -> AsyncGenerator[dict[str, Any], None]:
         """
         Context manager to monitor tool execution performance.
 
@@ -200,7 +201,7 @@ class PerformanceMonitor:
     async def monitor_workflow_stage(self,
                                    workflow_id: str,
                                    stage_name: str,
-                                   agents_involved: List[str]) -> AsyncGenerator[Dict[str, Any], None]:
+                                   agents_involved: list[str]) -> AsyncGenerator[dict[str, Any], None]:
         """
         Context manager to monitor workflow stage performance.
 
@@ -244,7 +245,7 @@ class PerformanceMonitor:
                 workflow_id, stage_name, stage_duration, True
             )
 
-        except Exception as e:
+        except Exception:
             stage_duration = time.time() - start_time
             total_duration = time.time() - total_start_time
 
@@ -272,7 +273,7 @@ class PerformanceMonitor:
                             activity_name: str,
                             value: float,
                             unit: str = "count",
-                            metadata: Optional[Dict[str, Any]] = None) -> None:
+                            metadata: dict[str, Any] | None = None) -> None:
         """
         Record an agent activity for performance tracking.
 
@@ -299,7 +300,7 @@ class PerformanceMonitor:
                 agent_name, activity_name, value
             ))
 
-    def start_session_tracking(self, session_id: str, session_data: Dict[str, Any]) -> None:
+    def start_session_tracking(self, session_id: str, session_data: dict[str, Any]) -> None:
         """
         Start tracking a new session.
 
@@ -318,7 +319,7 @@ class PerformanceMonitor:
         self.metrics_collector.logger.info(f"Started tracking session: {session_id}",
                                          session_id=session_id)
 
-    def end_session_tracking(self, session_id: str, summary_data: Dict[str, Any]) -> Dict[str, Any]:
+    def end_session_tracking(self, session_id: str, summary_data: dict[str, Any]) -> dict[str, Any]:
         """
         End tracking for a session and generate performance summary.
 
@@ -400,7 +401,7 @@ class PerformanceMonitor:
                                            agent_name: str,
                                            execution_time: float,
                                            success: bool,
-                                           error_type: Optional[str] = None) -> None:
+                                           error_type: str | None = None) -> None:
         """Check for tool performance alerts."""
         if not success:
             # Generate alert for tool failure
@@ -467,10 +468,10 @@ class PerformanceMonitor:
     async def _check_threshold_alert(self,
                                    threshold_name: str,
                                    current_value: float,
-                                   agent_name: Optional[str],
-                                   tool_name: Optional[str],
-                                   workflow_id: Optional[str],
-                                   metadata: Optional[Dict[str, Any]] = None) -> None:
+                                   agent_name: str | None,
+                                   tool_name: str | None,
+                                   workflow_id: str | None,
+                                   metadata: dict[str, Any] | None = None) -> None:
         """Check if a value exceeds its threshold and generate alert if needed."""
         if threshold_name not in self.thresholds:
             return
@@ -514,11 +515,11 @@ class PerformanceMonitor:
                             metric_name: str,
                             current_value: float,
                             threshold_value: float,
-                            agent_name: Optional[str],
-                            tool_name: Optional[str],
-                            workflow_id: Optional[str],
+                            agent_name: str | None,
+                            tool_name: str | None,
+                            workflow_id: str | None,
                             message: str,
-                            metadata: Optional[Dict[str, Any]] = None) -> None:
+                            metadata: dict[str, Any] | None = None) -> None:
         """Generate and store a performance alert."""
         alert = PerformanceAlert(
             alert_id=f"{metric_name}_{int(time.time() * 1000)}",
@@ -544,7 +545,7 @@ class PerformanceMonitor:
             self.metrics_collector.logger.warning(f"Performance Alert: {message}",
                                                 **{k: v for k, v in alert.__dict__.items() if k != 'message'})
 
-    def _get_workflow_start_time(self, workflow_id: str) -> Optional[float]:
+    def _get_workflow_start_time(self, workflow_id: str) -> float | None:
         """Get the start time for a workflow from performance history."""
         for session in self.active_sessions.values():
             if workflow_id in str(session.get('session_data', {})):
@@ -568,7 +569,7 @@ class PerformanceMonitor:
         if len(self.performance_history) > 100:
             self.performance_history = self.performance_history[-100:]
 
-    def get_performance_summary(self) -> Dict[str, Any]:
+    def get_performance_summary(self) -> dict[str, Any]:
         """Get comprehensive performance summary."""
         recent_time = datetime.now() - timedelta(hours=1)
 
@@ -602,8 +603,8 @@ class PerformanceMonitor:
         return summary
 
     def get_alerts_summary(self,
-                          alert_type: Optional[str] = None,
-                          hours_back: int = 24) -> Dict[str, Any]:
+                          alert_type: str | None = None,
+                          hours_back: int = 24) -> dict[str, Any]:
         """
         Get summary of performance alerts.
 

@@ -5,18 +5,19 @@ Provides comprehensive monitoring of agent interactions, communication,
 handoffs, and state changes throughout the research workflow.
 """
 
-import time
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Set
-from dataclasses import dataclass, field
-from enum import Enum
-
-from .base_hooks import BaseHook, HookContext, HookResult, HookStatus, HookPriority
-import sys
 import os
+import sys
+import time
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any
+
+from .base_hooks import BaseHook, HookContext, HookPriority, HookResult, HookStatus
+
 # Add parent directory to path for proper imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from agent_logging import get_logger, AgentCommunicationLogger
+from agent_logging import AgentCommunicationLogger
 
 
 class AgentState(Enum):
@@ -48,13 +49,13 @@ class AgentCommunicationEvent:
     event_id: str
     timestamp: datetime
     from_agent: str
-    to_agent: Optional[str]
+    to_agent: str | None
     event_type: str  # message, handoff, state_change, error
-    content: Dict[str, Any]
+    content: dict[str, Any]
     session_id: str
-    workflow_stage: Optional[str] = None
-    correlation_id: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    workflow_stage: str | None = None
+    correlation_id: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -65,12 +66,12 @@ class AgentHandoffEvent:
     from_agent: str
     to_agent: str
     reason: HandoffReason
-    context_data: Dict[str, Any]
+    context_data: dict[str, Any]
     session_id: str
     workflow_stage: str
     success: bool = True
-    completion_time: Optional[float] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    completion_time: float | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -81,12 +82,12 @@ class AgentStateSnapshot:
     state: AgentState
     timestamp: datetime
     session_id: str
-    current_task: Optional[str] = None
+    current_task: str | None = None
     processing_time: float = 0.0
-    memory_usage: Optional[float] = None
+    memory_usage: float | None = None
     error_count: int = 0
-    last_activity: Optional[datetime] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    last_activity: datetime | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class AgentCommunicationHook(BaseHook):
@@ -102,9 +103,9 @@ class AgentCommunicationHook(BaseHook):
             retry_count=1
         )
         self.comm_logger = AgentCommunicationLogger()
-        self.communication_events: List[AgentCommunicationEvent] = []
-        self.agent_states: Dict[str, AgentStateSnapshot] = {}
-        self.communication_graph: Dict[str, Set[str]] = {}
+        self.communication_events: list[AgentCommunicationEvent] = []
+        self.agent_states: dict[str, AgentStateSnapshot] = {}
+        self.communication_graph: dict[str, set[str]] = {}
         self.max_events = 1000
 
     async def execute(self, context: HookContext) -> HookResult:
@@ -328,7 +329,7 @@ class AgentCommunicationHook(BaseHook):
         if len(self.communication_events) > self.max_events:
             self.communication_events = self.communication_events[-self.max_events:]
 
-    def _update_communication_graph(self, from_agent: str, to_agent: Optional[str]):
+    def _update_communication_graph(self, from_agent: str, to_agent: str | None):
         """Update communication graph with new interaction."""
         if from_agent not in self.communication_graph:
             self.communication_graph[from_agent] = set()
@@ -343,7 +344,7 @@ class AgentCommunicationHook(BaseHook):
         agent_name: str,
         state: AgentState,
         session_id: str,
-        current_task: Optional[str] = None,
+        current_task: str | None = None,
         processing_time: float = 0.0
     ):
         """Update agent state snapshot."""
@@ -371,11 +372,11 @@ class AgentCommunicationHook(BaseHook):
 
     def get_communication_history(
         self,
-        session_id: Optional[str] = None,
-        agent_name: Optional[str] = None,
-        event_type: Optional[str] = None,
+        session_id: str | None = None,
+        agent_name: str | None = None,
+        event_type: str | None = None,
         limit: int = 100
-    ) -> List[AgentCommunicationEvent]:
+    ) -> list[AgentCommunicationEvent]:
         """Get filtered communication history."""
         events = self.communication_events.copy()
 
@@ -393,17 +394,17 @@ class AgentCommunicationHook(BaseHook):
         events.sort(key=lambda e: e.timestamp, reverse=True)
         return events[:limit]
 
-    def get_agent_states(self, session_id: Optional[str] = None) -> Dict[str, AgentStateSnapshot]:
+    def get_agent_states(self, session_id: str | None = None) -> dict[str, AgentStateSnapshot]:
         """Get current agent states."""
         if session_id:
             return {name: state for name, state in self.agent_states.items() if state.session_id == session_id}
         return self.agent_states.copy()
 
-    def get_communication_graph(self) -> Dict[str, List[str]]:
+    def get_communication_graph(self) -> dict[str, list[str]]:
         """Get communication graph as adjacency list."""
         return {agent: list(connections) for agent, connections in self.communication_graph.items()}
 
-    def get_active_agents(self, session_id: Optional[str] = None) -> List[str]:
+    def get_active_agents(self, session_id: str | None = None) -> list[str]:
         """Get list of currently active agents."""
         active_states = {AgentState.PROCESSING, AgentState.COMMUNICATING, AgentState.HANDING_OFF}
         active_agents = []
@@ -417,7 +418,7 @@ class AgentCommunicationHook(BaseHook):
 
         return active_agents
 
-    def get_error_summary(self, session_id: Optional[str] = None) -> Dict[str, Any]:
+    def get_error_summary(self, session_id: str | None = None) -> dict[str, Any]:
         """Get summary of agent errors."""
         error_events = [e for e in self.communication_events if e.event_type == "error"]
         if session_id:
@@ -463,8 +464,8 @@ class AgentHandoffHook(BaseHook):
             enabled=enabled,
             retry_count=1
         )
-        self.handoff_events: List[AgentHandoffEvent] = []
-        self.handoff_metrics: Dict[str, Dict[str, Any]] = {}
+        self.handoff_events: list[AgentHandoffEvent] = []
+        self.handoff_metrics: dict[str, dict[str, Any]] = {}
         self.max_handoffs = 500
 
     async def execute(self, context: HookContext) -> HookResult:
@@ -589,12 +590,12 @@ class AgentHandoffHook(BaseHook):
 
     def get_handoff_history(
         self,
-        session_id: Optional[str] = None,
-        from_agent: Optional[str] = None,
-        to_agent: Optional[str] = None,
-        reason: Optional[str] = None,
+        session_id: str | None = None,
+        from_agent: str | None = None,
+        to_agent: str | None = None,
+        reason: str | None = None,
         limit: int = 50
-    ) -> List[AgentHandoffEvent]:
+    ) -> list[AgentHandoffEvent]:
         """Get filtered handoff history."""
         handoffs = self.handoff_events.copy()
 
@@ -615,7 +616,7 @@ class AgentHandoffHook(BaseHook):
         handoffs.sort(key=lambda h: h.timestamp, reverse=True)
         return handoffs[:limit]
 
-    def get_handoff_metrics(self) -> Dict[str, Any]:
+    def get_handoff_metrics(self) -> dict[str, Any]:
         """Get comprehensive handoff metrics."""
         summary = {
             "total_handoffs": sum(m["total_handoffs"] for m in self.handoff_metrics.values()),
@@ -662,8 +663,8 @@ class AgentStateMonitor(BaseHook):
             retry_count=0
         )
         self.check_interval = check_interval
-        self.agent_health_status: Dict[str, Dict[str, Any]] = {}
-        self.state_change_history: List[Dict[str, Any]] = []
+        self.agent_health_status: dict[str, dict[str, Any]] = {}
+        self.state_change_history: list[dict[str, Any]] = []
         self.max_history = 200
 
     async def execute(self, context: HookContext) -> HookResult:
@@ -737,7 +738,7 @@ class AgentStateMonitor(BaseHook):
                 error_type=type(e).__name__
             )
 
-    def _store_state_change(self, state_change: Dict[str, Any]):
+    def _store_state_change(self, state_change: dict[str, Any]):
         """Store state change in history."""
         self.state_change_history.append(state_change)
         if len(self.state_change_history) > self.max_history:
@@ -786,7 +787,7 @@ class AgentStateMonitor(BaseHook):
 
         status["issues"] = issues
 
-    def _calculate_health_score(self, agent_name: str, status: Dict[str, Any]):
+    def _calculate_health_score(self, agent_name: str, status: dict[str, Any]):
         """Calculate agent health score."""
         score = 100.0
 
@@ -807,7 +808,7 @@ class AgentStateMonitor(BaseHook):
         # Ensure score doesn't go below 0
         status["health_score"] = max(0.0, score)
 
-    def _check_state_patterns(self, agent_name: str, new_state: AgentState, previous_state: AgentState) -> List[str]:
+    def _check_state_patterns(self, agent_name: str, new_state: AgentState, previous_state: AgentState) -> list[str]:
         """Check for concerning state patterns and generate alerts."""
         alerts = []
 
@@ -828,7 +829,7 @@ class AgentStateMonitor(BaseHook):
 
         return alerts
 
-    def get_agent_health_summary(self) -> Dict[str, Any]:
+    def get_agent_health_summary(self) -> dict[str, Any]:
         """Get overall agent health summary."""
         if not self.agent_health_status:
             return {"message": "No agent health data available"}

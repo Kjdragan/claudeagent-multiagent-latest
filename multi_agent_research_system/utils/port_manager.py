@@ -6,10 +6,9 @@ Port management utilities for the multi-agent research system.
 import subprocess
 import sys
 import time
-from typing import Optional
 
 
-def find_process_using_port(port: int) -> Optional[int]:
+def find_process_using_port(port: int) -> int | None:
     """Find the PID of the process using the given port."""
     try:
         if sys.platform == "linux" or sys.platform == "darwin":

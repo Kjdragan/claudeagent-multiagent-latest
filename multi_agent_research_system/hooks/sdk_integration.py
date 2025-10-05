@@ -6,31 +6,29 @@ AssistantMessage, ContentBlock, HookContext, and other SDK objects for
 proper monitoring and interaction with the multi-agent system.
 """
 
-import asyncio
 import json
 import time
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Union, TypeVar, Generic
 from dataclasses import dataclass, field
-from pathlib import Path
+from datetime import datetime
+from typing import Any
 
 # Try to import SDK types, with fallback for when SDK is not available
 try:
     from claude_agent_sdk.types import (
         AssistantMessage,
-        UserMessage,
-        ResultMessage,
         ContentBlock,
-        TextBlock,
-        ThinkingBlock,
-        ToolUseBlock,
-        ToolResultBlock,
-        HookContext as SDKHookContext,
-        HookMatcher,
         HookCallback,
         HookEvent,
-        HookJSONOutput
+        HookJSONOutput,
+        HookMatcher,
+        ResultMessage,
+        TextBlock,
+        ThinkingBlock,
+        ToolResultBlock,
+        ToolUseBlock,
+        UserMessage,
     )
+    from claude_agent_sdk.types import HookContext as SDKHookContext
     SDK_AVAILABLE = True
 except ImportError:
     # Create fallback types for when SDK is not available
@@ -38,9 +36,9 @@ except ImportError:
 
     @dataclass
     class AssistantMessage:
-        content: List[Any]
+        content: list[Any]
         model: str
-        parent_tool_use_id: Optional[str] = None
+        parent_tool_use_id: str | None = None
 
     @dataclass
     class ContentBlock:
@@ -59,13 +57,13 @@ except ImportError:
     class ToolUseBlock(ContentBlock):
         id: str
         name: str
-        input: Dict[str, Any]
+        input: dict[str, Any]
 
     @dataclass
     class ToolResultBlock(ContentBlock):
         tool_use_id: str
-        content: Optional[Union[str, List[Dict[str, Any]]]] = None
-        is_error: Optional[bool] = None
+        content: str | list[dict[str, Any]] | None = None
+        is_error: bool | None = None
 
     @dataclass
     class SDKHookContext:
@@ -77,11 +75,13 @@ except ImportError:
             self.hooks = hooks or []
 
     HookEvent = str
-    HookJSONOutput = Dict[str, Any]
+    HookJSONOutput = dict[str, Any]
 
-from .base_hooks import BaseHook, HookContext, HookResult, HookStatus, HookPriority
-import sys
 import os
+import sys
+
+from .base_hooks import BaseHook, HookContext, HookPriority, HookResult, HookStatus
+
 # Add parent directory to path for proper imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from agent_logging import get_logger
@@ -103,7 +103,7 @@ class SDKHookBridge:
     def create_sdk_hook_callback(
         self,
         hook_type: str,
-        internal_hook_name: Optional[str] = None
+        internal_hook_name: str | None = None
     ) -> HookCallback:
         """
         Create a SDK-compatible hook callback that delegates to our internal hooks.
@@ -116,8 +116,8 @@ class SDKHookBridge:
             A SDK-compatible HookCallback function
         """
         async def sdk_callback(
-            input_data: Dict[str, Any],
-            tool_use_id: Optional[str],
+            input_data: dict[str, Any],
+            tool_use_id: str | None,
             context: SDKHookContext
         ) -> HookJSONOutput:
             """SDK hook callback that delegates to internal hook system."""
@@ -217,8 +217,8 @@ class SDKHookBridge:
 
     def create_hook_matchers(
         self,
-        hook_config: Dict[str, List[str]]
-    ) -> Dict[HookEvent, List[HookMatcher]]:
+        hook_config: dict[str, list[str]]
+    ) -> dict[HookEvent, list[HookMatcher]]:
         """
         Create SDK HookMatcher objects from our hook configuration.
 
@@ -257,9 +257,9 @@ class SDKHookBridge:
 
     async def process_sdk_message(
         self,
-        message: Union[AssistantMessage, UserMessage, ResultMessage],
+        message: AssistantMessage | UserMessage | ResultMessage,
         session_id: str = "default"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Process SDK messages through our internal hook system.
 
@@ -315,7 +315,7 @@ class SDKHookBridge:
             }
 
         except Exception as e:
-            self.logger.error(f"SDK message processing failed",
+            self.logger.error("SDK message processing failed",
                             message_type=type(message).__name__,
                             error=str(e),
                             error_type=type(e).__name__)
@@ -331,13 +331,13 @@ class MessageAnalysis:
     message_id: str
     message_type: str
     timestamp: datetime
-    model: Optional[str] = None
+    model: str | None = None
     content_summary: str = ""
-    text_content: List[str] = field(default_factory=list)
-    tool_uses: List[Dict[str, Any]] = field(default_factory=list)
-    tool_results: List[Dict[str, Any]] = field(default_factory=list)
-    thinking_blocks: List[Dict[str, Any]] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    text_content: list[str] = field(default_factory=list)
+    tool_uses: list[dict[str, Any]] = field(default_factory=list)
+    tool_results: list[dict[str, Any]] = field(default_factory=list)
+    thinking_blocks: list[dict[str, Any]] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -349,7 +349,7 @@ class ContentBlockAnalysis:
     content: Any
     size_bytes: int = 0
     processing_time: float = 0.0
-    extracted_data: Dict[str, Any] = field(default_factory=dict)
+    extracted_data: dict[str, Any] = field(default_factory=dict)
 
 
 class SDKMessageProcessingHook(BaseHook):
@@ -364,9 +364,9 @@ class SDKMessageProcessingHook(BaseHook):
             enabled=enabled,
             retry_count=1
         )
-        self.message_analyses: List[MessageAnalysis] = []
-        self.block_analyses: List[ContentBlockAnalysis] = []
-        self.message_patterns: Dict[str, Dict[str, Any]] = {}
+        self.message_analyses: list[MessageAnalysis] = []
+        self.block_analyses: list[ContentBlockAnalysis] = []
+        self.message_patterns: dict[str, dict[str, Any]] = {}
         self.max_analyses = 5000
 
     async def execute(self, context: HookContext) -> HookResult:
@@ -432,7 +432,7 @@ class SDKMessageProcessingHook(BaseHook):
                 error_type=type(e).__name__
             )
 
-    async def _process_assistant_message(self, context: HookContext, message_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_assistant_message(self, context: HookContext, message_data: dict[str, Any]) -> dict[str, Any]:
         """Process AssistantMessage and extract detailed information."""
         if not isinstance(message_data.get("message"), AssistantMessage):
             return {"status": "invalid_message_type", "expected": "AssistantMessage"}
@@ -512,7 +512,7 @@ class SDKMessageProcessingHook(BaseHook):
             "content_summary": analysis.content_summary[:200] + "..." if len(analysis.content_summary) > 200 else analysis.content_summary
         }
 
-    async def _process_user_message(self, context: HookContext, message_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_user_message(self, context: HookContext, message_data: dict[str, Any]) -> dict[str, Any]:
         """Process UserMessage and extract relevant information."""
         # UserMessage processing would be implemented here
         return {
@@ -521,7 +521,7 @@ class SDKMessageProcessingHook(BaseHook):
             "message": "User message processing not yet implemented"
         }
 
-    async def _process_result_message(self, context: HookContext, message_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_result_message(self, context: HookContext, message_data: dict[str, Any]) -> dict[str, Any]:
         """Process ResultMessage and extract completion information."""
         # ResultMessage processing would be implemented here
         return {
@@ -530,7 +530,7 @@ class SDKMessageProcessingHook(BaseHook):
             "message": "Result message processing not yet implemented"
         }
 
-    async def _process_content_blocks(self, context: HookContext, message_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_content_blocks(self, context: HookContext, message_data: dict[str, Any]) -> dict[str, Any]:
         """Process a list of content blocks."""
         blocks = message_data.get("blocks", [])
         if not blocks:
@@ -557,7 +557,7 @@ class SDKMessageProcessingHook(BaseHook):
             ]
         }
 
-    async def _process_generic_message(self, context: HookContext, message_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_generic_message(self, context: HookContext, message_data: dict[str, Any]) -> dict[str, Any]:
         """Process generic message data."""
         return {
             "message_type": "generic",
@@ -621,7 +621,7 @@ class SDKMessageProcessingHook(BaseHook):
 
         return analysis
 
-    def _estimate_tool_duration(self, tool_name: str, tool_input: Dict[str, Any]) -> float:
+    def _estimate_tool_duration(self, tool_name: str, tool_input: dict[str, Any]) -> float:
         """Estimate tool execution duration based on tool type and input."""
         # Simple duration estimation based on tool type
         base_durations = {
@@ -683,11 +683,11 @@ class SDKMessageProcessingHook(BaseHook):
 
     def get_message_analysis_history(
         self,
-        message_type: Optional[str] = None,
-        model: Optional[str] = None,
+        message_type: str | None = None,
+        model: str | None = None,
         hours: int = 24,
         limit: int = 100
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get filtered message analysis history."""
         cutoff_time = datetime.now() - timedelta(hours=hours)
 
@@ -729,7 +729,7 @@ class SDKMessageProcessingHook(BaseHook):
             ]
         }
 
-    def get_content_block_statistics(self) -> Dict[str, Any]:
+    def get_content_block_statistics(self) -> dict[str, Any]:
         """Get comprehensive content block statistics."""
         if not self.block_analyses:
             return {"message": "No content block analyses available"}
@@ -778,7 +778,7 @@ class SDKMessageProcessingHook(BaseHook):
             ]
         }
 
-    def get_message_patterns(self) -> Dict[str, Any]:
+    def get_message_patterns(self) -> dict[str, Any]:
         """Get message pattern analysis."""
         return {
             "total_patterns": len(self.message_patterns),
@@ -809,8 +809,8 @@ class SDKHookIntegration(BaseHook):
             enabled=enabled,
             retry_count=0
         )
-        self.sdk_hook_executions: List[Dict[str, Any]] = []
-        self.hook_performance_metrics: Dict[str, Dict[str, Any]] = {}
+        self.sdk_hook_executions: list[dict[str, Any]] = []
+        self.hook_performance_metrics: dict[str, dict[str, Any]] = {}
         self.max_executions = 2000
 
     async def execute(self, context: HookContext) -> HookResult:
@@ -873,7 +873,7 @@ class SDKHookIntegration(BaseHook):
                 error_type=type(e).__name__
             )
 
-    def _update_hook_performance_metrics(self, hook_name: str, hook_type: str, execution_result: Dict[str, Any]):
+    def _update_hook_performance_metrics(self, hook_name: str, hook_type: str, execution_result: dict[str, Any]):
         """Update performance metrics for SDK hooks."""
         key = f"{hook_name}:{hook_type}"
 
@@ -914,7 +914,7 @@ class SDKHookIntegration(BaseHook):
             error_type = execution_result.get("error_type", "Unknown")
             metrics["error_types"][error_type] = metrics["error_types"].get(error_type, 0) + 1
 
-    def get_sdk_hook_performance(self) -> Dict[str, Any]:
+    def get_sdk_hook_performance(self) -> dict[str, Any]:
         """Get comprehensive SDK hook performance metrics."""
         if not self.hook_performance_metrics:
             return {"message": "No SDK hook performance data available"}
@@ -966,11 +966,11 @@ class SDKHookIntegration(BaseHook):
 
     def get_hook_execution_history(
         self,
-        hook_name: Optional[str] = None,
-        hook_type: Optional[str] = None,
+        hook_name: str | None = None,
+        hook_type: str | None = None,
         hours: int = 24,
         limit: int = 100
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get filtered SDK hook execution history."""
         cutoff_time = datetime.now() - timedelta(hours=hours)
 

@@ -49,8 +49,8 @@ try:
     from core.orchestrator import ResearchOrchestrator
 except ImportError:
     # Fallback for when running as module
-    import sys
     import os
+    import sys
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from core.logging_config import (
         get_log_level,
@@ -805,7 +805,7 @@ class ResearchUI:
             st.markdown("### 🔍 Web Search Results (Most Recent First)")
             for search_file in web_search_files[:10]:  # Show last 10
                 try:
-                    with open(search_file, 'r', encoding='utf-8') as f:
+                    with open(search_file, encoding='utf-8') as f:
                         search_data = json.load(f)
 
                     file_time = datetime.fromtimestamp(search_file.stat().st_mtime)
@@ -832,7 +832,7 @@ class ResearchUI:
                             st.text_area("Sources", value=sources, height=100, disabled=True)
 
                         # Download button
-                        with open(search_file, 'r', encoding='utf-8') as f:
+                        with open(search_file, encoding='utf-8') as f:
                             st.download_button(
                                 label=f"📥 Download {search_file.name}",
                                 data=f.read(),
@@ -853,7 +853,7 @@ class ResearchUI:
 
                     with st.expander(f"📄 {report_file.name} ({file_time.strftime('%H:%M:%S')}, {file_size} bytes)"):
                         # Show preview
-                        with open(report_file, 'r', encoding='utf-8') as f:
+                        with open(report_file, encoding='utf-8') as f:
                             content = f.read()
 
                         st.markdown(f"**File:** `{report_file.name}`")
@@ -905,7 +905,7 @@ class ResearchUI:
                 # Read last N lines
                 lines_to_show = st.number_input("Lines to show", min_value=10, max_value=1000, value=50)
 
-                with open(current_log_file, 'r', encoding='utf-8') as f:
+                with open(current_log_file, encoding='utf-8') as f:
                     all_lines = f.readlines()
 
                 # Get last N lines

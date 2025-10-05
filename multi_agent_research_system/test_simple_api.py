@@ -5,6 +5,7 @@ Simple test to verify API integration is working.
 
 import asyncio
 import os
+
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -22,7 +23,7 @@ else:
     print("❌ No API key found")
     exit(1)
 
-from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
 
 async def test_simple_api():

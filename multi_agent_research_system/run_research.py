@@ -11,7 +11,6 @@ import asyncio
 import json
 import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
 # Add the parent directory to Python path
@@ -36,7 +35,7 @@ else:
     print("⚠️  No ANTHROPIC_API_KEY found in environment or .env file")
     sys.exit(1)
 
-from core.logging_config import setup_logging, get_logger, get_log_summary
+from core.logging_config import get_log_summary, get_logger, setup_logging
 from core.orchestrator import ResearchOrchestrator
 
 
@@ -146,7 +145,7 @@ class ResearchCLI:
                 print(f"\n🔍 Found {len(web_search_files)} web search result files:")
                 for i, search_file in enumerate(web_search_files[:3]):  # Show last 3
                     try:
-                        with open(search_file, 'r', encoding='utf-8') as f:
+                        with open(search_file, encoding='utf-8') as f:
                             data = json.load(f)
                         query = data.get('search_query', 'Unknown')
                         result_length = len(data.get('search_results', ''))
@@ -191,7 +190,7 @@ class ResearchCLI:
         if log_summary and log_summary.get('current_log_file'):
             log_file = Path(log_summary['current_log_file'])
             if log_file.exists():
-                with open(log_file, 'r', encoding='utf-8') as f:
+                with open(log_file, encoding='utf-8') as f:
                     all_lines = f.readlines()
 
                 recent_lines = all_lines[-lines:]

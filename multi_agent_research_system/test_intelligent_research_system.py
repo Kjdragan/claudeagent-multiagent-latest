@@ -5,9 +5,8 @@ z-playground1 proven intelligence while staying within MCP constraints.
 """
 
 import asyncio
-import sys
 import os
-from pathlib import Path
+import sys
 
 # Add current directory to path for imports
 sys.path.append(os.path.dirname(__file__))
@@ -19,7 +18,9 @@ async def test_intelligent_research_tool():
     print("=" * 80)
 
     try:
-        from tools.intelligent_research_tool import intelligent_research_with_advanced_scraping
+        from tools.intelligent_research_tool import (
+            intelligent_research_with_advanced_scraping,
+        )
         print("✅ Intelligent research tool imported successfully")
     except ImportError as e:
         print(f"❌ Failed to import intelligent research tool: {e}")
@@ -44,13 +45,13 @@ async def test_intelligent_research_tool():
         if 'content' in result and len(result['content']) > 0:
             content_text = result['content'][0]['text']
 
-            print(f"\n📊 Result Analysis:")
+            print("\n📊 Result Analysis:")
             print(f"  - Content length: {len(content_text)} characters")
             print(f"  - Success: {'✅' if 'Intelligent Research Complete' in content_text else '❌'}")
             print(f"  - Has metadata: {'✅' if 'metadata' in result else '❌'}")
 
             # Show first 1000 characters
-            print(f"\n📄 Content Preview (first 1000 chars):")
+            print("\n📄 Content Preview (first 1000 chars):")
             print(content_text[:1000])
             print("...")
 
@@ -85,7 +86,10 @@ async def test_relevance_scoring():
     print("=" * 80)
 
     try:
-        from tools.intelligent_research_tool import calculate_enhanced_relevance_score, extract_query_terms
+        from tools.intelligent_research_tool import (
+            calculate_enhanced_relevance_score,
+            extract_query_terms,
+        )
         print("✅ Relevance scoring functions imported successfully")
     except ImportError as e:
         print(f"❌ Failed to import relevance scoring functions: {e}")
@@ -127,11 +131,11 @@ async def test_relevance_scoring():
 
         # Validation
         if 'expected_min_score' in test_case and score < test_case['expected_min_score']:
-            print(f"  ⚠️  Score below expected minimum")
+            print("  ⚠️  Score below expected minimum")
         elif 'expected_max_score' in test_case and score > test_case['expected_max_score']:
-            print(f"  ⚠️  Score above expected maximum")
+            print("  ⚠️  Score above expected maximum")
         else:
-            print(f"  ✅ Score within expected range")
+            print("  ✅ Score within expected range")
 
     print("\n✅ Relevance scoring test PASSED")
     return True
@@ -144,7 +148,10 @@ async def test_content_compression():
     print("=" * 80)
 
     try:
-        from tools.intelligent_research_tool import compress_for_mcp_compression, SearchResult
+        from tools.intelligent_research_tool import (
+            SearchResult,
+            compress_for_mcp_compression,
+        )
         print("✅ Content compression function imported successfully")
     except ImportError as e:
         print(f"❌ Failed to import compression function: {e}")
@@ -196,7 +203,7 @@ async def test_content_compression():
         }
     ]
 
-    print(f"\n📊 Mock data created:")
+    print("\n📊 Mock data created:")
     print(f"  - Search results: {len(mock_search_results)}")
     print(f"  - Crawl results: {len(mock_crawl_results)}")
     print(f"  - Total content chars: {sum(len(r['cleaned_content']) for r in mock_crawl_results)}")
@@ -209,14 +216,14 @@ async def test_content_compression():
             max_tokens=5000  # Small limit for testing
         )
 
-        print(f"\n🗜️ Compression Results:")
+        print("\n🗜️ Compression Results:")
         print(f"  - Compressed length: {len(compressed)} characters")
         print(f"  - Includes top priority: {'✅' if 'Top Priority Sources' in compressed else '❌'}")
         print(f"  - Includes medium priority: {'✅' if 'High Priority Sources' in compressed else '❌'}")
         print(f"  - Includes references: {'✅' if 'Additional Sources' in compressed else '❌'}")
 
         # Show first 500 chars
-        print(f"\n📄 Compressed Content Preview:")
+        print("\n📄 Compressed Content Preview:")
         print(compressed[:500])
         print("...")
 

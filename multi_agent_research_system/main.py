@@ -86,7 +86,7 @@ async def main():
 
                 # Display the first part of the report
                 try:
-                    with open(latest_report, 'r', encoding='utf-8') as f:
+                    with open(latest_report, encoding='utf-8') as f:
                         content = f.read()
                         logger.info(f"Report Length: {len(content)} characters")
                         logger.info("=== REPORT PREVIEW (first 1000 characters) ===")

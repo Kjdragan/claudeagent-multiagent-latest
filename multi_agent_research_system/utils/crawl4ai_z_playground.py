@@ -7,13 +7,13 @@ If it doesn't work, it fails LOUDLY so we know to fix it properly.
 
 import asyncio
 import logging
-from datetime import datetime
-from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
 
-from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, BrowserConfig, CacheMode
-from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
+from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig
 from crawl4ai.content_filter_strategy import PruningContentFilter
+from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
 # Import Logfire configuration
 try:
@@ -43,8 +43,8 @@ class CrawlResult:
     """Simple result structure for crawl operations."""
     url: str
     success: bool
-    content: Optional[str] = None
-    error: Optional[str] = None
+    content: str | None = None
+    error: str | None = None
     duration: float = 0.0
     word_count: int = 0
     char_count: int = 0
@@ -60,7 +60,7 @@ class SimpleCrawler:
     - Progressive anti-bot only when needed
     """
 
-    def __init__(self, browser_configs: Optional[Dict] = None):
+    def __init__(self, browser_configs: dict | None = None):
         """Initialize with optional browser configurations."""
         self.browser_configs = browser_configs or {}
         self._stats = {
@@ -183,7 +183,7 @@ class SimpleCrawler:
 
         return config
 
-    def _get_browser_config(self, anti_bot_level: int) -> Optional[BrowserConfig]:
+    def _get_browser_config(self, anti_bot_level: int) -> BrowserConfig | None:
         """Get browser configuration based on anti-bot level."""
 
         if anti_bot_level >= 3:
@@ -198,11 +198,11 @@ class SimpleCrawler:
 
     async def crawl_multiple(
         self,
-        urls: List[str],
+        urls: list[str],
         anti_bot_level: int = 1,
         use_content_filter: bool = False,
         max_concurrent: int = 5
-    ) -> List[CrawlResult]:
+    ) -> list[CrawlResult]:
         """
         Crawl multiple URLs concurrently with progressive anti-bot.
 
@@ -317,7 +317,7 @@ class SimpleCrawler:
                 duration=0.0
             )
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get crawling statistics."""
         return {
             **self._stats,
@@ -327,10 +327,10 @@ class SimpleCrawler:
 
 
 # Global crawler instance for backward compatibility
-_global_crawler: Optional[SimpleCrawler] = None
+_global_crawler: SimpleCrawler | None = None
 
 
-def get_crawler(browser_configs: Optional[Dict] = None) -> SimpleCrawler:
+def get_crawler(browser_configs: dict | None = None) -> SimpleCrawler:
     """Get or create global crawler instance."""
     global _global_crawler
     if _global_crawler is None or browser_configs:
@@ -341,7 +341,7 @@ def get_crawler(browser_configs: Optional[Dict] = None) -> SimpleCrawler:
 # Backward compatibility functions to maintain existing API
 
 async def crawl_multiple_urls_with_results(
-    urls: List[str],
+    urls: list[str],
     session_id: str,
     max_concurrent: int = 10,
     extraction_mode: str = "article",
@@ -351,7 +351,7 @@ async def crawl_multiple_urls_with_results(
     undetected_config=None,
     use_progressive_retry: bool = False,
     max_retries: int = 3
-) -> List[dict]:
+) -> list[dict]:
     """
     Backward compatibility function that maintains the existing API contract.
 
@@ -465,7 +465,7 @@ async def crawl_multiple_urls_with_results(
 
 
 async def crawl_multiple_urls_direct(
-    urls: List[str],
+    urls: list[str],
     session_id: str,
     max_concurrent: int = 10,
     extraction_mode: str = "article"
@@ -487,13 +487,13 @@ async def crawl_multiple_urls_direct(
     for result in results:
         if result['success']:
             formatted_results.append(f"URL: {result['url']}")
-            formatted_results.append(f"Success: ✅")
+            formatted_results.append("Success: ✅")
             formatted_results.append(f"Content: {len(result['content'])} characters")
             formatted_results.append(f"Duration: {result['duration']:.2f}s")
             formatted_results.append("---")
         else:
             formatted_results.append(f"URL: {result['url']}")
-            formatted_results.append(f"Success: ❌")
+            formatted_results.append("Success: ❌")
             formatted_results.append(f"Error: {result['error_message']}")
             formatted_results.append("---")
 

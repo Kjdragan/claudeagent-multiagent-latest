@@ -26,12 +26,12 @@ async def test_single_url_scraping():
     result = await advanced_scrape_url(args)
 
     content_text = result['content'][0]['text']
-    print(f"\n📊 Result:")
+    print("\n📊 Result:")
     print(f"  - Length: {len(content_text)} characters")
     print(f"  - Success: {'✅' if 'Success' in content_text else '❌'}")
 
     # Show preview
-    print(f"\n📄 Content Preview (first 500 chars):")
+    print("\n📄 Content Preview (first 500 chars):")
     print(content_text[:500])
     print("...")
 
@@ -53,7 +53,7 @@ async def test_serp_search_with_advanced_extraction():
 
     kevin_dir = Path.home() / "lrepos" / "claude-agent-sdk-python" / "KEVIN"
 
-    print(f"\n🔍 Searching for: 'Claude Agent SDK'")
+    print("\n🔍 Searching for: 'Claude Agent SDK'")
     print(f"📁 Saving work products to: {kevin_dir}")
 
     result = await serp_search_and_extract(
@@ -66,12 +66,12 @@ async def test_serp_search_with_advanced_extraction():
         kevin_dir=kevin_dir
     )
 
-    print(f"\n📊 Result:")
+    print("\n📊 Result:")
     print(f"  - Length: {len(result)} characters")
     print(f"  - Contains extracted content: {'EXTRACTED CONTENT' in result}")
 
     # Show preview
-    print(f"\n📄 Content Preview (first 800 chars):")
+    print("\n📄 Content Preview (first 800 chars):")
     print(result[:800])
     print("...")
 
@@ -92,22 +92,22 @@ async def test_import_utilities():
         print("\n📦 Testing imports...")
 
         from utils.crawl4ai_utils import (
-            scrape_and_clean_single_url_direct,
+            SimpleCrawler,
             crawl_multiple_urls_with_cleaning,
-            SimpleCrawler
+            scrape_and_clean_single_url_direct,
         )
         print("  ✅ crawl4ai_utils imports successful")
 
         from utils.content_cleaning import (
-            clean_content_with_gpt5_nano,
             assess_content_cleanliness,
-            clean_content_with_judge_optimization
+            clean_content_with_gpt5_nano,
+            clean_content_with_judge_optimization,
         )
         print("  ✅ content_cleaning imports successful")
 
         from tools.advanced_scraping_tool import (
+            advanced_scrape_multiple_urls,
             advanced_scrape_url,
-            advanced_scrape_multiple_urls
         )
         print("  ✅ advanced_scraping_tool imports successful")
 

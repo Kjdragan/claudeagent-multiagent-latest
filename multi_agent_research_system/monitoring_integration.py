@@ -5,19 +5,18 @@ This module provides a unified interface for integrating all monitoring componen
 with the multi-agent research system orchestrator.
 """
 
-import asyncio
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 # Import monitoring components (with graceful fallback for missing dependencies)
 try:
     from .monitoring import (
+        DiagnosticTools,
         MetricsCollector,
         PerformanceMonitor,
         SystemHealthMonitor,
-        DiagnosticTools
     )
     MONITORING_AVAILABLE = True
 except ImportError as e:
@@ -36,7 +35,7 @@ class MonitoringIntegration:
     """
 
     def __init__(self,
-                 session_id: Optional[str] = None,
+                 session_id: str | None = None,
                  monitoring_dir: str = "monitoring",
                  enable_advanced_monitoring: bool = True):
         """
@@ -53,20 +52,20 @@ class MonitoringIntegration:
         self.enable_advanced_monitoring = enable_advanced_monitoring
 
         # Initialize basic components (always available)
-        self.agent_loggers: Dict[str, Any] = {}
+        self.agent_loggers: dict[str, Any] = {}
         self._initialize_agent_loggers()
 
         # Initialize advanced components (if available and enabled)
-        self.metrics_collector: Optional[Any] = None
-        self.performance_monitor: Optional[Any] = None
-        self.health_monitor: Optional[Any] = None
-        self.diagnostics: Optional[Any] = None
+        self.metrics_collector: Any | None = None
+        self.performance_monitor: Any | None = None
+        self.health_monitor: Any | None = None
+        self.diagnostics: Any | None = None
 
         if (self.enable_advanced_monitoring and
             MONITORING_AVAILABLE):
             self._initialize_advanced_monitoring()
 
-        print(f"✅ Monitoring Integration initialized")
+        print("✅ Monitoring Integration initialized")
         print(f"   Session ID: {self.session_id}")
         print(f"   Monitoring Directory: {self.monitoring_dir}")
         print(f"   Advanced Monitoring: {'✅ Enabled' if self.metrics_collector else '❌ Disabled'}")
@@ -152,7 +151,7 @@ class MonitoringIntegration:
             except Exception as e:
                 print(f"⚠️  Failed to stop advanced monitoring: {e}")
 
-    def get_agent_logger(self, agent_name: str) -> Optional[Any]:
+    def get_agent_logger(self, agent_name: str) -> Any | None:
         """Get the logger for a specific agent."""
         return self.agent_loggers.get(agent_name)
 
@@ -193,7 +192,7 @@ class MonitoringIntegration:
             except Exception as e:
                 print(f"⚠️  Failed to log to performance monitor: {e}")
 
-    async def get_monitoring_summary(self) -> Dict[str, Any]:
+    async def get_monitoring_summary(self) -> dict[str, Any]:
         """Get a comprehensive monitoring summary."""
         summary = {
             'session_id': self.session_id,
@@ -219,7 +218,7 @@ class MonitoringIntegration:
 
         return summary
 
-    async def generate_comprehensive_report(self) -> Dict[str, Any]:
+    async def generate_comprehensive_report(self) -> dict[str, Any]:
         """Generate a comprehensive monitoring report."""
         if not self.diagnostics:
             return {
@@ -235,7 +234,7 @@ class MonitoringIntegration:
                 'session_id': self.session_id
             }
 
-    async def export_all_data(self, export_dir: Optional[str] = None) -> Dict[str, str]:
+    async def export_all_data(self, export_dir: str | None = None) -> dict[str, str]:
         """
         Export all monitoring data.
 
@@ -287,10 +286,10 @@ class MonitoringIntegration:
 
 
 # Global monitoring integration instance
-_monitoring_integration: Optional[MonitoringIntegration] = None
+_monitoring_integration: MonitoringIntegration | None = None
 
 
-def initialize_monitoring(session_id: Optional[str] = None,
+def initialize_monitoring(session_id: str | None = None,
                          monitoring_dir: str = "monitoring",
                          enable_advanced_monitoring: bool = True) -> MonitoringIntegration:
     """
@@ -313,7 +312,7 @@ def initialize_monitoring(session_id: Optional[str] = None,
     return _monitoring_integration
 
 
-def get_monitoring() -> Optional[MonitoringIntegration]:
+def get_monitoring() -> MonitoringIntegration | None:
     """Get the global monitoring integration instance."""
     return _monitoring_integration
 
@@ -352,7 +351,7 @@ def log_activity(agent_name: str,
         )
 
 
-def get_agent_logger(agent_name: str) -> Optional[Any]:
+def get_agent_logger(agent_name: str) -> Any | None:
     """Get the logger for a specific agent from the global integration."""
     if _monitoring_integration:
         return _monitoring_integration.get_agent_logger(agent_name)
@@ -364,13 +363,13 @@ class MonitoringSession:
     """Context manager for monitoring sessions."""
 
     def __init__(self,
-                 session_id: Optional[str] = None,
+                 session_id: str | None = None,
                  monitoring_dir: str = "monitoring",
                  enable_advanced_monitoring: bool = True):
         self.session_id = session_id
         self.monitoring_dir = monitoring_dir
         self.enable_advanced_monitoring = enable_advanced_monitoring
-        self.monitoring: Optional[MonitoringIntegration] = None
+        self.monitoring: MonitoringIntegration | None = None
 
     async def __aenter__(self) -> MonitoringIntegration:
         """Enter the monitoring session context."""
@@ -389,7 +388,7 @@ class MonitoringSession:
 
 
 # Convenience function for creating monitoring sessions
-async def with_monitoring(session_id: Optional[str] = None,
+async def with_monitoring(session_id: str | None = None,
                          monitoring_dir: str = "monitoring",
                          enable_advanced_monitoring: bool = True):
     """

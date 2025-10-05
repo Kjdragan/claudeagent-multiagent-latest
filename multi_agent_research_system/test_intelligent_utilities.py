@@ -5,9 +5,8 @@ without the MCP tool wrapper complications.
 """
 
 import asyncio
-import sys
 import os
-from pathlib import Path
+import sys
 
 # Add current directory to path for imports
 sys.path.append(os.path.dirname(__file__))
@@ -19,7 +18,10 @@ async def test_relevance_scoring():
     print("=" * 80)
 
     try:
-        from tools.intelligent_research_tool import calculate_enhanced_relevance_score, extract_query_terms
+        from tools.intelligent_research_tool import (
+            calculate_enhanced_relevance_score,
+            extract_query_terms,
+        )
         print("✅ Relevance scoring functions imported successfully")
     except ImportError as e:
         print(f"❌ Failed to import relevance scoring functions: {e}")
@@ -50,8 +52,8 @@ async def test_relevance_scoring():
         }
     ]
 
-    print(f"\n📊 Testing Z-Playground1 Enhanced Relevance Scoring:")
-    print(f"   Formula: Position(40%) + Title Match(30%) + Snippet Match(30%)")
+    print("\n📊 Testing Z-Playground1 Enhanced Relevance Scoring:")
+    print("   Formula: Position(40%) + Title Match(30%) + Snippet Match(30%)")
 
     for i, test_case in enumerate(test_cases, 1):
         query_terms = extract_query_terms(test_case["query"])
@@ -84,7 +86,7 @@ async def test_relevance_scoring():
         snippet_matches = sum(1 for term in query_terms_lower if term in snippet_lower)
         snippet_score = min(1.0, snippet_matches / len(query_terms_lower)) if query_terms_lower else 0
 
-        print(f"  Component Scores:")
+        print("  Component Scores:")
         print(f"    - Position (40%): {position_score:.3f}")
         print(f"    - Title Match (30%): {title_score:.3f} ({title_matches}/{len(query_terms_lower)})")
         print(f"    - Snippet Match (30%): {snippet_score:.3f} ({snippet_matches}/{len(query_terms_lower)})")
@@ -100,7 +102,10 @@ async def test_url_selection():
     print("=" * 80)
 
     try:
-        from tools.intelligent_research_tool import select_urls_for_crawling, SearchResult
+        from tools.intelligent_research_tool import (
+            SearchResult,
+            select_urls_for_crawling,
+        )
         print("✅ URL selection function imported successfully")
     except ImportError as e:
         print(f"❌ Failed to import URL selection function: {e}")
@@ -125,7 +130,7 @@ async def test_url_selection():
                     position=12, relevance_score=0.15),
     ]
 
-    print(f"\n📊 Mock Search Results Created:")
+    print("\n📊 Mock Search Results Created:")
     for i, result in enumerate(mock_search_results, 1):
         print(f"  {i}. {result.title} - Score: {result.relevance_score:.2f}")
 
@@ -136,7 +141,7 @@ async def test_url_selection():
         min_relevance=0.3
     )
 
-    print(f"\n🔍 URL Selection with Threshold 0.3:")
+    print("\n🔍 URL Selection with Threshold 0.3:")
     print(f"  - Total results: {len(mock_search_results)}")
     print(f"  - Above threshold: {len([r for r in mock_search_results if r.relevance_score >= 0.3])}")
     print(f"  - Selected for crawling: {len(selected_urls)}")
@@ -157,7 +162,7 @@ async def test_url_selection():
         min_relevance=0.6
     )
 
-    print(f"\n🔍 Stricter Selection with Threshold 0.6:")
+    print("\n🔍 Stricter Selection with Threshold 0.6:")
     print(f"  - Selected: {len(selected_urls_strict)} URLs")
     print(f"  - URLs: {selected_urls_strict}")
 
@@ -186,7 +191,7 @@ async def test_query_extraction():
         "stock market investment strategies cryptocurrency"
     ]
 
-    print(f"\n📊 Query Term Extraction Results:")
+    print("\n📊 Query Term Extraction Results:")
     for query in test_queries:
         terms = extract_query_terms(query)
         print(f"  Query: '{query}'")
@@ -244,9 +249,9 @@ async def test_mcp_compression_simulation():
         5000,   # Very small content
     ]
 
-    print(f"\n📊 MCP Compression Simulation Results:")
-    print(f"   Token Limit: 20,000 tokens")
-    print(f"   Ratio: ~1 token = 4 characters")
+    print("\n📊 MCP Compression Simulation Results:")
+    print("   Token Limit: 20,000 tokens")
+    print("   Ratio: ~1 token = 4 characters")
 
     for size in test_sizes:
         result = simulate_mcp_compression(size)

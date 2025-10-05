@@ -5,18 +5,16 @@ This module provides automated report generation capabilities for
 performance analytics, compliance, and system insights.
 """
 
-import asyncio
 import json
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any, Dict, List, Optional
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
+from pathlib import Path
+from typing import Any
 
-from .log_aggregator import LogEntry, LogAggregator
-from .log_search import LogSearchEngine, SearchResult, SearchStats
-from .analytics_engine import AnalyticsEngine, PerformanceInsight
-from .audit_trail import AuditTrailManager, ComplianceReport, ComplianceStandard
+from .analytics_engine import AnalyticsEngine
+from .audit_trail import AuditTrailManager
+from .log_aggregator import LogAggregator
 
 
 class ReportType(Enum):
@@ -48,7 +46,7 @@ class ReportSection:
     content: Any
     section_type: str  # 'text', 'chart', 'table', 'metrics', 'insights'
     priority: int = 1
-    metadata: Dict[str, Any] = None
+    metadata: dict[str, Any] = None
 
     def __post_init__(self):
         if self.metadata is None:
@@ -64,9 +62,9 @@ class GeneratedReport:
     generated_at: datetime
     period_start: datetime
     period_end: datetime
-    sections: List[ReportSection]
-    metadata: Dict[str, Any]
-    file_paths: Dict[str, str]  # Format -> file path mapping
+    sections: list[ReportSection]
+    metadata: dict[str, Any]
+    file_paths: dict[str, str]  # Format -> file path mapping
 
 
 class ReportGenerator:
@@ -91,9 +89,9 @@ class ReportGenerator:
         self.report_schedules = {}
 
         # Generated reports tracking
-        self.generated_reports: List[GeneratedReport] = []
+        self.generated_reports: list[GeneratedReport] = []
 
-    def _initialize_templates(self) -> Dict[ReportType, Dict[str, Any]]:
+    def _initialize_templates(self) -> dict[ReportType, dict[str, Any]]:
         """Initialize report templates and configurations."""
         return {
             ReportType.DAILY_SUMMARY: {
@@ -196,11 +194,11 @@ class ReportGenerator:
                              report_type: ReportType,
                              period_start: datetime,
                              period_end: datetime,
-                             log_aggregator: Optional[LogAggregator] = None,
-                             analytics_engine: Optional[AnalyticsEngine] = None,
-                             audit_trail: Optional[AuditTrailManager] = None,
-                             custom_config: Optional[Dict[str, Any]] = None,
-                             formats: List[ReportFormat] = None) -> GeneratedReport:
+                             log_aggregator: LogAggregator | None = None,
+                             analytics_engine: AnalyticsEngine | None = None,
+                             audit_trail: AuditTrailManager | None = None,
+                             custom_config: dict[str, Any] | None = None,
+                             formats: list[ReportFormat] = None) -> GeneratedReport:
         """
         Generate a comprehensive report.
 
@@ -277,13 +275,13 @@ class ReportGenerator:
 
     async def _generate_sections(self,
                                 report_type: ReportType,
-                                section_configs: List[str],
+                                section_configs: list[str],
                                 period_start: datetime,
                                 period_end: datetime,
-                                log_aggregator: Optional[LogAggregator],
-                                analytics_engine: Optional[AnalyticsEngine],
-                                audit_trail: Optional[AuditTrailManager],
-                                custom_config: Dict[str, Any]) -> List[ReportSection]:
+                                log_aggregator: LogAggregator | None,
+                                analytics_engine: AnalyticsEngine | None,
+                                audit_trail: AuditTrailManager | None,
+                                custom_config: dict[str, Any]) -> list[ReportSection]:
         """Generate report sections based on configuration."""
         sections = []
 
@@ -306,10 +304,10 @@ class ReportGenerator:
                                section_type: str,
                                period_start: datetime,
                                period_end: datetime,
-                               log_aggregator: Optional[LogAggregator],
-                               analytics_engine: Optional[AnalyticsEngine],
-                               audit_trail: Optional[AuditTrailManager],
-                               custom_config: Dict[str, Any]) -> Optional[ReportSection]:
+                               log_aggregator: LogAggregator | None,
+                               analytics_engine: AnalyticsEngine | None,
+                               audit_trail: AuditTrailManager | None,
+                               custom_config: dict[str, Any]) -> ReportSection | None:
         """Generate a specific report section."""
         section_generators = {
             'system_overview': self._generate_system_overview,
@@ -339,10 +337,10 @@ class ReportGenerator:
     async def _generate_system_overview(self,
                                        period_start: datetime,
                                        period_end: datetime,
-                                       log_aggregator: Optional[LogAggregator],
-                                       analytics_engine: Optional[AnalyticsEngine],
-                                       audit_trail: Optional[AuditTrailManager],
-                                       custom_config: Dict[str, Any]) -> ReportSection:
+                                       log_aggregator: LogAggregator | None,
+                                       analytics_engine: AnalyticsEngine | None,
+                                       audit_trail: AuditTrailManager | None,
+                                       custom_config: dict[str, Any]) -> ReportSection:
         """Generate system overview section."""
         overview_data = {
             'period': {
@@ -381,10 +379,10 @@ class ReportGenerator:
     async def _generate_executive_summary(self,
                                          period_start: datetime,
                                          period_end: datetime,
-                                         log_aggregator: Optional[LogAggregator],
-                                         analytics_engine: Optional[AnalyticsEngine],
-                                         audit_trail: Optional[AuditTrailManager],
-                                         custom_config: Dict[str, Any]) -> ReportSection:
+                                         log_aggregator: LogAggregator | None,
+                                         analytics_engine: AnalyticsEngine | None,
+                                         audit_trail: AuditTrailManager | None,
+                                         custom_config: dict[str, Any]) -> ReportSection:
         """Generate executive summary section."""
         summary_data = {
             'key_points': [],
@@ -441,10 +439,10 @@ class ReportGenerator:
     async def _generate_performance_metrics(self,
                                            period_start: datetime,
                                            period_end: datetime,
-                                           log_aggregator: Optional[LogAggregator],
-                                           analytics_engine: Optional[AnalyticsEngine],
-                                           audit_trail: Optional[AuditTrailManager],
-                                           custom_config: Dict[str, Any]) -> ReportSection:
+                                           log_aggregator: LogAggregator | None,
+                                           analytics_engine: AnalyticsEngine | None,
+                                           audit_trail: AuditTrailManager | None,
+                                           custom_config: dict[str, Any]) -> ReportSection:
         """Generate performance metrics section."""
         metrics_data = {
             'response_times': {},
@@ -474,10 +472,10 @@ class ReportGenerator:
     async def _generate_error_summary(self,
                                      period_start: datetime,
                                      period_end: datetime,
-                                     log_aggregator: Optional[LogAggregator],
-                                     analytics_engine: Optional[AnalyticsEngine],
-                                     audit_trail: Optional[AuditTrailManager],
-                                     custom_config: Dict[str, Any]) -> ReportSection:
+                                     log_aggregator: LogAggregator | None,
+                                     analytics_engine: AnalyticsEngine | None,
+                                     audit_trail: AuditTrailManager | None,
+                                     custom_config: dict[str, Any]) -> ReportSection:
         """Generate error summary section."""
         error_data = {
             'total_errors': 0,
@@ -530,10 +528,10 @@ class ReportGenerator:
     async def _generate_usage_statistics(self,
                                        period_start: datetime,
                                        period_end: datetime,
-                                       log_aggregator: Optional[LogAggregator],
-                                       analytics_engine: Optional[AnalyticsEngine],
-                                       audit_trail: Optional[AuditTrailManager],
-                                       custom_config: Dict[str, Any]) -> ReportSection:
+                                       log_aggregator: LogAggregator | None,
+                                       analytics_engine: AnalyticsEngine | None,
+                                       audit_trail: AuditTrailManager | None,
+                                       custom_config: dict[str, Any]) -> ReportSection:
         """Generate usage statistics section."""
         usage_data = {
             'total_sessions': 0,
@@ -574,10 +572,10 @@ class ReportGenerator:
     async def _generate_security_alerts(self,
                                        period_start: datetime,
                                        period_end: datetime,
-                                       log_aggregator: Optional[LogAggregator],
-                                       analytics_engine: Optional[AnalyticsEngine],
-                                       audit_trail: Optional[AuditTrailManager],
-                                       custom_config: Dict[str, Any]) -> ReportSection:
+                                       log_aggregator: LogAggregator | None,
+                                       analytics_engine: AnalyticsEngine | None,
+                                       audit_trail: AuditTrailManager | None,
+                                       custom_config: dict[str, Any]) -> ReportSection:
         """Generate security alerts section."""
         security_data = {
             'total_alerts': 0,
@@ -618,10 +616,10 @@ class ReportGenerator:
     async def _generate_recommendations(self,
                                        period_start: datetime,
                                        period_end: datetime,
-                                       log_aggregator: Optional[LogAggregator],
-                                       analytics_engine: Optional[AnalyticsEngine],
-                                       audit_trail: Optional[AuditTrailManager],
-                                       custom_config: Dict[str, Any]) -> ReportSection:
+                                       log_aggregator: LogAggregator | None,
+                                       analytics_engine: AnalyticsEngine | None,
+                                       audit_trail: AuditTrailManager | None,
+                                       custom_config: dict[str, Any]) -> ReportSection:
         """Generate recommendations section."""
         recommendations_data = {
             'high_priority': [],
@@ -718,7 +716,7 @@ class ReportGenerator:
         )
 
     def _generate_title(self,
-                       template: Dict[str, Any],
+                       template: dict[str, Any],
                        report_type: ReportType,
                        period_start: datetime,
                        period_end: datetime) -> str:
@@ -741,9 +739,9 @@ class ReportGenerator:
         return title
 
     def _identify_data_sources(self,
-                              log_aggregator: Optional[LogAggregator],
-                              analytics_engine: Optional[AnalyticsEngine],
-                              audit_trail: Optional[AuditTrailManager]) -> List[str]:
+                              log_aggregator: LogAggregator | None,
+                              analytics_engine: AnalyticsEngine | None,
+                              audit_trail: AuditTrailManager | None) -> list[str]:
         """Identify available data sources."""
         sources = []
         if log_aggregator:
@@ -834,7 +832,7 @@ class ReportGenerator:
         """
 
         for section in report.sections:
-            html += f'<div class="section">'
+            html += '<div class="section">'
             html += f'<h2>{section.title}</h2>'
 
             if section.section_type == 'metrics':
@@ -852,7 +850,7 @@ class ReportGenerator:
         """
         return html
 
-    def _render_metrics_html(self, metrics_data: Dict[str, Any]) -> str:
+    def _render_metrics_html(self, metrics_data: dict[str, Any]) -> str:
         """Render metrics data as HTML."""
         html = '<div class="metrics">'
 
@@ -869,7 +867,7 @@ class ReportGenerator:
         html += '</div>'
         return html
 
-    def _render_table_html(self, table_data: Dict[str, Any]) -> str:
+    def _render_table_html(self, table_data: dict[str, Any]) -> str:
         """Render table data as HTML."""
         html = '<table>'
 
@@ -921,8 +919,8 @@ class ReportGenerator:
     def schedule_report(self,
                         report_type: ReportType,
                         schedule: str,  # Cron-like expression
-                        recipients: List[str],
-                        formats: List[ReportFormat] = None) -> str:
+                        recipients: list[str],
+                        formats: list[ReportFormat] = None) -> str:
         """
         Schedule automated report generation.
 
@@ -951,7 +949,7 @@ class ReportGenerator:
 
         return schedule_id
 
-    def get_report_summary(self) -> Dict[str, Any]:
+    def get_report_summary(self) -> dict[str, Any]:
         """Get summary of generated reports."""
         return {
             'session_id': self.session_id,

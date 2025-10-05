@@ -5,11 +5,11 @@ coherent reports with proper formatting and citation.
 """
 
 import json
-import uuid
-from typing import Any, Dict, List, Optional
 from datetime import datetime
+from typing import Any, Optional
 
 from claude_agent_sdk import tool
+
 from ..core.base_agent import BaseAgent, Message
 
 
@@ -61,13 +61,13 @@ When generating reports:
 Always prioritize accuracy, clarity, and logical organization."""
 
     @tool("create_report", "Generate a structured report from research data", {
-        "research_data": Dict[str, Any],
+        "research_data": dict[str, Any],
         "report_format": str,
         "target_audience": str,
         "tone": str,
-        "sections": List[str]
+        "sections": list[str]
     })
-    async def create_report(self, args: Dict[str, Any]) -> Dict[str, Any]:
+    async def create_report(self, args: dict[str, Any]) -> dict[str, Any]:
         """Generate a structured report from research data."""
         research_data = args["research_data"]
         report_format = args.get("report_format", "markdown")
@@ -158,11 +158,11 @@ Always prioritize accuracy, clarity, and logical organization."""
         }
 
     @tool("update_report", "Update report based on feedback or new information", {
-        "existing_report": Dict[str, Any],
-        "feedback": List[Dict[str, Any]],
-        "new_research": Optional[Dict[str, Any]]
+        "existing_report": dict[str, Any],
+        "feedback": list[dict[str, Any]],
+        "new_research": Optional[dict[str, Any]]
     })
-    async def update_report(self, args: Dict[str, Any]) -> Dict[str, Any]:
+    async def update_report(self, args: dict[str, Any]) -> dict[str, Any]:
         """Update an existing report based on feedback or new research."""
         existing_report = args["existing_report"]
         feedback = args.get("feedback", [])
@@ -218,11 +218,11 @@ Always prioritize accuracy, clarity, and logical organization."""
         }
 
     @tool("request_more_research", "Request additional research for information gaps", {
-        "research_gaps": List[str],
-        "current_report": Dict[str, Any],
+        "research_gaps": list[str],
+        "current_report": dict[str, Any],
         "priority": str
     })
-    async def request_more_research(self, args: Dict[str, Any]) -> Dict[str, Any]:
+    async def request_more_research(self, args: dict[str, Any]) -> dict[str, Any]:
         """Request additional research to fill information gaps."""
         research_gaps = args["research_gaps"]
         current_report = args["current_report"]
@@ -253,7 +253,7 @@ Always prioritize accuracy, clarity, and logical organization."""
             "research_request": research_request
         }
 
-    async def handle_research_completed(self, message: Message) -> Optional[Message]:
+    async def handle_research_completed(self, message: Message) -> Message | None:
         """Handle completed research from Research Agent."""
         payload = message.payload
         session_id = message.session_id
@@ -299,7 +299,7 @@ Always prioritize accuracy, clarity, and logical organization."""
             correlation_id=message.correlation_id
         )
 
-    async def handle_report_feedback(self, message: Message) -> Optional[Message]:
+    async def handle_report_feedback(self, message: Message) -> Message | None:
         """Handle feedback from Editor Agent."""
         payload = message.payload
         feedback = payload.get("feedback", [])
@@ -365,7 +365,7 @@ Always prioritize accuracy, clarity, and logical organization."""
                 correlation_id=message.correlation_id
             )
 
-    async def handle_revision_request(self, message: Message) -> Optional[Message]:
+    async def handle_revision_request(self, message: Message) -> Message | None:
         """Handle direct revision request from UI or user."""
         payload = message.payload
         session_id = message.session_id
@@ -424,7 +424,7 @@ Always prioritize accuracy, clarity, and logical organization."""
             correlation_id=message.correlation_id
         )
 
-    async def save_report(self, session_id: str, report_data: Dict[str, Any], version: int = 1):
+    async def save_report(self, session_id: str, report_data: dict[str, Any], version: int = 1):
         """Save report to file system."""
         try:
             import os
@@ -447,7 +447,7 @@ Always prioritize accuracy, clarity, and logical organization."""
         except Exception as e:
             print(f"Error saving report: {e}")
 
-    def convert_to_markdown(self, report_data: Dict[str, Any]) -> str:
+    def convert_to_markdown(self, report_data: dict[str, Any]) -> str:
         """Convert report data to markdown format."""
         # This would convert the structured report data to markdown
         # For now, return a basic structure
@@ -472,6 +472,6 @@ Always prioritize accuracy, clarity, and logical organization."""
 
         return markdown
 
-    def get_tools(self) -> List:
+    def get_tools(self) -> list:
         """Get the list of tools for this agent."""
         return [self.create_report, self.update_report, self.request_more_research]

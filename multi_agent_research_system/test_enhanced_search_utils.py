@@ -7,9 +7,9 @@ the Claude Agent SDK to be installed.
 """
 
 import asyncio
+import logging
 import os
 import sys
-import logging
 from pathlib import Path
 
 # Add the project root to Python path
@@ -39,8 +39,8 @@ async def test_enhanced_search_utils():
             from z_search_crawl_utils import (
                 SearchResult,
                 calculate_enhanced_relevance_score,
+                format_search_results,
                 select_urls_for_crawling,
-                format_search_results
             )
             logger.info("✅ Search utilities imported successfully")
 
@@ -62,9 +62,9 @@ async def test_enhanced_search_utils():
 
         try:
             from z_content_cleaning import (
-                format_cleaned_results,
                 assess_content_cleanliness,
-                clean_content_with_judge_optimization
+                clean_content_with_judge_optimization,
+                format_cleaned_results,
             )
             logger.info("✅ Content cleaning utilities imported successfully")
         except ImportError as e:
@@ -76,10 +76,10 @@ async def test_enhanced_search_utils():
 
         try:
             from z_crawl4ai_utils import (
-                SimpleCrawler,
                 CrawlResult,
+                SimpleCrawler,
                 get_crawler,
-                get_timeout_for_url
+                get_timeout_for_url,
             )
             logger.info("✅ Crawl4AI utilities imported successfully")
 
@@ -98,9 +98,9 @@ async def test_enhanced_search_utils():
         try:
             sys.path.insert(0, str(project_root / "multi_agent_research_system" / "config"))
             from settings import (
-                get_settings,
+                EnhancedSearchConfig,
                 get_enhanced_search_config,
-                EnhancedSearchConfig
+                get_settings,
             )
 
             settings = get_settings()

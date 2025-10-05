@@ -12,16 +12,15 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Callable, Union
-from pathlib import Path
+from typing import Any
 
 # Import logging with proper path handling
 try:
     from agent_logging import get_logger
 except ImportError:
     # Fallback for when running as module
-    import sys
     import os
+    import sys
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     # Try to import from the agent_logging module we created
     try:
@@ -61,14 +60,14 @@ class HookContext:
     hook_name: str
     hook_type: str
     session_id: str
-    agent_name: Optional[str] = None
-    agent_type: Optional[str] = None
-    workflow_stage: Optional[str] = None
-    correlation_id: Optional[str] = None
-    execution_id: Optional[str] = None
+    agent_name: str | None = None
+    agent_type: str | None = None
+    workflow_stage: str | None = None
+    correlation_id: str | None = None
+    execution_id: str | None = None
     timestamp: datetime = field(default_factory=datetime.now)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    previous_contexts: List[Dict[str, Any]] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    previous_contexts: list[dict[str, Any]] = field(default_factory=list)
 
     def __post_init__(self):
         """Initialize derived fields."""
@@ -86,13 +85,13 @@ class HookResult:
     status: HookStatus
     execution_id: str
     start_time: datetime
-    end_time: Optional[datetime] = None
-    execution_time: Optional[float] = None
-    result_data: Optional[Dict[str, Any]] = None
-    error_message: Optional[str] = None
-    error_type: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    next_hooks: List[str] = field(default_factory=list)
+    end_time: datetime | None = None
+    execution_time: float | None = None
+    result_data: dict[str, Any] | None = None
+    error_message: str | None = None
+    error_type: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    next_hooks: list[str] = field(default_factory=list)
 
     @property
     def success(self) -> bool:
@@ -113,7 +112,7 @@ class BaseHook(ABC):
         name: str,
         hook_type: str,
         priority: HookPriority = HookPriority.NORMAL,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
         enabled: bool = True,
         retry_count: int = 0,
         retry_delay: float = 1.0
@@ -130,7 +129,7 @@ class BaseHook(ABC):
         self.execution_count = 0
         self.success_count = 0
         self.failure_count = 0
-        self.last_execution: Optional[datetime] = None
+        self.last_execution: datetime | None = None
         self.average_execution_time = 0.0
 
     @abstractmethod
@@ -275,7 +274,7 @@ class BaseHook(ABC):
                 total_executions
             )
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get hook execution statistics."""
         total_executions = self.success_count + self.failure_count
         success_rate = (self.success_count / total_executions * 100) if total_executions > 0 else 0.0
@@ -301,13 +300,13 @@ class HookManager:
 
     def __init__(self):
         """Initialize hook manager."""
-        self.hooks: Dict[str, List[BaseHook]] = {}
-        self.global_hooks: List[BaseHook] = []
+        self.hooks: dict[str, list[BaseHook]] = {}
+        self.global_hooks: list[BaseHook] = []
         self.logger = get_logger("hook_manager")
-        self.execution_history: List[HookResult] = []
+        self.execution_history: list[HookResult] = []
         self.max_history_size = 1000
 
-    def register_hook(self, hook: BaseHook, hook_types: Optional[List[str]] = None):
+    def register_hook(self, hook: BaseHook, hook_types: list[str] | None = None):
         """Register a hook for specific hook types or globally."""
         if hook_types:
             for hook_type in hook_types:
@@ -331,7 +330,7 @@ class HookManager:
                         priority=hook.priority.value,
                         global_hook=hook_types is None)
 
-    def unregister_hook(self, hook_name: str, hook_type: Optional[str] = None):
+    def unregister_hook(self, hook_name: str, hook_type: str | None = None):
         """Unregister a hook by name and optionally by type."""
         removed_count = 0
 
@@ -362,7 +361,7 @@ class HookManager:
         hook_type: str,
         context: HookContext,
         parallel: bool = False
-    ) -> List[HookResult]:
+    ) -> list[HookResult]:
         """Execute all registered hooks for a given type."""
         # Get relevant hooks
         relevant_hooks = self.hooks.get(hook_type, []) + self.global_hooks
@@ -445,7 +444,7 @@ class HookManager:
 
         return results
 
-    def _add_to_history(self, results: List[HookResult]):
+    def _add_to_history(self, results: list[HookResult]):
         """Add hook results to execution history."""
         self.execution_history.extend(results)
 
@@ -454,7 +453,7 @@ class HookManager:
             excess = len(self.execution_history) - self.max_history_size
             self.execution_history = self.execution_history[excess:]
 
-    def get_hook_stats(self) -> Dict[str, Any]:
+    def get_hook_stats(self) -> dict[str, Any]:
         """Get statistics for all registered hooks."""
         all_hooks = []
         for hooks_list in self.hooks.values():
@@ -472,11 +471,11 @@ class HookManager:
 
     def get_execution_history(
         self,
-        limit: Optional[int] = None,
-        hook_type: Optional[str] = None,
-        session_id: Optional[str] = None,
-        status: Optional[HookStatus] = None
-    ) -> List[HookResult]:
+        limit: int | None = None,
+        hook_type: str | None = None,
+        session_id: str | None = None,
+        status: HookStatus | None = None
+    ) -> list[HookResult]:
         """Get filtered hook execution history."""
         history = self.execution_history.copy()
 

@@ -3,9 +3,9 @@
 Startup script for the Streamlit UI with automatic port management.
 """
 
+import os
 import subprocess
 import sys
-import os
 from pathlib import Path
 
 # Add the current directory to Python path for imports

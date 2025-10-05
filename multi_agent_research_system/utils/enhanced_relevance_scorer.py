@@ -9,7 +9,6 @@ Implements the sophisticated relevance scoring algorithm from the technical docu
 
 import logging
 import re
-from typing import List, Set
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
@@ -128,7 +127,7 @@ def calculate_domain_authority_boost(url: str) -> float:
     return 0.0
 
 
-def calculate_term_frequency_score(text: str, query_terms: List[str]) -> float:
+def calculate_term_frequency_score(text: str, query_terms: list[str]) -> float:
     """
     Calculate term frequency score with partial matching support.
 
@@ -162,7 +161,7 @@ def calculate_enhanced_relevance_score_with_domain_authority(
     title: str,
     snippet: str,
     position: int,
-    query_terms: List[str],
+    query_terms: list[str],
     url: str = ""
 ) -> float:
     """
@@ -234,7 +233,7 @@ def _calculate_position_score(position: int) -> float:
         return max(0.05, 0.1 - ((position - 10) * 0.01))
 
 
-def batch_calculate_relevance_scores(search_results: List[dict], query: str) -> List[dict]:
+def batch_calculate_relevance_scores(search_results: list[dict], query: str) -> list[dict]:
     """
     Calculate relevance scores for a batch of search results.
 
@@ -271,9 +270,9 @@ def batch_calculate_relevance_scores(search_results: List[dict], query: str) -> 
 
 
 def filter_results_by_relevance_threshold(
-    results: List[dict],
+    results: list[dict],
     threshold: float = 0.3
-) -> List[dict]:
+) -> list[dict]:
     """
     Filter search results by minimum relevance threshold.
 
@@ -300,7 +299,7 @@ def calculate_enhanced_relevance_score(
     title: str,
     snippet: str,
     position: int,
-    query_terms: List[str]
+    query_terms: list[str]
 ) -> float:
     """
     Backward compatibility wrapper for the original function signature.

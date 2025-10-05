@@ -7,12 +7,12 @@ This script tests the monitoring components without external dependencies.
 
 import asyncio
 import json
-import sys
 import os
+import sys
 import time
 import uuid
+from datetime import datetime
 from pathlib import Path
-from datetime import datetime, timedelta
 
 # Add the parent directory to the path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -25,11 +25,11 @@ async def test_basic_logging():
     try:
         # Test that we can import and use the agent logging
         from agent_logging import (
-            ResearchAgentLogger,
-            ReportAgentLogger,
             EditorAgentLogger,
+            ReportAgentLogger,
+            ResearchAgentLogger,
             UICoordinatorLogger,
-            create_agent_logger
+            create_agent_logger,
         )
 
         session_id = f"test_logging_session_{uuid.uuid4().hex[:8]}"
@@ -260,7 +260,7 @@ async def test_session_management():
             print(f"✅ Session data exported to: {export_path}")
 
             # Verify exported data
-            with open(export_path, 'r') as f:
+            with open(export_path) as f:
                 exported_data = json.load(f)
 
             if exported_data.get('session_id') == session_id:

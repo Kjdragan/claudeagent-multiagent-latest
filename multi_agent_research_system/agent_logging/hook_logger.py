@@ -5,18 +5,17 @@ Provides specialized logging capabilities for monitoring hook execution,
 including tool use monitoring, agent communication tracking, and session lifecycle events.
 """
 
-from typing import Any, Dict, Optional, List
-from datetime import datetime
-from pathlib import Path
 import json
+from pathlib import Path
+from typing import Any
 
-from .structured_logger import StructuredLogger, get_logger
+from .structured_logger import get_logger
 
 
 class HookLogger:
     """Specialized logger for hook execution tracking and monitoring."""
 
-    def __init__(self, hook_name: str, log_dir: Optional[Path] = None):
+    def __init__(self, hook_name: str, log_dir: Path | None = None):
         """Initialize hook logger."""
         self.hook_name = hook_name
         self.logger = get_logger(f"hook.{hook_name}", log_dir=log_dir)
@@ -44,7 +43,7 @@ class HookLogger:
         hook_type: str,
         session_id: str,
         execution_time: float,
-        result: Optional[Dict[str, Any]] = None,
+        result: dict[str, Any] | None = None,
         **metadata
     ) -> None:
         """Log hook execution completion event."""
@@ -85,7 +84,7 @@ class HookLogger:
 class ToolUseLogger(HookLogger):
     """Specialized logger for tool use hook monitoring."""
 
-    def __init__(self, log_dir: Optional[Path] = None):
+    def __init__(self, log_dir: Path | None = None):
         super().__init__("tool_use_monitor", log_dir)
 
     def log_pre_tool_use(
@@ -93,8 +92,8 @@ class ToolUseLogger(HookLogger):
         tool_name: str,
         tool_use_id: str,
         session_id: str,
-        input_data: Dict[str, Any],
-        agent_context: Dict[str, Any],
+        input_data: dict[str, Any],
+        agent_context: dict[str, Any],
         **metadata
     ) -> None:
         """Log pre-tool-use hook execution."""
@@ -116,11 +115,11 @@ class ToolUseLogger(HookLogger):
         tool_name: str,
         tool_use_id: str,
         session_id: str,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         result_data: Any,
         execution_time: float,
         success: bool,
-        agent_context: Dict[str, Any],
+        agent_context: dict[str, Any],
         **metadata
     ) -> None:
         """Log post-tool-use hook execution."""
@@ -154,7 +153,7 @@ class ToolUseLogger(HookLogger):
         tool_use_id: str,
         session_id: str,
         block_reason: str,
-        agent_context: Dict[str, Any],
+        agent_context: dict[str, Any],
         **metadata
     ) -> None:
         """Log tool use blocked event."""
@@ -175,14 +174,14 @@ class ToolUseLogger(HookLogger):
 class AgentCommunicationLogger(HookLogger):
     """Specialized logger for agent communication hook monitoring."""
 
-    def __init__(self, log_dir: Optional[Path] = None):
+    def __init__(self, log_dir: Path | None = None):
         super().__init__("agent_communication_monitor", log_dir)
 
     def log_user_prompt_submit(
         self,
         session_id: str,
         prompt_content: str,
-        agent_context: Dict[str, Any],
+        agent_context: dict[str, Any],
         **metadata
     ) -> None:
         """Log user prompt submission hook."""
@@ -202,7 +201,7 @@ class AgentCommunicationLogger(HookLogger):
         session_id: str,
         message_content: str,
         recipient_agent: str,
-        sender_context: Dict[str, Any],
+        sender_context: dict[str, Any],
         **metadata
     ) -> None:
         """Log agent message sending hook."""
@@ -223,7 +222,7 @@ class AgentCommunicationLogger(HookLogger):
         session_id: str,
         message_content: str,
         sender_agent: str,
-        receiver_context: Dict[str, Any],
+        receiver_context: dict[str, Any],
         **metadata
     ) -> None:
         """Log agent message receiving hook."""
@@ -246,7 +245,7 @@ class AgentCommunicationLogger(HookLogger):
         from_agent: str,
         to_agent: str,
         handoff_reason: str,
-        context_data: Dict[str, Any],
+        context_data: dict[str, Any],
         **metadata
     ) -> None:
         """Log agent handoff hook."""
@@ -267,14 +266,14 @@ class AgentCommunicationLogger(HookLogger):
 class SessionLifecycleLogger(HookLogger):
     """Specialized logger for session lifecycle hook monitoring."""
 
-    def __init__(self, log_dir: Optional[Path] = None):
+    def __init__(self, log_dir: Path | None = None):
         super().__init__("session_lifecycle_monitor", log_dir)
 
     def log_session_creation(
         self,
         session_id: str,
-        session_config: Dict[str, Any],
-        user_context: Dict[str, Any],
+        session_config: dict[str, Any],
+        user_context: dict[str, Any],
         **metadata
     ) -> None:
         """Log session creation hook."""
@@ -290,8 +289,8 @@ class SessionLifecycleLogger(HookLogger):
     def log_session_resumption(
         self,
         session_id: str,
-        previous_state: Dict[str, Any],
-        resumption_context: Dict[str, Any],
+        previous_state: dict[str, Any],
+        resumption_context: dict[str, Any],
         **metadata
     ) -> None:
         """Log session resumption hook."""
@@ -308,7 +307,7 @@ class SessionLifecycleLogger(HookLogger):
         self,
         session_id: str,
         pause_reason: str,
-        state_snapshot: Dict[str, Any],
+        state_snapshot: dict[str, Any],
         **metadata
     ) -> None:
         """Log session pause hook."""
@@ -326,7 +325,7 @@ class SessionLifecycleLogger(HookLogger):
         self,
         session_id: str,
         termination_reason: str,
-        final_state: Dict[str, Any],
+        final_state: dict[str, Any],
         **metadata
     ) -> None:
         """Log session termination hook."""
@@ -344,8 +343,8 @@ class SessionLifecycleLogger(HookLogger):
         self,
         session_id: str,
         error_type: str,
-        error_context: Dict[str, Any],
-        recovery_action: Optional[str] = None,
+        error_context: dict[str, Any],
+        recovery_action: str | None = None,
         **metadata
     ) -> None:
         """Log session error hook."""
@@ -364,7 +363,7 @@ class SessionLifecycleLogger(HookLogger):
 class WorkflowLogger(HookLogger):
     """Specialized logger for workflow execution hook monitoring."""
 
-    def __init__(self, log_dir: Optional[Path] = None):
+    def __init__(self, log_dir: Path | None = None):
         super().__init__("workflow_monitor", log_dir)
 
     def log_workflow_stage_start(
@@ -372,7 +371,7 @@ class WorkflowLogger(HookLogger):
         session_id: str,
         workflow_type: str,
         stage_name: str,
-        stage_config: Dict[str, Any],
+        stage_config: dict[str, Any],
         **metadata
     ) -> None:
         """Log workflow stage start hook."""
@@ -391,7 +390,7 @@ class WorkflowLogger(HookLogger):
         session_id: str,
         workflow_type: str,
         stage_name: str,
-        stage_result: Dict[str, Any],
+        stage_result: dict[str, Any],
         execution_time: float,
         **metadata
     ) -> None:
@@ -412,9 +411,9 @@ class WorkflowLogger(HookLogger):
         session_id: str,
         workflow_type: str,
         decision_point: str,
-        available_options: List[str],
+        available_options: list[str],
         chosen_option: str,
-        decision_context: Dict[str, Any],
+        decision_context: dict[str, Any],
         **metadata
     ) -> None:
         """Log workflow decision point hook."""
@@ -438,7 +437,7 @@ class WorkflowLogger(HookLogger):
         workflow_type: str,
         error_stage: str,
         error_type: str,
-        error_context: Dict[str, Any],
+        error_context: dict[str, Any],
         recovery_attempted: bool,
         **metadata
     ) -> None:

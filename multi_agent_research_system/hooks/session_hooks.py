@@ -5,21 +5,20 @@ Provides comprehensive monitoring of session creation, state changes,
 recovery operations, and lifecycle management throughout the research process.
 """
 
-import asyncio
 import json
-import time
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Set
-from dataclasses import dataclass, field
-from enum import Enum
-from pathlib import Path
-
-from .base_hooks import BaseHook, HookContext, HookResult, HookStatus, HookPriority
-import sys
 import os
+import sys
+import time
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any
+
+from .base_hooks import BaseHook, HookContext, HookPriority, HookResult, HookStatus
+
 # Add parent directory to path for proper imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from agent_logging import get_logger, SessionLifecycleLogger
+from agent_logging import SessionLifecycleLogger
 
 
 class SessionState(Enum):
@@ -55,11 +54,11 @@ class SessionEvent:
     timestamp: datetime
     session_id: str
     event_type: SessionEventType
-    previous_state: Optional[SessionState]
-    new_state: Optional[SessionState]
-    data: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    correlation_id: Optional[str] = None
+    previous_state: SessionState | None
+    new_state: SessionState | None
+    data: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    correlation_id: str | None = None
 
 
 @dataclass
@@ -76,9 +75,9 @@ class SessionMetrics:
     recovery_attempts: int = 0
     successful_recoveries: int = 0
     data_size_bytes: int = 0
-    workflow_stages_completed: List[str] = field(default_factory=list)
-    agents_involved: Set[str] = field(default_factory=set)
-    tools_executed: Dict[str, int] = field(default_factory=dict)
+    workflow_stages_completed: list[str] = field(default_factory=list)
+    agents_involved: set[str] = field(default_factory=set)
+    tools_executed: dict[str, int] = field(default_factory=dict)
 
     @property
     def current_duration(self) -> float:
@@ -111,10 +110,10 @@ class SessionLifecycleHook(BaseHook):
             retry_count=1
         )
         self.session_logger = SessionLifecycleLogger()
-        self.session_events: List[SessionEvent] = []
-        self.session_metrics: Dict[str, SessionMetrics] = {}
-        self.active_sessions: Dict[str, Dict[str, Any]] = {}
-        self.session_snapshots: Dict[str, List[Dict[str, Any]]] = {}
+        self.session_events: list[SessionEvent] = []
+        self.session_metrics: dict[str, SessionMetrics] = {}
+        self.active_sessions: dict[str, dict[str, Any]] = {}
+        self.session_snapshots: dict[str, list[dict[str, Any]]] = {}
         self.max_events = 5000
         self.max_snapshots_per_session = 50
 
@@ -564,7 +563,7 @@ class SessionLifecycleHook(BaseHook):
             tool_name = event.data["tool_name"]
             metrics.tools_executed[tool_name] = metrics.tools_executed.get(tool_name, 0) + 1
 
-    async def _create_session_snapshot(self, session_id: str, snapshot_type: str, data: Dict[str, Any]):
+    async def _create_session_snapshot(self, session_id: str, snapshot_type: str, data: dict[str, Any]):
         """Create a session snapshot for recovery purposes."""
         if session_id not in self.session_snapshots:
             self.session_snapshots[session_id] = []
@@ -584,10 +583,10 @@ class SessionLifecycleHook(BaseHook):
 
     def get_session_events(
         self,
-        session_id: Optional[str] = None,
-        event_type: Optional[str] = None,
+        session_id: str | None = None,
+        event_type: str | None = None,
         limit: int = 100
-    ) -> List[SessionEvent]:
+    ) -> list[SessionEvent]:
         """Get filtered session events."""
         events = self.session_events.copy()
 
@@ -606,7 +605,7 @@ class SessionLifecycleHook(BaseHook):
         events.sort(key=lambda e: e.timestamp, reverse=True)
         return events[:limit]
 
-    def get_session_metrics(self, session_id: Optional[str] = None) -> Dict[str, Any]:
+    def get_session_metrics(self, session_id: str | None = None) -> dict[str, Any]:
         """Get session performance metrics."""
         if session_id:
             if session_id not in self.session_metrics:
@@ -638,7 +637,7 @@ class SessionLifecycleHook(BaseHook):
                 for session_id in self.session_metrics.keys()
             }
 
-    def get_active_sessions(self) -> Dict[str, Dict[str, Any]]:
+    def get_active_sessions(self) -> dict[str, dict[str, Any]]:
         """Get currently active sessions."""
         active = {}
         for session_id, metrics in self.session_metrics.items():
@@ -649,7 +648,7 @@ class SessionLifecycleHook(BaseHook):
                 }
         return active
 
-    def get_session_snapshots(self, session_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_session_snapshots(self, session_id: str, limit: int = 10) -> list[dict[str, Any]]:
         """Get session snapshots for recovery."""
         if session_id not in self.session_snapshots:
             return []
@@ -658,7 +657,7 @@ class SessionLifecycleHook(BaseHook):
         snapshots.sort(key=lambda s: s["timestamp"], reverse=True)
         return snapshots[:limit]
 
-    def get_session_summary(self) -> Dict[str, Any]:
+    def get_session_summary(self) -> dict[str, Any]:
         """Get comprehensive session summary."""
         total_sessions = len(self.session_metrics)
         active_sessions = len([s for s in self.session_metrics.values() if s.is_active])

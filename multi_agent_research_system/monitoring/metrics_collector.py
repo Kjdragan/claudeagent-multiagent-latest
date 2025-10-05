@@ -7,16 +7,16 @@ including agent performance, tool usage, system resources, and user interactions
 
 import asyncio
 import json
-import psutil
-import time
+import os
+import sys
 from collections import defaultdict, deque
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
-import sys
-import os
+import psutil
+
 # Add parent directory to path for proper imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from agent_logging import StructuredLogger
@@ -32,7 +32,7 @@ class AgentMetric:
     metric_name: str
     value: float
     unit: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 @dataclass
@@ -43,7 +43,7 @@ class SystemMetric:
     memory_percent: float
     memory_available_mb: float
     disk_usage_percent: float
-    network_io: Dict[str, int]
+    network_io: dict[str, int]
     process_count: int
     active_agents: int
 
@@ -59,7 +59,7 @@ class ToolMetric:
     success: bool
     input_size: int
     output_size: int
-    error_type: Optional[str] = None
+    error_type: str | None = None
 
 
 @dataclass
@@ -72,8 +72,8 @@ class WorkflowMetric:
     stage_duration: float
     total_duration: float
     success: bool
-    agents_involved: List[str]
-    tools_used: List[str]
+    agents_involved: list[str]
+    tools_used: list[str]
 
 
 class MetricsCollector:
@@ -112,12 +112,12 @@ class MetricsCollector:
         self.workflow_metrics: deque[WorkflowMetric] = deque(maxlen=10000)
 
         # Aggregated metrics for real-time monitoring
-        self.agent_performance: Dict[str, Dict[str, Any]] = defaultdict(dict)
-        self.tool_performance: Dict[str, Dict[str, Any]] = defaultdict(dict)
-        self.workflow_performance: Dict[str, Dict[str, Any]] = defaultdict(dict)
+        self.agent_performance: dict[str, dict[str, Any]] = defaultdict(dict)
+        self.tool_performance: dict[str, dict[str, Any]] = defaultdict(dict)
+        self.workflow_performance: dict[str, dict[str, Any]] = defaultdict(dict)
 
         # System monitoring task
-        self.system_monitoring_task: Optional[asyncio.Task] = None
+        self.system_monitoring_task: asyncio.Task | None = None
         self.is_monitoring = False
 
         # Performance thresholds
@@ -167,7 +167,7 @@ class MetricsCollector:
                            metric_name: str,
                            value: float,
                            unit: str = "count",
-                           metadata: Optional[Dict[str, Any]] = None) -> None:
+                           metadata: dict[str, Any] | None = None) -> None:
         """
         Record an agent performance metric.
 
@@ -210,7 +210,7 @@ class MetricsCollector:
                           success: bool,
                           input_size: int = 0,
                           output_size: int = 0,
-                          error_type: Optional[str] = None) -> None:
+                          error_type: str | None = None) -> None:
         """
         Record a tool usage metric.
 
@@ -253,8 +253,8 @@ class MetricsCollector:
                               stage_duration: float,
                               total_duration: float,
                               success: bool,
-                              agents_involved: List[str],
-                              tools_used: List[str]) -> None:
+                              agents_involved: list[str],
+                              tools_used: list[str]) -> None:
         """
         Record a workflow performance metric.
 
@@ -540,7 +540,7 @@ class MetricsCollector:
             maxlen=10000
         )
 
-    def get_agent_summary(self, agent_name: Optional[str] = None) -> Dict[str, Any]:
+    def get_agent_summary(self, agent_name: str | None = None) -> dict[str, Any]:
         """
         Get performance summary for agents.
 
@@ -574,7 +574,7 @@ class MetricsCollector:
 
         return dict(summary)
 
-    def get_tool_summary(self, tool_name: Optional[str] = None) -> Dict[str, Any]:
+    def get_tool_summary(self, tool_name: str | None = None) -> dict[str, Any]:
         """
         Get performance summary for tools.
 
@@ -609,7 +609,7 @@ class MetricsCollector:
 
         return summary
 
-    def get_system_summary(self) -> Dict[str, Any]:
+    def get_system_summary(self) -> dict[str, Any]:
         """Get current system resource summary."""
         if not self.system_metrics:
             return {}
@@ -645,8 +645,8 @@ class MetricsCollector:
         return summary
 
     def export_metrics(self,
-                      file_path: Optional[str] = None,
-                      metric_types: Optional[List[str]] = None) -> str:
+                      file_path: str | None = None,
+                      metric_types: list[str] | None = None) -> str:
         """
         Export all metrics to a JSON file.
 

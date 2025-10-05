@@ -6,9 +6,8 @@ the Stage 1 DNS resolution issues identified in the performance analysis.
 """
 
 import asyncio
-import sys
 import os
-from pathlib import Path
+import sys
 import time
 
 # Add current directory to path for imports
@@ -38,7 +37,7 @@ async def test_optimized_crawler():
     crawler = get_optimized_crawler()
 
     print(f"\n🔍 Testing {len(test_urls)} URLs with optimized configuration")
-    print(f"📊 Expected: Stage 1 should now succeed for most URLs")
+    print("📊 Expected: Stage 1 should now succeed for most URLs")
 
     results = []
 
@@ -90,7 +89,7 @@ async def test_optimized_crawler():
     stage1_successful = [r for r in successful if r['stage_used'] == '1_optimized']
     stage2_successful = [r for r in successful if r['stage_used'] == '2_intelligent']
 
-    print(f"📊 Overall Results:")
+    print("📊 Overall Results:")
     print(f"  Total URLs: {len(results)}")
     print(f"  Successful: {len(successful)}/{len(results)} ({len(successful)/len(results)*100:.1f}%)")
     print(f"  Stage 1 successes: {len(stage1_successful)}")
@@ -104,7 +103,7 @@ async def test_optimized_crawler():
 
     # Stage 1 success rate analysis
     stage1_success_rate = len(stage1_successful) / len(results) * 100
-    print(f"\n🎯 Stage 1 Performance:")
+    print("\n🎯 Stage 1 Performance:")
     print(f"  Success rate: {stage1_success_rate:.1f}%")
 
     if stage1_success_rate > 50:
@@ -116,7 +115,7 @@ async def test_optimized_crawler():
 
     # Get crawler statistics
     stats = crawler.get_performance_stats()
-    print(f"\n📈 Crawler Statistics:")
+    print("\n📈 Crawler Statistics:")
     for key, value in stats.items():
         if isinstance(value, float):
             print(f"  {key}: {value:.3f}")
@@ -124,7 +123,7 @@ async def test_optimized_crawler():
             print(f"  {key}: {value}")
 
     # Overall assessment
-    print(f"\n🏆 Overall Assessment:")
+    print("\n🏆 Overall Assessment:")
     if stage1_success_rate >= 70:
         print("  ✅ EXCELLENT: Optimization successful")
         print("  🚀 Stage 1 DNS issues resolved")
@@ -165,7 +164,7 @@ async def test_parallel_crawling():
         duration = time.time() - start_time
         successful = [r for r in results if r.success]
 
-        print(f"📊 Parallel Results:")
+        print("📊 Parallel Results:")
         print(f"  Total URLs: {len(results)}")
         print(f"  Successful: {len(successful)}")
         print(f"  Total duration: {duration:.2f}s")
@@ -195,7 +194,7 @@ async def main():
     print("FINAL RESULTS")
     print(f"{'='*80}")
 
-    print(f"📊 Test Results:")
+    print("📊 Test Results:")
     print(f"  Optimized crawler test: {'✅ PASSED' if test1_result else '❌ FAILED'}")
     print(f"  Parallel crawling test: {'✅ PASSED' if test2_result else '❌ FAILED'}")
 

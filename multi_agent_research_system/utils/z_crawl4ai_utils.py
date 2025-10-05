@@ -8,18 +8,17 @@ Adapted for the multi-agent research system.
 
 import asyncio
 import logging
-from datetime import datetime
-from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
-from urllib.parse import urlparse
+from datetime import datetime
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
 # Try to import crawl4ai components
 try:
-    from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, BrowserConfig, CacheMode
-    from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
+    from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode, CrawlerRunConfig
     from crawl4ai.content_filter_strategy import PruningContentFilter
+    from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
     CRAWL4AI_AVAILABLE = True
 except ImportError:
     logger.warning("Crawl4AI not available, install with: pip install crawl4ai>=0.7.4")
@@ -31,14 +30,14 @@ class CrawlResult:
     """Enhanced result structure for crawl operations."""
     url: str
     success: bool
-    content: Optional[str] = None
-    cleaned_content: Optional[str] = None
-    error: Optional[str] = None
+    content: str | None = None
+    cleaned_content: str | None = None
+    error: str | None = None
     duration: float = 0.0
     word_count: int = 0
     char_count: int = 0
     anti_bot_level: int = 0
-    metadata: Dict[str, Any] = None
+    metadata: dict[str, Any] = None
 
 
 class SimpleCrawler:
@@ -51,7 +50,7 @@ class SimpleCrawler:
     - Parallel processing for efficiency
     """
 
-    def __init__(self, browser_configs: Optional[Dict] = None):
+    def __init__(self, browser_configs: dict | None = None):
         """Initialize with optional browser configurations."""
         self.browser_configs = browser_configs or {}
         self._stats = {
@@ -225,12 +224,12 @@ class SimpleCrawler:
 
     async def crawl_multiple(
         self,
-        urls: List[str],
+        urls: list[str],
         anti_bot_level: int = 1,
         use_content_filter: bool = False,
         max_concurrent: int = 5,
         extraction_mode: str = "article"
-    ) -> List[CrawlResult]:
+    ) -> list[CrawlResult]:
         """
         Crawl multiple URLs concurrently with progressive anti-bot.
 
@@ -278,7 +277,7 @@ class SimpleCrawler:
 
         return final_results
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get crawling statistics."""
         return {
             **self._stats,
@@ -288,10 +287,10 @@ class SimpleCrawler:
 
 
 # Global crawler instance for backward compatibility
-_global_crawler: Optional[SimpleCrawler] = None
+_global_crawler: SimpleCrawler | None = None
 
 
-def get_crawler(browser_configs: Optional[Dict] = None) -> SimpleCrawler:
+def get_crawler(browser_configs: dict | None = None) -> SimpleCrawler:
     """Get or create global crawler instance."""
     global _global_crawler
     if _global_crawler is None or browser_configs:
@@ -300,7 +299,7 @@ def get_crawler(browser_configs: Optional[Dict] = None) -> SimpleCrawler:
 
 
 async def crawl_multiple_urls_with_cleaning(
-    urls: List[str],
+    urls: list[str],
     session_id: str,
     search_query: str = None,
     max_concurrent: int = 10,
@@ -310,7 +309,7 @@ async def crawl_multiple_urls_with_cleaning(
     base_config=None,
     stealth_config=None,
     undetected_config=None
-) -> List[dict]:
+) -> list[dict]:
     """
     Enhanced crawling with integrated content cleaning.
 
@@ -475,7 +474,7 @@ async def crawl_multiple_urls_with_cleaning(
 
 
 async def crawl_multiple_urls_direct(
-    urls: List[str],
+    urls: list[str],
     session_id: str,
     max_concurrent: int = 10,
     extraction_mode: str = "article"
@@ -494,7 +493,7 @@ async def crawl_multiple_urls_direct(
 
     # Format as string for backward compatibility
     formatted_results = [
-        f"# Enhanced Crawl Results",
+        "# Enhanced Crawl Results",
         f"**URLs Processed**: {len(urls)}",
         f"**Successful**: {sum(1 for r in results if r['success'])}",
         "",

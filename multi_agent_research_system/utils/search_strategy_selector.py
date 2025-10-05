@@ -13,10 +13,10 @@ Features:
 
 import logging
 import re
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, Set, Any
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class StrategyAnalysis:
     """Analysis result for search strategy selection."""
     recommended_strategy: SearchStrategy
     confidence: float
-    reasoning: List[str]
+    reasoning: list[str]
     time_factor: float
     topic_factor: float
     query_factor: float
@@ -67,7 +67,7 @@ class SearchStrategySelector:
             'government', 'shutdown', 'policy', 'bill', 'law', 'regulation',
             'weather', 'storm', 'hurricane', 'earthquake', 'flood', 'fire',
             'sports', 'game', 'match', 'tournament', 'championship', 'score',
-            'technology', 'launch', 'release', 'update', 'announcement',
+            'technology', 'launch', 'release', 'announcement',
             'health', 'outbreak', 'pandemic', 'vaccine', 'disease', 'covid',
 
             # Organizations and people
@@ -106,8 +106,8 @@ class SearchStrategySelector:
     def select_search_strategy(
         self,
         query: str,
-        current_time: Optional[datetime] = None,
-        context: Optional[Dict] = None
+        current_time: datetime | None = None,
+        context: dict | None = None
     ) -> StrategyAnalysis:
         """
         Select the optimal search strategy for the given query.
@@ -280,7 +280,7 @@ class SearchStrategySelector:
         self,
         query: str,
         analysis: StrategyAnalysis
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get configuration for hybrid search strategy.
 
@@ -352,7 +352,7 @@ class SearchStrategySelector:
         success_rate: float,
         result_quality: float,
         processing_time: float
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Analyze performance of a search strategy for optimization.
 
@@ -404,7 +404,7 @@ class SearchStrategySelector:
 
 
 # Global strategy selector instance
-_global_strategy_selector: Optional[SearchStrategySelector] = None
+_global_strategy_selector: SearchStrategySelector | None = None
 
 
 def get_search_strategy_selector() -> SearchStrategySelector:

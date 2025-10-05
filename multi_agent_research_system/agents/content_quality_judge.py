@@ -16,10 +16,10 @@ import asyncio
 import logging
 import os
 import re
-from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 # Pydantic AI imports
 try:
@@ -49,10 +49,10 @@ class QualityAssessment:
     """Comprehensive quality assessment result."""
     overall_score: int  # 0-100
     quality_level: str
-    criteria_scores: Dict[QualityCriterion, int]
-    strengths: List[str]
-    weaknesses: List[str]
-    recommendations: List[str]
+    criteria_scores: dict[QualityCriterion, int]
+    strengths: list[str]
+    weaknesses: list[str]
+    recommendations: list[str]
     confidence: float  # 0.0-1.0
     processing_time: float
     model_used: str
@@ -63,7 +63,7 @@ class QualityJudgmentContext:
     """Context for quality judgment operations."""
     content: str
     original_query: str
-    query_terms: List[str]
+    query_terms: list[str]
     source_url: str
     source_domain: str
     content_length: int
@@ -83,7 +83,7 @@ class ContentQualityJudge:
     - Feedback loops for cleaning optimization
     """
 
-    def __init__(self, model_name: str = "gpt-4o-mini", api_key: Optional[str] = None):
+    def __init__(self, model_name: str = "gpt-4o-mini", api_key: str | None = None):
         """
         Initialize the content quality judge.
 
@@ -179,9 +179,9 @@ class ContentQualityJudge:
 
     async def assess_multiple_contents(
         self,
-        contexts: List[QualityJudgmentContext],
+        contexts: list[QualityJudgmentContext],
         max_concurrent: int = 3
-    ) -> List[QualityAssessment]:
+    ) -> list[QualityAssessment]:
         """
         Assess multiple contents concurrently.
 
@@ -455,8 +455,8 @@ class ContentQualityJudge:
 
     def _generate_feedback(
         self,
-        criteria_scores: Dict[QualityCriterion, int]
-    ) -> Tuple[List[str], List[str]]:
+        criteria_scores: dict[QualityCriterion, int]
+    ) -> tuple[list[str], list[str]]:
         """Generate strengths and weaknesses based on criteria scores."""
         strengths = []
         weaknesses = []
@@ -471,9 +471,9 @@ class ContentQualityJudge:
 
     def _generate_recommendations(
         self,
-        criteria_scores: Dict[QualityCriterion, int],
+        criteria_scores: dict[QualityCriterion, int],
         context: QualityJudgmentContext
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate improvement recommendations."""
         recommendations = []
 
@@ -647,7 +647,7 @@ Please evaluate this content comprehensively using the quality criteria outlined
                 self.stats['criteria_averages'][criterion.value] = []
             self.stats['criteria_averages'][criterion.value].append(score)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get assessment statistics."""
         # Calculate criteria averages
         criteria_averages = {}
@@ -664,7 +664,7 @@ Please evaluate this content comprehensively using the quality criteria outlined
 
 
 # Global quality judge instance
-_global_quality_judge: Optional[ContentQualityJudge] = None
+_global_quality_judge: ContentQualityJudge | None = None
 
 
 def get_content_quality_judge() -> ContentQualityJudge:

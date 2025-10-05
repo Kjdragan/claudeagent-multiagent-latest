@@ -8,9 +8,8 @@ RealTimeDashboard, and DiagnosticTools components.
 
 import asyncio
 import json
-import sys
 import os
-import time
+import sys
 import uuid
 from pathlib import Path
 
@@ -18,10 +17,10 @@ from pathlib import Path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from monitoring import (
+    DiagnosticTools,
     MetricsCollector,
     PerformanceMonitor,
     SystemHealthMonitor,
-    DiagnosticTools
 )
 
 
@@ -131,7 +130,7 @@ async def test_metrics_collector():
 
         # Verify exported file exists and contains data
         if Path(export_path).exists():
-            with open(export_path, 'r') as f:
+            with open(export_path) as f:
                 exported_data = json.load(f)
             print(f"✅ Export verification: {len(exported_data.get('data', {}))} data types exported")
 
@@ -290,7 +289,7 @@ async def test_diagnostic_tools(collector, performance_monitor, health_monitor):
     try:
         # Generate comprehensive diagnostic report
         diagnostic_report = await diagnostics.generate_comprehensive_diagnostic_report()
-        print(f"✅ Comprehensive diagnostic report generated")
+        print("✅ Comprehensive diagnostic report generated")
         print(f"   Session ID: {diagnostic_report.get('session_info', {}).get('session_id')}")
         print(f"   Report sections: {len(diagnostic_report)}")
 
@@ -299,14 +298,14 @@ async def test_diagnostic_tools(collector, performance_monitor, health_monitor):
             session_id=session_id,
             time_range_hours=1
         )
-        print(f"✅ Session reconstruction completed")
+        print("✅ Session reconstruction completed")
         print(f"   Total events: {session_reconstruction.get('summary', {}).get('total_events', 0)}")
         print(f"   Agent activities: {session_reconstruction.get('summary', {}).get('agent_activity_count', 0)}")
         print(f"   Tool executions: {session_reconstruction.get('summary', {}).get('tool_execution_count', 0)}")
 
         # Test error pattern analysis
         error_analysis = await diagnostics.analyze_error_patterns(time_range_hours=1)
-        print(f"✅ Error pattern analysis completed")
+        print("✅ Error pattern analysis completed")
         print(f"   Total errors: {error_analysis.get('total_errors', 0)}")
         print(f"   Error types analyzed: {len(error_analysis.get('error_breakdown', {}))}")
 
@@ -316,7 +315,7 @@ async def test_diagnostic_tools(collector, performance_monitor, health_monitor):
 
         # Verify exported file
         if Path(export_path).exists():
-            with open(export_path, 'r') as f:
+            with open(export_path) as f:
                 exported_data = json.load(f)
             print(f"✅ Export verification: {len(exported_data)} report sections")
 
@@ -383,7 +382,7 @@ async def test_integration():
         performance_summary = performance_monitor.get_performance_summary()
         health_summary = health_monitor.get_health_summary()
 
-        print(f"✅ Integration test successful:")
+        print("✅ Integration test successful:")
         print(f"   Metrics collected: {metrics_summary.get('total_metrics', 0)}")
         print(f"   Performance monitoring: {performance_summary.get('monitoring_status', 'unknown')}")
         print(f"   Health status: {health_summary.get('overall_status', 'unknown')}")

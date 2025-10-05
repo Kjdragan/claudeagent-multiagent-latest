@@ -5,19 +5,18 @@ This module provides comprehensive diagnostic capabilities including error analy
 session reconstruction, debug information collection, and troubleshooting tools.
 """
 
-import asyncio
 import json
-import traceback
+import os
+import sys
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from .metrics_collector import MetricsCollector
 from .performance_monitor import PerformanceMonitor
 from .system_health import SystemHealthMonitor
-import sys
-import os
+
 # Add parent directory to path for proper imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from agent_logging import StructuredLogger
@@ -56,15 +55,15 @@ class DiagnosticTools:
         )
 
         # Diagnostic data cache
-        self._diagnostic_cache: Dict[str, Any] = {}
-        self._cache_timestamp: Optional[datetime] = None
+        self._diagnostic_cache: dict[str, Any] = {}
+        self._cache_timestamp: datetime | None = None
         self._cache_ttl_minutes = 5
 
         self.logger.info("DiagnosticTools initialized",
                         session_id=session_id,
                         diagnostics_dir=str(self.diagnostics_dir))
 
-    async def generate_comprehensive_diagnostic_report(self) -> Dict[str, Any]:
+    async def generate_comprehensive_diagnostic_report(self) -> dict[str, Any]:
         """
         Generate a comprehensive diagnostic report for the current session.
 
@@ -110,8 +109,8 @@ class DiagnosticTools:
         return report
 
     async def reconstruct_session(self,
-                                 session_id: Optional[str] = None,
-                                 time_range_hours: int = 24) -> Dict[str, Any]:
+                                 session_id: str | None = None,
+                                 time_range_hours: int = 24) -> dict[str, Any]:
         """
         Reconstruct a session timeline with all activities and events.
 
@@ -243,7 +242,7 @@ class DiagnosticTools:
         return reconstruction
 
     async def analyze_error_patterns(self,
-                                   time_range_hours: int = 24) -> Dict[str, Any]:
+                                   time_range_hours: int = 24) -> dict[str, Any]:
         """
         Analyze error patterns and provide insights.
 
@@ -327,7 +326,7 @@ class DiagnosticTools:
 
         return analysis
 
-    async def _get_session_info(self) -> Dict[str, Any]:
+    async def _get_session_info(self) -> dict[str, Any]:
         """Get session information."""
         return {
             'session_id': self.session_id,
@@ -340,11 +339,11 @@ class DiagnosticTools:
             }
         }
 
-    async def _get_system_status(self) -> Dict[str, Any]:
+    async def _get_system_status(self) -> dict[str, Any]:
         """Get current system status."""
         return self.metrics_collector.get_system_summary()
 
-    async def _analyze_agent_activities(self) -> Dict[str, Any]:
+    async def _analyze_agent_activities(self) -> dict[str, Any]:
         """Analyze agent activities and performance."""
         agent_summary = self.metrics_collector.get_agent_summary()
 
@@ -379,7 +378,7 @@ class DiagnosticTools:
 
         return analysis
 
-    async def _analyze_tool_performance(self) -> Dict[str, Any]:
+    async def _analyze_tool_performance(self) -> dict[str, Any]:
         """Analyze tool performance patterns."""
         tool_summary = self.metrics_collector.get_tool_summary()
 
@@ -409,7 +408,7 @@ class DiagnosticTools:
 
         return analysis
 
-    async def _analyze_workflow_performance(self) -> Dict[str, Any]:
+    async def _analyze_workflow_performance(self) -> dict[str, Any]:
         """Analyze workflow performance patterns."""
         analysis = {
             'workflow_summary': {},
@@ -447,11 +446,11 @@ class DiagnosticTools:
 
         return analysis
 
-    async def _analyze_errors(self) -> Dict[str, Any]:
+    async def _analyze_errors(self) -> dict[str, Any]:
         """Analyze error patterns and occurrences."""
         return await self.analyze_error_patterns()
 
-    async def _analyze_performance_trends(self) -> Dict[str, Any]:
+    async def _analyze_performance_trends(self) -> dict[str, Any]:
         """Analyze performance trends over time."""
         trends = {
             'agent_performance_trends': {},
@@ -484,11 +483,11 @@ class DiagnosticTools:
 
         return trends
 
-    async def _get_health_assessment(self) -> Dict[str, Any]:
+    async def _get_health_assessment(self) -> dict[str, Any]:
         """Get current health assessment."""
         return self.health_monitor.get_health_summary()
 
-    async def _analyze_resource_utilization(self) -> Dict[str, Any]:
+    async def _analyze_resource_utilization(self) -> dict[str, Any]:
         """Analyze resource utilization patterns."""
         system_summary = self.metrics_collector.get_system_summary()
 
@@ -507,9 +506,9 @@ class DiagnosticTools:
         }
 
     async def _assess_resource_efficiency(self,
-                                        current: Dict[str, Any],
-                                        averages: Dict[str, Any],
-                                        peaks: Dict[str, Any]) -> Dict[str, str]:
+                                        current: dict[str, Any],
+                                        averages: dict[str, Any],
+                                        peaks: dict[str, Any]) -> dict[str, str]:
         """Assess resource efficiency."""
         assessment = {}
 
@@ -533,11 +532,11 @@ class DiagnosticTools:
 
         return assessment
 
-    async def _get_alerts_summary(self) -> Dict[str, Any]:
+    async def _get_alerts_summary(self) -> dict[str, Any]:
         """Get alerts summary."""
         return self.performance_monitor.get_alerts_summary()
 
-    async def _generate_recommendations(self) -> List[str]:
+    async def _generate_recommendations(self) -> list[str]:
         """Generate system optimization recommendations."""
         recommendations = []
 
@@ -567,11 +566,11 @@ class DiagnosticTools:
 
         return recommendations
 
-    async def _collect_debug_info(self) -> Dict[str, Any]:
+    async def _collect_debug_info(self) -> dict[str, Any]:
         """Collect debug information for troubleshooting."""
-        import sys
         import os
         import platform
+        import sys
 
         debug_info = {
             'system_info': {
@@ -599,7 +598,7 @@ class DiagnosticTools:
 
         return debug_info
 
-    async def _identify_error_patterns(self, error_data: Dict[str, List]) -> Dict[str, Any]:
+    async def _identify_error_patterns(self, error_data: dict[str, list]) -> dict[str, Any]:
         """Identify patterns in error data."""
         patterns = {
             'most_common_errors': {},
@@ -614,7 +613,7 @@ class DiagnosticTools:
 
         return patterns
 
-    async def _analyze_error_trends(self, error_data: Dict[str, List]) -> Dict[str, Any]:
+    async def _analyze_error_trends(self, error_data: dict[str, list]) -> dict[str, Any]:
         """Analyze error trends over time."""
         trends = {
             'error_rate_trend': 'stable',
@@ -630,7 +629,7 @@ class DiagnosticTools:
 
         return trends
 
-    async def _generate_error_recommendations(self, error_data: Dict[str, List]) -> List[str]:
+    async def _generate_error_recommendations(self, error_data: dict[str, list]) -> list[str]:
         """Generate recommendations based on error analysis."""
         recommendations = []
 
@@ -647,8 +646,8 @@ class DiagnosticTools:
         return recommendations
 
     def export_diagnostic_report(self,
-                               report: Dict[str, Any],
-                               file_path: Optional[str] = None) -> str:
+                               report: dict[str, Any],
+                               file_path: str | None = None) -> str:
         """
         Export diagnostic report to file.
 

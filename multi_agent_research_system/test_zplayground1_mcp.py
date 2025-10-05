@@ -7,8 +7,8 @@ to ensure it works correctly without multiple MCP tool calls.
 """
 
 import asyncio
-import sys
 import os
+import sys
 
 # Add the project root to the path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))

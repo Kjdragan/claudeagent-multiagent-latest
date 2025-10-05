@@ -9,14 +9,12 @@ This module provides comprehensive logging of agent activities, including:
 """
 
 import json
-import time
+import threading
 import traceback
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from dataclasses import dataclass, asdict
-import asyncio
-import threading
+from typing import Any
 
 
 @dataclass
@@ -26,13 +24,13 @@ class AgentActivity:
     agent_name: str
     activity_type: str
     stage: str
-    input_data: Optional[Dict[str, Any]] = None
-    output_data: Optional[Dict[str, Any]] = None
-    tool_used: Optional[str] = None
-    tool_result: Optional[Any] = None
-    execution_time: Optional[float] = None
-    error: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    input_data: dict[str, Any] | None = None
+    output_data: dict[str, Any] | None = None
+    tool_used: str | None = None
+    tool_result: Any | None = None
+    execution_time: float | None = None
+    error: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class AgentLogger:
@@ -48,11 +46,11 @@ class AgentLogger:
         self.agent_logs_dir.mkdir(parents=True, exist_ok=True)
 
         # Activity storage
-        self.activities: List[AgentActivity] = []
-        self.conversation_flow: List[Dict[str, Any]] = []
+        self.activities: list[AgentActivity] = []
+        self.conversation_flow: list[dict[str, Any]] = []
 
         # Individual agent log files
-        self.agent_log_files: Dict[str, Path] = {}
+        self.agent_log_files: dict[str, Path] = {}
 
         # Flow log file (complete conversation)
         self.flow_log_file = self.agent_logs_dir / "conversation_flow.jsonl"
@@ -105,13 +103,13 @@ class AgentLogger:
                     agent_name: str,
                     activity_type: str,
                     stage: str,
-                    input_data: Optional[Dict[str, Any]] = None,
-                    output_data: Optional[Dict[str, Any]] = None,
-                    tool_used: Optional[str] = None,
-                    tool_result: Optional[Any] = None,
-                    execution_time: Optional[float] = None,
-                    error: Optional[str] = None,
-                    metadata: Optional[Dict[str, Any]] = None):
+                    input_data: dict[str, Any] | None = None,
+                    output_data: dict[str, Any] | None = None,
+                    tool_used: str | None = None,
+                    tool_result: Any | None = None,
+                    execution_time: float | None = None,
+                    error: str | None = None,
+                    metadata: dict[str, Any] | None = None):
         """Log an agent activity."""
 
         timestamp = datetime.now().isoformat()
@@ -189,7 +187,7 @@ class AgentLogger:
         except Exception:
             return f"[{type(data).__name__} - preview failed]"
 
-    def log_agent_initialization(self, agent_name: str, config: Dict[str, Any]):
+    def log_agent_initialization(self, agent_name: str, config: dict[str, Any]):
         """Log agent initialization."""
         self.log_activity(
             agent_name=agent_name,
@@ -203,7 +201,7 @@ class AgentLogger:
     def log_tool_usage(self,
                       agent_name: str,
                       tool_name: str,
-                      tool_input: Dict[str, Any],
+                      tool_input: dict[str, Any],
                       tool_result: Any,
                       execution_time: float,
                       stage: str):
@@ -238,7 +236,7 @@ class AgentLogger:
     def log_error(self,
                  agent_name: str,
                  error: Exception,
-                 context: Dict[str, Any],
+                 context: dict[str, Any],
                  stage: str):
         """Log an error that occurred during agent execution."""
         self.log_activity(
@@ -257,7 +255,7 @@ class AgentLogger:
                            from_stage: str,
                            to_stage: str,
                            agent_name: str,
-                           context: Optional[Dict[str, Any]] = None):
+                           context: dict[str, Any] | None = None):
         """Log workflow stage transitions."""
         self.log_activity(
             agent_name=agent_name,
@@ -270,7 +268,7 @@ class AgentLogger:
     def log_work_product_transfer(self,
                                 from_agent: str,
                                 to_agent: str,
-                                work_product: Dict[str, Any],
+                                work_product: dict[str, Any],
                                 stage: str):
         """Log transfer of work products between agents."""
         self.log_activity(
@@ -290,21 +288,21 @@ class AgentLogger:
             metadata={"event": "agent_handoff"}
         )
 
-    def get_agent_activities(self, agent_name: Optional[str] = None) -> List[AgentActivity]:
+    def get_agent_activities(self, agent_name: str | None = None) -> list[AgentActivity]:
         """Get activities for a specific agent or all agents."""
         with self._lock:
             if agent_name:
                 return [a for a in self.activities if a.agent_name == agent_name]
             return self.activities.copy()
 
-    def get_conversation_flow(self) -> List[Dict[str, Any]]:
+    def get_conversation_flow(self) -> list[dict[str, Any]]:
         """Get the complete conversation flow."""
         if not self.flow_log_file.exists():
             return []
 
         flow = []
         try:
-            with open(self.flow_log_file, 'r') as f:
+            with open(self.flow_log_file) as f:
                 for line in f:
                     if line.strip():
                         flow.append(json.loads(line))
@@ -313,7 +311,7 @@ class AgentLogger:
 
         return flow
 
-    def get_session_summary(self) -> Dict[str, Any]:
+    def get_session_summary(self) -> dict[str, Any]:
         """Get a summary of the session activities."""
         with self._lock:
             return {
@@ -323,7 +321,7 @@ class AgentLogger:
                 "error_count": len(self.session_metadata["errors"])
             }
 
-    def export_debug_report(self, output_path: Optional[str] = None) -> str:
+    def export_debug_report(self, output_path: str | None = None) -> str:
         """Export a comprehensive debug report."""
         if not output_path:
             output_path = self.agent_logs_dir / f"debug_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
@@ -361,7 +359,7 @@ class AgentLogger:
 class AgentLoggerFactory:
     """Factory for creating and managing agent loggers."""
 
-    _loggers: Dict[str, AgentLogger] = {}
+    _loggers: dict[str, AgentLogger] = {}
     _lock = threading.Lock()
 
     @classmethod

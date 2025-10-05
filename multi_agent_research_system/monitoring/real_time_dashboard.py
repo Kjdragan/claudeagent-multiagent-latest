@@ -5,17 +5,13 @@ This module provides a web-based dashboard for real-time visualization of
 system performance, agent activities, and workflow status.
 """
 
-import asyncio
-import json
 import time
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Any, Dict, List, Optional
 
 try:
-    import streamlit as st
-    import plotly.graph_objects as go
     import plotly.express as px
+    import plotly.graph_objects as go
+    import streamlit as st
     from plotly.subplots import make_subplots
     STREAMLIT_AVAILABLE = True
 except ImportError:
@@ -655,8 +651,8 @@ def create_dashboard(metrics_collector: MetricsCollector,
 # Command line interface for running the dashboard
 def main():
     """Main function to run the dashboard standalone."""
-    import sys
     import os
+    import sys
 
     # Add parent directory to path for imports
     sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))

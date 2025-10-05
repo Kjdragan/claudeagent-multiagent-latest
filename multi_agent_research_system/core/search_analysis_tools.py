@@ -12,7 +12,7 @@ import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
@@ -219,10 +219,10 @@ This report analyzes whether the research system is using actual web search resu
 """
 
     if search_files:
-        verification_report += f"\n**Raw Search Data Files:**\n"
+        verification_report += "\n**Raw Search Data Files:**\n"
         for search_file in search_files[-5:]:  # Show last 5 files
             try:
-                with open(search_file, 'r', encoding='utf-8') as f:
+                with open(search_file, encoding='utf-8') as f:
                     data = json.load(f)
                 verification_report += f"\n- **File:** {search_file.name}"
                 verification_report += f"\n  - Query: {data.get('search_query', 'N/A')}"
@@ -234,10 +234,10 @@ This report analyzes whether the research system is using actual web search resu
         verification_report += "\n❌ **NO ACTUAL WEB SEARCH RESULTS FOUND**"
 
     if fetch_files:
-        verification_report += f"\n\n**WebFetch Content Files:**\n"
+        verification_report += "\n\n**WebFetch Content Files:**\n"
         for fetch_file in fetch_files[-5:]:  # Show last 5 files
             try:
-                with open(fetch_file, 'r', encoding='utf-8') as f:
+                with open(fetch_file, encoding='utf-8') as f:
                     data = json.load(f)
                 verification_report += f"\n- **File:** {fetch_file.name}"
                 verification_report += f"\n  - URL: {data.get('url', 'N/A')}"

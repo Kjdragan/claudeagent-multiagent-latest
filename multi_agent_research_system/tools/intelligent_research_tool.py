@@ -13,26 +13,22 @@ All processing happens internally to stay within MCP token limits while
 preserving the proven intelligence of the original system.
 """
 
-import asyncio
-import json
 import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional
-from urllib.parse import urlparse
+from typing import Any
 
 from claude_agent_sdk import tool
 
 # Import advanced scraping utilities
 try:
-    from ..utils.crawl4ai_utils import crawl_multiple_urls_with_cleaning
     from ..utils.content_cleaning import format_cleaned_results
+    from ..utils.crawl4ai_utils import crawl_multiple_urls_with_cleaning
 except ImportError:
     import sys
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
     from utils.crawl4ai_utils import crawl_multiple_urls_with_cleaning
-    from utils.content_cleaning import format_cleaned_results
 
 # Import existing search utilities for SERP API
 try:
@@ -62,7 +58,7 @@ def calculate_enhanced_relevance_score(
     title: str,
     snippet: str,
     position: int,
-    query_terms: List[str]
+    query_terms: list[str]
 ) -> float:
     """
     Calculate enhanced relevance score based on z-playground1 proven formula.
@@ -115,10 +111,10 @@ def calculate_enhanced_relevance_score(
 
 
 def select_urls_for_crawling(
-    search_results: List[SearchResult],
+    search_results: list[SearchResult],
     limit: int,
     min_relevance: float
-) -> List[str]:
+) -> list[str]:
     """
     Select URLs for crawling based on z-playground1 threshold-based approach.
 
@@ -156,7 +152,7 @@ def select_urls_for_crawling(
         return []
 
 
-def extract_query_terms(query: str) -> List[str]:
+def extract_query_terms(query: str) -> list[str]:
     """Extract meaningful query terms from search query."""
     # Simple term extraction - split by spaces and remove common stop words
     stop_words = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were'}
@@ -165,8 +161,8 @@ def extract_query_terms(query: str) -> List[str]:
 
 
 def compress_for_mcp_compliance(
-    crawl_results: List[Dict[str, Any]],
-    search_results: List[SearchResult],
+    crawl_results: list[dict[str, Any]],
+    search_results: list[SearchResult],
     max_tokens: int = 20000
 ) -> str:
     """
@@ -213,13 +209,13 @@ def compress_for_mcp_compliance(
 
         # Multi-level content allocation
         response_parts = [
-            f"# Intelligent Research Results",
-            f"",
-            f"**Query Processing**: Searched 15 sources → Filtered by relevance (threshold 0.3) → Parallel crawl → AI cleaning → Smart compression",
+            "# Intelligent Research Results",
+            "",
+            "**Query Processing**: Searched 15 sources → Filtered by relevance (threshold 0.3) → Parallel crawl → AI cleaning → Smart compression",
             f"**Total Sources**: {len(search_results)} found, {len(successful_results)} successfully processed",
-            f"",
-            f"## 📊 Research Summary",
-            f""
+            "",
+            "## 📊 Research Summary",
+            ""
         ]
 
         current_tokens = 1000  # Base structure tokens
@@ -235,7 +231,7 @@ def compress_for_mcp_compliance(
 
             if current_tokens + content_tokens > max_tokens:
                 response_parts.append(f"**{i}. Content truncated due to size limits**")
-                response_parts.append(f"See work product file for complete content.")
+                response_parts.append("See work product file for complete content.")
                 break
 
             response_parts.extend([
@@ -243,7 +239,7 @@ def compress_for_mcp_compliance(
                 f"**URL**: {result['url']}",
                 f"**Relevance Score**: {result['relevance_score']:.2f}",
                 f"**Content Length**: {result['char_count']} characters",
-                f"",
+                "",
                 result['cleaned_content'][:8000],  # Limit content for each source
                 "",
                 "---",
@@ -270,9 +266,9 @@ def compress_for_mcp_compliance(
                     response_parts.extend([
                         f"**{i}. {result['title']}**",
                         f"**URL**: {result['url']} | **Relevance**: {result['relevance_score']:.2f}",
-                        f"",
+                        "",
                         first_para,
-                        f"",
+                        "",
                         f"*Full content ({result['char_count']} chars) in work product file*",
                         "",
                         "---",
@@ -293,7 +289,7 @@ def compress_for_mcp_compliance(
                 response_parts.extend([
                     f"**{i}. {result['title']}**",
                     f"**URL**: {result['url']} | **Relevance**: {result['relevance_score']:.2f}",
-                    f""
+                    ""
                 ])
                 current_tokens += 200
 
@@ -303,8 +299,8 @@ def compress_for_mcp_compliance(
             "",
             f"**Sources Successfully Processed**: {len(successful_results)}",
             f"**Average Content Length**: {sum(r['char_count'] for r in successful_results) // len(successful_results)} characters",
-            f"**Content Cleaning**: AI-powered removal of navigation, ads, and unrelated content",
-            f"**Relevance Filtering**: Sources selected with threshold 0.3+ relevance scores",
+            "**Content Cleaning**: AI-powered removal of navigation, ads, and unrelated content",
+            "**Relevance Filtering**: Sources selected with threshold 0.3+ relevance scores",
             "",
             "📄 **Complete work products saved with full content for detailed analysis**",
             ""
@@ -318,9 +314,9 @@ def compress_for_mcp_compliance(
 
 
 def save_intelligent_work_product(
-    search_results: List[SearchResult],
-    crawl_results: List[Dict[str, Any]],
-    urls_processed: List[str],
+    search_results: list[SearchResult],
+    crawl_results: list[dict[str, Any]],
+    urls_processed: list[str],
     query: str,
     session_id: str
 ) -> str:
@@ -350,17 +346,17 @@ def save_intelligent_work_product(
 
         # Build comprehensive work product
         content_parts = [
-            f"# Intelligent Research Work Product",
-            f"",
+            "# Intelligent Research Work Product",
+            "",
             f"**Session ID**: {session_id}",
             f"**Export Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             f"**Research Query**: {query}",
-            f"**Processing Method**: Z-Playground1 Intelligent System (15 → threshold 0.3 → parallel crawl → AI cleaning)",
-            f"",
-            f"---",
-            f"",
-            f"## 🔍 Search Results Analysis",
-            f""
+            "**Processing Method**: Z-Playground1 Intelligent System (15 → threshold 0.3 → parallel crawl → AI cleaning)",
+            "",
+            "---",
+            "",
+            "## 🔍 Search Results Analysis",
+            ""
         ]
 
         # Add all search results with relevance analysis
@@ -381,15 +377,15 @@ def save_intelligent_work_product(
                 f"**Relevance Score**: {result.relevance_score:.3f}",
                 f"**Status**: {status}",
                 f"**Snippet**: {result.snippet}",
-                f"",
+                "",
                 "---",
-                f""
+                ""
             ])
 
         # Add detailed crawled content
         content_parts.extend([
-            f"## 📄 Detailed Crawled Content (AI Cleaned)",
-            f""
+            "## 📄 Detailed Crawled Content (AI Cleaned)",
+            ""
         ])
 
         for crawl_result in crawl_results:
@@ -405,12 +401,12 @@ def save_intelligent_work_product(
 
                     content_parts.extend([
                         f"### 🌐 {title}",
-                        f"",
+                        "",
                         f"**URL**: {crawl_result['url']}",
                         f"**Extraction Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
                         f"**Content Length**: {len(cleaned_content)} characters",
-                        f"**Processing**: ✅ Cleaned with GPT-5-nano AI",
-                        f"",
+                        "**Processing**: ✅ Cleaned with GPT-5-nano AI",
+                        "",
                         "### Full Cleaned Content",
                         "",
                         "---",
@@ -423,15 +419,15 @@ def save_intelligent_work_product(
 
         # Add processing summary
         content_parts.extend([
-            f"## 📊 Intelligent Processing Summary",
-            f"",
-            f"**Search Strategy**: 15 URLs with redundancy for expected failures",
-            f"**Relevance Threshold**: 0.3 minimum score for URL selection",
-            f"**Parallel Processing**: Concurrent crawling with anti-bot escalation",
-            f"**Content Cleaning**: AI-powered removal of navigation, ads, unrelated content",
-            f"**MCP Compliance**: Smart compression to stay within token limits",
-            f"**Total Processing Time**: Single tool call with internal optimization",
-            f"",
+            "## 📊 Intelligent Processing Summary",
+            "",
+            "**Search Strategy**: 15 URLs with redundancy for expected failures",
+            "**Relevance Threshold**: 0.3 minimum score for URL selection",
+            "**Parallel Processing**: Concurrent crawling with anti-bot escalation",
+            "**Content Cleaning**: AI-powered removal of navigation, ads, unrelated content",
+            "**MCP Compliance**: Smart compression to stay within token limits",
+            "**Total Processing Time**: Single tool call with internal optimization",
+            "",
             "*Generated by Intelligent Research Tool - Z-Playground1 Proven Intelligence*"
         ])
 
@@ -597,7 +593,7 @@ async def intelligent_research_with_advanced_scraping(args):
 - ✅ Complete work product generation
 """
 
-        logger.info(f"✅ Intelligent research completed successfully")
+        logger.info("✅ Intelligent research completed successfully")
         logger.info(f"📊 Results: {successful_crawls}/{len(urls_to_crawl)} URLs crawled, {total_chars:,} total characters")
 
         return {

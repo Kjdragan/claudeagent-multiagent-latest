@@ -16,10 +16,10 @@ import asyncio
 import logging
 import os
 import re
-from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 # Pydantic AI imports
 try:
@@ -52,9 +52,9 @@ class CleanedContent:
     relevance_score: float  # 0.0-1.0
     word_count: int
     char_count: int
-    key_points: List[str]
-    topics_detected: List[str]
-    cleaning_notes: List[str]
+    key_points: list[str]
+    topics_detected: list[str]
+    cleaning_notes: list[str]
     processing_time: float
     model_used: str
 
@@ -63,7 +63,7 @@ class CleanedContent:
 class ContentCleaningContext:
     """Context for content cleaning operations."""
     search_query: str
-    query_terms: List[str]
+    query_terms: list[str]
     url: str
     source_domain: str
     session_id: str
@@ -83,7 +83,7 @@ class ContentCleanerAgent:
     - Performance optimization
     """
 
-    def __init__(self, model_name: str = "gpt-4o-mini", api_key: Optional[str] = None):
+    def __init__(self, model_name: str = "gpt-4o-mini", api_key: str | None = None):
         """
         Initialize the content cleaner agent.
 
@@ -201,9 +201,9 @@ class ContentCleanerAgent:
 
     async def clean_multiple_contents(
         self,
-        contents: List[Tuple[str, ContentCleaningContext]],
+        contents: list[tuple[str, ContentCleaningContext]],
         max_concurrent: int = 5
-    ) -> List[CleanedContent]:
+    ) -> list[CleanedContent]:
         """
         Clean multiple contents concurrently.
 
@@ -223,7 +223,7 @@ class ContentCleanerAgent:
         # Create semaphore to limit concurrent operations
         semaphore = asyncio.Semaphore(max_concurrent)
 
-        async def clean_with_semaphore(content: Tuple[str, ContentCleaningContext]) -> CleanedContent:
+        async def clean_with_semaphore(content: tuple[str, ContentCleaningContext]) -> CleanedContent:
             async with semaphore:
                 raw_content, context = content
                 return await self.clean_content(raw_content, context)
@@ -322,34 +322,52 @@ class ContentCleanerAgent:
     ) -> CleanedContent:
         """Fallback rule-based content cleaning."""
         try:
-            # Apply basic cleaning rules
-            cleaned = self._apply_basic_cleaning(raw_content)
+            # Apply enhanced modern web content cleaning
+            from multi_agent_research_system.utils.modern_content_cleaner import (
+                ModernWebContentCleaner,
+            )
+
+            modern_cleaner = ModernWebContentCleaner(self.logger)
+            cleaning_result = modern_cleaner.clean_article_content(
+                raw_content,
+                context.search_query
+            )
 
             # Calculate relevance to search query
-            relevance_score = self._calculate_relevance_score(cleaned, context.search_query, context.query_terms)
+            relevance_score = self._calculate_relevance_score(
+                cleaning_result, context.search_query, context.query_terms
+            )
 
             # Estimate quality based on content characteristics
-            quality_score = self._estimate_quality_score(cleaned, relevance_score)
+            quality_score = self._estimate_quality_score(cleaning_result, relevance_score)
 
             # Extract key points (basic approach)
-            key_points = self._extract_key_points(cleaned)
+            key_points = self._extract_key_points(cleaning_result)
 
             # Detect topics (basic approach)
-            topics = self._detect_topics(cleaned)
+            topics = self._detect_topics(cleaning_result)
+
+            # Include cleaning metadata
+            cleaning_notes = [
+                "Enhanced rule-based cleaning with modern web patterns",
+                f"Removed {cleaning_result.noise_removed} characters of noise",
+                f"Quality score: {cleaning_result.quality_score}/100",
+                f"Patterns matched: {len(cleaning_result.patterns_matched)}"
+            ]
 
             return CleanedContent(
                 original_content=raw_content,
-                cleaned_content=cleaned,
+                cleaned_content=cleaning_result,
                 quality_score=quality_score,
                 quality_level=self._get_quality_level(quality_score),
                 relevance_score=relevance_score,
-                word_count=len(cleaned.split()),
-                char_count=len(cleaned),
+                word_count=len(cleaning_result.split()),
+                char_count=len(cleaning_result),
                 key_points=key_points,
                 topics_detected=topics,
-                cleaning_notes=["Rule-based cleaning (AI unavailable)"],
+                cleaning_notes=cleaning_notes,
                 processing_time=0.0,  # Will be set by caller
-                model_used="rule_based"
+                model_used="enhanced_rule_based_modern"
             )
 
         except Exception as e:
@@ -403,7 +421,7 @@ class ContentCleanerAgent:
         lines = [line.strip() for line in content.split('\n') if line.strip()]
         return '\n'.join(lines)
 
-    def _calculate_relevance_score(self, content: str, query: str, query_terms: List[str]) -> float:
+    def _calculate_relevance_score(self, content: str, query: str, query_terms: list[str]) -> float:
         """Calculate content relevance to search query."""
         if not query_terms:
             return 0.5  # Default relevance
@@ -463,7 +481,7 @@ class ContentCleanerAgent:
 
         return min(100, max(0, score))
 
-    def _extract_key_points(self, content: str) -> List[str]:
+    def _extract_key_points(self, content: str) -> list[str]:
         """Extract key points using basic heuristics."""
         sentences = content.split('.')
         key_points = []
@@ -488,7 +506,7 @@ class ContentCleanerAgent:
 
         return key_points[:5]
 
-    def _detect_topics(self, content: str) -> List[str]:
+    def _detect_topics(self, content: str) -> list[str]:
         """Detect topics using basic keyword matching."""
         # Simple topic detection based on common domains
         topic_keywords = {
@@ -546,82 +564,88 @@ class ContentCleanerAgent:
         )
 
     def _get_system_prompt(self) -> str:
-        """Get the system prompt for the AI content cleaner."""
-        return """You are an expert content cleaner and analyzer. Your task is to clean and evaluate web content for relevance and quality.
+        """Get the enhanced system prompt for the AI content cleaner."""
+        return """You are an expert content cleaner specializing in modern news websites. Your task is to remove ALL noise and preserve ONLY valuable article content.
 
-Given raw web content and a search query, you must:
+REMOVE THESE SPECIFIC ELEMENTS:
 
-1. **Clean the content by removing ALL of these elements**:
+MODERN WEBSITE NAVIGATION:
+- Header navigation bars: "Home", "News", "World", "Politics", "Tech", "Sports", etc.
+- Breadcrumb navigation: "Home > World > Latin America > Venezuela"
+- Category menus and dropdown navigation
+- Site search bars and search forms
+- Language selection dropdowns
+- Mobile navigation menus
 
-   **Navigation & Menus:**
-   - Header navigation bars (Home, News, World, Politics, Tech, etc.)
-   - Footer navigation links
-   - Breadcrumb navigation
-   - Category/subcategory menus
+COOKIE & PRIVACY BANNERS:
+- "Accept Cookies", "Privacy Policy", "Terms of Use" banners
+- GDPR consent forms and privacy notices
+- Cookie preference centers and settings
+- "We use cookies" notices
+- Privacy policy links and disclaimers
 
-   **Social Media & Sharing:**
-   - Facebook, Twitter/X, Instagram, TikTok, YouTube, Reddit links
-   - Share buttons and social media widgets
-   - Newsletter signup forms
+SOCIAL MEDIA & SHARING:
+- Facebook, Twitter/X, Instagram, TikTok, YouTube, Reddit links
+- Share buttons, social sharing widgets
+- Follow buttons, social media icons
+- Newsletter signup forms
+- "Connect with us" sections
 
-   **Site Utility Links:**
-   - About Us, Contact Us, Careers, Privacy Policy, Terms & Conditions
-   - Copyright notices, legal disclaimers
-   - Advertise with us, Press Center, Corrections
-   - Site editions (U.S., Japan, Polska, România)
+SITE UTILITIES:
+- "About Us", "Contact Us", "Careers", "Advertise"
+- Copyright notices, legal disclaimers
+- Site maps, help sections, FAQs
+- Mobile app download links
+- Accessibility tools
 
-   **Content Recommendations:**
-   - Related articles, "More from author", "Recommended for you"
-   - Author bios and headshots
-   - Opinion pieces from other authors
-   - Trending topics sections
+CONTENT RECOMMENDATIONS:
+- "Related Articles", "More from Author", "Recommended for You"
+- Trending topics sections, "Most Popular"
+- Author bios and headshots
+- Opinion pieces from other authors
+- Sponsored content labels
 
-   **Media & Interactive Elements:**
-   - ALL images and photos (remove image URLs and alt text)
-   - Video embeds, video thumbnails, "Related Videos"
-   - Audio players, podcasts embeds
-   - Galleries, slideshows
+# Note: Images, videos, and multimedia are handled at scraping level via Crawl4AI text_mode=True
+# Any remaining multimedia references should be minimal but can be removed if found
 
-   **Advertising & Tracking:**
-   - Ad placeholders, sponsored content labels
-   - Tracking pixels, analytics URLs
-   - Newsletter signup prompts
-   - Subscription prompts, paywall messages
+ADVERTISING & PROMOTIONAL:
+- Ad placeholders, "Advertisement" labels
+- Sponsored content, "Paid Promotion"
+- Donation requests, "Support Our Journalism"
+- Subscription prompts, paywall messages
+- Affiliate links and promotional content
 
-   **Repeated/Duplicate Content:**
-   - Duplicate navigation blocks
-   - Repeated category listings
-   - Duplicate footer sections
+FOOTER BOILERPLATE:
+- Repeated navigation links
+- Social media link lists
+- Legal disclaimers repeated multiple times
+- Site edition links (US, International, etc.)
+- Copyright notices
 
-2. **Preserve ONLY these elements**:
-   - Main article headline and subheadings
-   - Article body content and paragraphs
-   - Quotes and attributed statements
-   - Key data points, statistics, and facts
-   - Direct statements from officials/experts
-   - Context that directly relates to the search query
+PRESERVE ONLY THESE ELEMENTS:
+- Main article headline and subheadings
+- Article body paragraphs and text content
+- Direct quotes from sources/experts
+- Key data points, statistics, numbers
+- Context that directly relates to the search query
+- Attributed statements and source references
 
-3. **Format the cleaned content**:
-   - Remove excessive whitespace and blank lines
-   - Fix broken formatting
-   - Ensure proper paragraph structure
-   - Maintain logical flow
+CLEANING CRITICAL REQUIREMENTS:
+✅ Remove ALL cookie consent banners and privacy notices
+✅ Remove ALL navigation menus and breadcrumbs
+✅ Remove ALL social media sharing widgets and links
+✅ Remove ALL newsletter signup forms and prompts
+✅ Remove ALL "support our journalism" donation requests
+✅ Remove ALL "trending now" and "recommended" content blocks
+✅ Remove ALL author bios and bylines unless they contain relevant information
+✅ Remove ALL repeated footer content and legal disclaimers
+✅ Remove ALL multimedia references (images, videos, galleries)
+✅ Remove ALL advertising and promotional content
+✅ Remove ALL site utility links and menus
 
-4. **Evaluate quality** (0-100 scale) based on:
-   - Relevance to the search query
-   - Content depth and substance after cleaning
-   - Readability and organization
-   - Source credibility indicators
-   - Information accuracy and completeness
+If an article is primarily navigation, ads, or boilerplate with minimal relevant content, return a low quality score and minimal cleaned content.
 
-5. **Assess relevance** (0.0-1.0 scale) by:
-   - Matching cleaned content to search query terms
-   - Identifying key concepts and topics
-   - Evaluating information density
-
-6. **Extract key points** (3-5 main insights)
-
-7. **Identify topics** (main subjects covered)
+Be AGGRESSIVE in removing noise. When in doubt, remove it. Better to have less content that's clean than more content that's noisy.
 
 Return your analysis in this JSON format:
 {
@@ -633,31 +657,69 @@ Return your analysis in this JSON format:
     "cleaning_notes": ["Note about cleaning process"]
 }
 
-IMPORTANT: Be aggressive in removing noise. If content is primarily navigation, ads, or unrelated material, return a low quality score and minimal cleaned content."""
+QUALITY EVALUATION CRITERIA:
+- Relevance to search query (25 points)
+- Content depth and substance after cleaning (25 points)
+- Readability and organization (20 points)
+- Source credibility indicators (15 points)
+- Information accuracy and completeness (15 points)
+
+RELEVANCE ASSESSMENT:
+- Direct term matching (40%)
+- Conceptual relevance (30%)
+- Information density (20%)
+- Context alignment (10%)"""
 
     def _create_cleaning_prompt(self, content: str, context: ContentCleaningContext) -> str:
-        """Create the cleaning prompt for the AI."""
+        """Create the enhanced cleaning prompt for the AI."""
         return f"""Please clean and evaluate this web content for the search query: "{context.search_query}"
 
 URL: {context.url}
 Source Domain: {context.source_domain}
 Query Terms: {', '.join(context.query_terms)}
 
-INSTRUCTIONS: Remove ALL navigation menus, social media links, footer links, author bios, related articles, images, videos, ads, tracking pixels, and duplicate content. Keep ONLY the main article content that directly relates to the search query.
+ENHANCED CLEANING INSTRUCTIONS: Apply aggressive content cleaning for modern news websites. Remove ALL noise elements while preserving only high-value article content.
 
 Raw Content (first 15,000 chars):
 {content[:15000]}
 
-CRITICAL REQUIREMENTS:
-1. Remove navigation menus (Home, News, World, Politics, Tech, etc.)
-2. Remove social media links (Facebook, Twitter, Instagram, etc.)
-3. Remove footer links (About Us, Privacy Policy, Terms, etc.)
-4. Remove ALL images and image URLs
-5. Remove videos and video thumbnails
-6. Remove author bios and related articles
-7. Remove tracking pixels and ad URLs
-8. Remove duplicate navigation blocks
-9. Keep ONLY article body content relevant to: "{context.search_query}"
+CRITICAL CLEANING CHECKLIST:
+✅ Remove ALL cookie consent banners and privacy notices
+✅ Remove ALL navigation menus and breadcrumbs (Home > World > Venezuela)
+✅ Remove ALL social media widgets and sharing links
+✅ Remove ALL newsletter signup forms and prompts
+✅ Remove ALL donation requests ("Support Our Journalism")
+✅ Remove ALL "trending now" and "recommended" content
+✅ Remove ALL author bios unless they contain relevant information
+✅ Remove ALL repeated footer content and legal disclaimers
+✅ Remove ALL multimedia references (images, videos, galleries)
+✅ Remove ALL advertising and promotional content
+✅ Remove ALL site utility links (About Us, Contact Us, Careers)
+
+MODERN WEBSITE ELEMENTS TO REMOVE:
+- Language selection dropdowns
+- Mobile navigation menus
+- GDPR compliance forms
+- Cookie preference centers
+- Social media icons and follow buttons
+- "Connect with us" sections
+- Site edition links (US, International)
+- Accessibility tools
+- Mobile app download links
+
+PRESERVE ONLY:
+- Main article headline and subheadings
+- Article body paragraphs and text content
+- Direct quotes from sources/experts
+- Key data points, statistics, numbers
+- Context directly relating to "{context.search_query}"
+- Attributed statements and source references
+
+QUALITY STANDARDS:
+- Content must be highly relevant to search query
+- Remove any content that is primarily navigation or boilerplate
+- Maintain logical flow and proper paragraph structure
+- Ensure readability and organization
 
 Please analyze and clean this content according to the detailed instructions. Return your response in valid JSON format."""
 
@@ -676,7 +738,7 @@ Please analyze and clean this content according to the detailed instructions. Re
             self.stats['quality_distribution'][level] = 0
         self.stats['quality_distribution'][level] += 1
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get cleaning statistics."""
         return {
             **self.stats,
@@ -686,7 +748,7 @@ Please analyze and clean this content according to the detailed instructions. Re
 
 
 # Global content cleaner instance
-_global_content_cleaner: Optional[ContentCleanerAgent] = None
+_global_content_cleaner: ContentCleanerAgent | None = None
 
 
 def get_content_cleaner() -> ContentCleanerAgent:

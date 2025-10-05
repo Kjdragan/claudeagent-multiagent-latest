@@ -11,10 +11,9 @@ between research agents and report generation agents.
 
 import json
 import os
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
-from dataclasses import dataclass, asdict
+from typing import Any
 
 try:
     from .logging_config import get_logger
@@ -36,9 +35,9 @@ class SourceMetadata:
     content_length: int
     extraction_success: bool
     crawl_timestamp: str
-    domain_authority: Optional[float] = None
-    content_quality_score: Optional[float] = None
-    anti_bot_level_used: Optional[int] = None
+    domain_authority: float | None = None
+    content_quality_score: float | None = None
+    anti_bot_level_used: int | None = None
 
 
 @dataclass
@@ -46,7 +45,7 @@ class ResearchFinding:
     """A single research finding with source attribution."""
     key_point: str
     evidence: str
-    sources: List[str]
+    sources: list[str]
     confidence_level: str  # "high", "medium", "low"
     topic_relevance: str
     timestamp: str
@@ -65,7 +64,7 @@ class SearchMetrics:
     average_relevance_score: float
     crawl_success_rate: float
     processing_time_seconds: float
-    anti_bot_levels_used: List[int]
+    anti_bot_levels_used: list[int]
 
 
 @dataclass
@@ -74,14 +73,14 @@ class StandardizedResearchData:
     session_id: str
     research_topic: str
     research_timestamp: str
-    search_metrics: List[SearchMetrics]
-    sources: List[SourceMetadata]
-    findings: List[ResearchFinding]
+    search_metrics: list[SearchMetrics]
+    sources: list[SourceMetadata]
+    findings: list[ResearchFinding]
     content_summary: str
-    key_themes: List[str]
-    source_analysis: Dict[str, Any]
-    quality_assessment: Dict[str, Any]
-    research_metadata: Dict[str, Any]
+    key_themes: list[str]
+    source_analysis: dict[str, Any]
+    quality_assessment: dict[str, Any]
+    research_metadata: dict[str, Any]
 
 
 class ResearchDataStandardizer:
@@ -90,7 +89,7 @@ class ResearchDataStandardizer:
     def __init__(self):
         self.logger = get_logger("research_data_standardizer")
 
-    def parse_search_workproduct(self, workproduct_path: str) -> Dict[str, Any]:
+    def parse_search_workproduct(self, workproduct_path: str) -> dict[str, Any]:
         """Parse a search workproduct markdown file.
 
         Args:
@@ -100,7 +99,7 @@ class ResearchDataStandardizer:
             Dictionary containing parsed search data
         """
         try:
-            with open(workproduct_path, 'r', encoding='utf-8') as f:
+            with open(workproduct_path, encoding='utf-8') as f:
                 content = f.read()
 
             # Parse sections from the markdown
@@ -126,7 +125,7 @@ class ResearchDataStandardizer:
             self.logger.error(f"Failed to parse workproduct {workproduct_path}: {e}")
             return {}
 
-    def _parse_markdown_sections(self, content: str) -> Dict[str, str]:
+    def _parse_markdown_sections(self, content: str) -> dict[str, str]:
         """Parse markdown content into sections."""
         sections = {}
         current_section = ""
@@ -150,7 +149,7 @@ class ResearchDataStandardizer:
 
         return sections
 
-    def _extract_search_results(self, search_results_text: str) -> List[Dict[str, Any]]:
+    def _extract_search_results(self, search_results_text: str) -> list[dict[str, Any]]:
         """Extract search results from the text."""
         results = []
         current_result = {}
@@ -188,7 +187,7 @@ class ResearchDataStandardizer:
 
         return results
 
-    def _extract_content_sections(self, content_text: str) -> List[Dict[str, Any]]:
+    def _extract_content_sections(self, content_text: str) -> list[dict[str, Any]]:
         """Extract content sections from the text."""
         sections = []
         current_section = {}
@@ -226,7 +225,7 @@ class ResearchDataStandardizer:
 
         return sections
 
-    def _extract_metadata(self, metadata_text: str) -> Dict[str, Any]:
+    def _extract_metadata(self, metadata_text: str) -> dict[str, Any]:
         """Extract metadata from the text."""
         metadata = {}
 
@@ -241,7 +240,7 @@ class ResearchDataStandardizer:
         self,
         session_id: str,
         research_topic: str,
-        workproduct_paths: List[str]
+        workproduct_paths: list[str]
     ) -> StandardizedResearchData:
         """Create standardized research data from workproduct files.
 
@@ -312,9 +311,9 @@ class ResearchDataStandardizer:
 
     def _create_source_metadata(
         self,
-        search_results: List[Dict[str, Any]],
-        extracted_content: List[Dict[str, Any]]
-    ) -> List[SourceMetadata]:
+        search_results: list[dict[str, Any]],
+        extracted_content: list[dict[str, Any]]
+    ) -> list[SourceMetadata]:
         """Create source metadata from search results and extracted content."""
         sources = []
 
@@ -348,7 +347,7 @@ class ResearchDataStandardizer:
 
         return sources
 
-    def _create_search_metrics(self, metadata: Dict[str, Any], research_topic: str) -> List[SearchMetrics]:
+    def _create_search_metrics(self, metadata: dict[str, Any], research_topic: str) -> list[SearchMetrics]:
         """Create search metrics from metadata."""
         metrics = []
 
@@ -378,9 +377,9 @@ class ResearchDataStandardizer:
 
     def _extract_research_findings(
         self,
-        extracted_content: List[Dict[str, Any]],
+        extracted_content: list[dict[str, Any]],
         research_topic: str
-    ) -> List[ResearchFinding]:
+    ) -> list[ResearchFinding]:
         """Extract key research findings from content."""
         findings = []
 
@@ -414,7 +413,7 @@ class ResearchDataStandardizer:
         unique_findings = self._deduplicate_findings(findings)
         return unique_findings[:20]  # Limit to top 20 findings
 
-    def _generate_content_summary(self, extracted_content: List[Dict[str, Any]]) -> str:
+    def _generate_content_summary(self, extracted_content: list[dict[str, Any]]) -> str:
         """Generate a summary of all extracted content."""
         all_content = " ".join([content.get("content", "") for content in extracted_content])
 
@@ -429,7 +428,7 @@ class ResearchDataStandardizer:
 
         return ". ".join(key_sentences) + "." if key_sentences else "No content summary available."
 
-    def _extract_key_themes(self, extracted_content: List[Dict[str, Any]], research_topic: str) -> List[str]:
+    def _extract_key_themes(self, extracted_content: list[dict[str, Any]], research_topic: str) -> list[str]:
         """Extract key themes from the content."""
         # Simple theme extraction based on common words and phrases
         all_content = " ".join([content.get("content", "") for content in extracted_content]).lower()
@@ -460,7 +459,7 @@ class ResearchDataStandardizer:
 
         return themes[:10]  # Limit to top 10 themes
 
-    def _analyze_sources(self, sources: List[SourceMetadata]) -> Dict[str, Any]:
+    def _analyze_sources(self, sources: list[SourceMetadata]) -> dict[str, Any]:
         """Analyze the sources used in research."""
         if not sources:
             return {}
@@ -483,10 +482,10 @@ class ResearchDataStandardizer:
 
     def _assess_quality(
         self,
-        sources: List[SourceMetadata],
-        findings: List[ResearchFinding],
+        sources: list[SourceMetadata],
+        findings: list[ResearchFinding],
         content_summary: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Assess the quality of the research."""
         return {
             "source_quality_score": self._calculate_source_quality_score(sources),
@@ -518,7 +517,7 @@ class ResearchDataStandardizer:
 
         return authoritative_domains.get(domain.lower(), 0.5)
 
-    def _calculate_content_quality_score(self, content: Dict[str, Any]) -> float:
+    def _calculate_content_quality_score(self, content: dict[str, Any]) -> float:
         """Calculate content quality score based on content characteristics."""
         content_text = content.get("content", "")
         content_length = len(content_text)
@@ -585,7 +584,7 @@ class ResearchDataStandardizer:
         else:
             return "low"
 
-    def _deduplicate_findings(self, findings: List[ResearchFinding]) -> List[ResearchFinding]:
+    def _deduplicate_findings(self, findings: list[ResearchFinding]) -> list[ResearchFinding]:
         """Remove duplicate findings."""
         unique_findings = []
         seen_texts = set()
@@ -599,7 +598,7 @@ class ResearchDataStandardizer:
 
         return unique_findings
 
-    def _calculate_source_quality_score(self, sources: List[SourceMetadata]) -> float:
+    def _calculate_source_quality_score(self, sources: list[SourceMetadata]) -> float:
         """Calculate overall source quality score."""
         if not sources:
             return 0.0
@@ -610,7 +609,7 @@ class ResearchDataStandardizer:
         )
         return min(1.0, total_score / len(sources))
 
-    def _calculate_finding_confidence_score(self, findings: List[ResearchFinding]) -> float:
+    def _calculate_finding_confidence_score(self, findings: list[ResearchFinding]) -> float:
         """Calculate finding confidence score."""
         if not findings:
             return 0.0
@@ -683,7 +682,7 @@ def standardize_and_save_research_data(
     research_topic: str,
     workproduct_dir: str,
     session_dir: str
-) -> Optional[str]:
+) -> str | None:
     """Standardize research data and save to session directory.
 
     Args:

@@ -199,7 +199,7 @@ def _rename_workproduct_for_chunking(workproduct_dir: str, session_id: str) -> N
 
             # Also add chunking indicator to the file content
             try:
-                with open(new_path, 'r', encoding='utf-8') as f:
+                with open(new_path, encoding='utf-8') as f:
                     content = f.read()
 
                 # Add chunking indicator to the title
@@ -209,7 +209,7 @@ def _rename_workproduct_for_chunking(workproduct_dir: str, session_id: str) -> N
                 )
 
                 # Add chunking info to metadata section
-                chunking_info = f"\n**Response Chunking**: Yes - Content was split for MCP token limits"
+                chunking_info = "\n**Response Chunking**: Yes - Content was split for MCP token limits"
                 metadata_end = content.find("**Processing Time**:")
                 if metadata_end != -1:
                     processing_line_end = content.find("\n", metadata_end)
@@ -223,7 +223,7 @@ def _rename_workproduct_for_chunking(workproduct_dir: str, session_id: str) -> N
                 with open(new_path, 'w', encoding='utf-8') as f:
                     f.write(updated_content)
 
-                logger.info(f"📦 Added chunking indicators to work product content")
+                logger.info("📦 Added chunking indicators to work product content")
 
             except Exception as e:
                 logger.warning(f"Could not update work product content with chunking info: {e}")

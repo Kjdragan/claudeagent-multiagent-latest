@@ -58,20 +58,20 @@ and suggestions for resolution.
 
 import asyncio
 import json
-import os
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 # Add the multi_agent_research_system to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
-    from claude_agent_sdk import ClaudeSDKClient
+    from core.logging_config import get_logger, setup_logging
     from core.orchestrator import ResearchOrchestrator
-    from core.logging_config import setup_logging, get_logger
+
+    from claude_agent_sdk import ClaudeSDKClient
 except ImportError as e:
     print(f"❌ Import error: {e}")
     print("Make sure you're running this from the correct directory with proper Python path")
@@ -118,7 +118,7 @@ class StartupHealthTester:
             self.logger.error(f"❌ Failed to initialize orchestrator: {e}")
             return False
 
-    async def check_agent_health(self) -> Dict[str, Any]:
+    async def check_agent_health(self) -> dict[str, Any]:
         """
         Check the health and connectivity of all agents.
 
@@ -243,7 +243,7 @@ class StartupHealthTester:
 
         return health_report
 
-    async def verify_tool_execution(self, agent_name: str = "research_agent") -> Dict[str, Any]:
+    async def verify_tool_execution(self, agent_name: str = "research_agent") -> dict[str, Any]:
         """
         Verify that critical tools can be executed by agents.
 
@@ -352,7 +352,7 @@ class StartupHealthTester:
 
         return tool_verification
 
-    async def run_all_tests(self) -> Dict[str, Any]:
+    async def run_all_tests(self) -> dict[str, Any]:
         """Run all startup health tests.
 
         Returns:
@@ -423,7 +423,7 @@ class StartupHealthTester:
 
         return full_report
 
-    def print_report(self, report: Dict[str, Any]):
+    def print_report(self, report: dict[str, Any]):
         """Print a formatted health report.
 
         Args:
@@ -568,7 +568,7 @@ Examples:
             print("\n✅ System is healthy and ready for research!")
             return 0
         else:
-            print(f"\n⚠️ System has issues that may affect research performance")
+            print("\n⚠️ System has issues that may affect research performance")
             return 1
 
     except KeyboardInterrupt:

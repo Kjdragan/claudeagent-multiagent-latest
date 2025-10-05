@@ -14,14 +14,13 @@ Key improvements:
 
 import asyncio
 import logging
-from datetime import datetime
-from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
-from urllib.parse import urlparse
+from datetime import datetime
+from typing import Any
 
-from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, BrowserConfig, CacheMode
-from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
+from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode, CrawlerRunConfig
 from crawl4ai.content_filter_strategy import PruningContentFilter
+from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
 # Import Logfire configuration
 try:
@@ -51,8 +50,8 @@ class CrawlResult:
     """Simple result structure for crawl operations."""
     url: str
     success: bool
-    content: Optional[str] = None
-    error: Optional[str] = None
+    content: str | None = None
+    error: str | None = None
     duration: float = 0.0
     word_count: int = 0
     char_count: int = 0
@@ -68,7 +67,7 @@ class SimpleCrawler:
     - Progressive anti-bot only when needed
     """
 
-    def __init__(self, browser_configs: Optional[Dict] = None):
+    def __init__(self, browser_configs: dict | None = None):
         """Initialize with optional browser configurations."""
         self.browser_configs = browser_configs or {}
         self._stats = {
@@ -191,7 +190,7 @@ class SimpleCrawler:
 
         return config
 
-    def _get_browser_config(self, anti_bot_level: int) -> Optional[BrowserConfig]:
+    def _get_browser_config(self, anti_bot_level: int) -> BrowserConfig | None:
         """Get browser configuration based on anti-bot level."""
 
         if anti_bot_level >= 3:
@@ -206,11 +205,11 @@ class SimpleCrawler:
 
     async def crawl_multiple(
         self,
-        urls: List[str],
+        urls: list[str],
         anti_bot_level: int = 1,
         use_content_filter: bool = False,
         max_concurrent: int = 5
-    ) -> List[CrawlResult]:
+    ) -> list[CrawlResult]:
         """
         Crawl multiple URLs concurrently with progressive anti-bot.
 
@@ -256,7 +255,7 @@ class SimpleCrawler:
 
             return final_results
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get crawling statistics."""
         return {
             **self._stats,
@@ -266,10 +265,10 @@ class SimpleCrawler:
 
 
 # Global crawler instance for backward compatibility
-_global_crawler: Optional[SimpleCrawler] = None
+_global_crawler: SimpleCrawler | None = None
 
 
-def get_crawler(browser_configs: Optional[Dict] = None) -> SimpleCrawler:
+def get_crawler(browser_configs: dict | None = None) -> SimpleCrawler:
     """Get or create global crawler instance."""
     global _global_crawler
     if _global_crawler is None or browser_configs:
@@ -280,7 +279,7 @@ def get_crawler(browser_configs: Optional[Dict] = None) -> SimpleCrawler:
 # Backward compatibility functions to maintain existing API
 
 async def crawl_multiple_urls_with_results(
-    urls: List[str],
+    urls: list[str],
     session_id: str,
     max_concurrent: int = 10,
     extraction_mode: str = "article",
@@ -288,7 +287,7 @@ async def crawl_multiple_urls_with_results(
     base_config=None,
     stealth_config=None,
     undetected_config=None
-) -> List[dict]:
+) -> list[dict]:
     """
     Backward compatibility function that maintains the existing API contract.
 
@@ -355,7 +354,7 @@ async def crawl_multiple_urls_with_results(
 
 
 async def crawl_multiple_urls_direct(
-    urls: List[str],
+    urls: list[str],
     session_id: str,
     max_concurrent: int = 10,
     extraction_mode: str = "article"
@@ -377,13 +376,13 @@ async def crawl_multiple_urls_direct(
     for result in results:
         if result['success']:
             formatted_results.append(f"URL: {result['url']}")
-            formatted_results.append(f"Success: ✅")
+            formatted_results.append("Success: ✅")
             formatted_results.append(f"Content: {len(result['content'])} characters")
             formatted_results.append(f"Duration: {result['duration']:.2f}s")
             formatted_results.append("---")
         else:
             formatted_results.append(f"URL: {result['url']}")
-            formatted_results.append(f"Success: ❌")
+            formatted_results.append("Success: ❌")
             formatted_results.append(f"Error: {result['error_message']}")
             formatted_results.append("---")
 
@@ -402,13 +401,13 @@ def get_timeout_for_url(url: str) -> int:
 
 
 async def crawl_multiple_urls_with_cleaning(
-    urls: List[str],
+    urls: list[str],
     session_id: str,
     search_query: str,
     max_concurrent: int = 10,
     extraction_mode: str = "article",
     include_metadata: bool = True
-) -> List[dict]:
+) -> list[dict]:
     """
     Advanced crawl function that performs cleaning immediately as each URL completes.
 
@@ -429,6 +428,7 @@ async def crawl_multiple_urls_with_cleaning(
         List of results with cleaned content
     """
     import asyncio
+
     from utils.content_cleaning import clean_content_with_gpt5_nano
 
     with logfire.span("crawl_multiple_urls_with_cleaning",
@@ -692,7 +692,10 @@ async def _process_final_content(
         total_start_time = datetime.now()
 
         # Clean content with judge optimization for single URL latency improvement
-        from utils.content_cleaning import clean_content_with_judge_optimization, assess_content_cleanliness
+        from utils.content_cleaning import (
+            assess_content_cleanliness,
+            clean_content_with_judge_optimization,
+        )
 
         if preserve_technical_content:
             # For technical content, use judge optimization with technical preservation fallback
@@ -702,7 +705,7 @@ async def _process_final_content(
             logger.info(f"📊 Stage 1 Cleanliness Assessment: {judge_score:.2f}/1.0 (threshold: 0.75)")
 
             if is_clean:
-                logger.info(f"✅ Stage 1 Content Quality: CLEAN ENOUGH - Skipping GPT-5-nano cleaning (saving ~35-40 seconds)")
+                logger.info("✅ Stage 1 Content Quality: CLEAN ENOUGH - Skipping GPT-5-nano cleaning (saving ~35-40 seconds)")
                 cleaned_content = content
                 cleaning_metadata = {
                     "judge_score": judge_score,
@@ -712,8 +715,10 @@ async def _process_final_content(
                     "stage": stage
                 }
             else:
-                logger.info(f"🧽 Stage 1 Content Quality: NEEDS CLEANING - Running GPT-5-nano technical content cleaning")
-                from utils.content_cleaning import clean_technical_content_with_gpt5_nano
+                logger.info("🧽 Stage 1 Content Quality: NEEDS CLEANING - Running GPT-5-nano technical content cleaning")
+                from utils.content_cleaning import (
+                    clean_technical_content_with_gpt5_nano,
+                )
                 cleaned_content = await clean_technical_content_with_gpt5_nano(
                     content, url, search_query, session_id
                 )
@@ -738,7 +743,7 @@ async def _process_final_content(
 
             logger.info(f"📊 Stage 1 Cleanliness Assessment: {judge_score}/1.0 (threshold: 0.7)")
             if cleaning_performed:
-                logger.info(f"🧽 Stage 1 Content Quality: NEEDS CLEANING - GPT-5-nano cleaning performed")
+                logger.info("🧽 Stage 1 Content Quality: NEEDS CLEANING - GPT-5-nano cleaning performed")
             else:
                 logger.info(f"✅ Stage 1 Content Quality: CLEAN ENOUGH - Skipping cleaning ({latency_saved})")
 
@@ -823,10 +828,13 @@ async def _process_stage2_result(
         stage2_duration = stage2_result.get('duration', 0)
 
         logger.info(f"🎯 Stage 2 content extracted: {len(content)} chars in {stage2_duration:.2f}s")
-        logger.info(f"🧠 Starting GPT-5-nano cleaning for Stage 2 content")
+        logger.info("🧠 Starting GPT-5-nano cleaning for Stage 2 content")
 
         # Always clean Stage 2 content since it's from robust extraction
-        from utils.content_cleaning import clean_content_with_judge_optimization, clean_technical_content_with_gpt5_nano
+        from utils.content_cleaning import (
+            clean_content_with_judge_optimization,
+            clean_technical_content_with_gpt5_nano,
+        )
 
         if preserve_technical_content:
             cleaned_content = await clean_technical_content_with_gpt5_nano(
@@ -919,7 +927,7 @@ async def scrape_and_clean_single_url_direct(
     """
     try:
         logger.info(f"🚀 Starting multi-stage single URL scrape: {url}")
-        logger.info(f"📋 Stage 1: Fast CSS selector extraction")
+        logger.info("📋 Stage 1: Fast CSS selector extraction")
 
         # Validate URL
         if not url or not isinstance(url, str):
@@ -966,7 +974,7 @@ async def scrape_and_clean_single_url_direct(
 
         # Check Stage 1 success
         if not result or not result.success:
-            logger.info(f"⚠️ Stage 1 crawl failed, proceeding to Stage 2")
+            logger.info("⚠️ Stage 1 crawl failed, proceeding to Stage 2")
             stage2_result = await _robust_extraction_fallback(url, session_id)
             return await _process_stage2_result(stage2_result, url, search_query, extraction_mode, include_metadata, preserve_technical_content, session_id, total_start_time)
 
@@ -983,16 +991,16 @@ async def scrape_and_clean_single_url_direct(
         word_count = len(stage1_content.split()) if stage1_content else 0
         char_count = len(stage1_content) if stage1_content else 0
         logger.info(f"📊 Stage 1: {char_count} chars, {word_count} words extracted in {stage1_duration:.2f}s")
-        logger.info(f"📋 Applied filters: css_selector='devsite-main-content, .devsite-article-body, main[role=main]', pruning_threshold=0.3")
+        logger.info("📋 Applied filters: css_selector='devsite-main-content, .devsite-article-body, main[role=main]', pruning_threshold=0.3")
 
         # Check if Stage 1 was successful
         stage1_successful = await _is_stage1_successful(stage1_content, url)
 
         if stage1_successful:
-            logger.info(f"🎉 Stage 1 successful - bypassing Stage 2!")
+            logger.info("🎉 Stage 1 successful - bypassing Stage 2!")
             return await _process_final_content(stage1_content, result, url, search_query, extraction_mode, include_metadata, preserve_technical_content, session_id, stage1_duration, "1")
         else:
-            logger.info(f"🔄 Stage 1 insufficient - proceeding to Stage 2 fallback")
+            logger.info("🔄 Stage 1 insufficient - proceeding to Stage 2 fallback")
             stage2_result = await _robust_extraction_fallback(url, session_id)
             return await _process_stage2_result(stage2_result, url, search_query, extraction_mode, include_metadata, preserve_technical_content, session_id, total_start_time)
 

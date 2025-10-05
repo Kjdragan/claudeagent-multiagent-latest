@@ -5,22 +5,20 @@ Provides comprehensive system health monitoring, performance tracking,
 error detection, and diagnostic capabilities for the entire multi-agent ecosystem.
 """
 
-import asyncio
-import psutil
-import time
-import traceback
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Set, Union
-from dataclasses import dataclass, field
-from enum import Enum
-from pathlib import Path
-
-from .base_hooks import BaseHook, HookContext, HookResult, HookStatus, HookPriority
-import sys
 import os
+import sys
+import time
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from enum import Enum
+from typing import Any
+
+import psutil
+
+from .base_hooks import BaseHook, HookContext, HookPriority, HookResult, HookStatus
+
 # Add parent directory to path for proper imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from agent_logging import get_logger
 
 
 class HealthStatus(Enum):
@@ -45,11 +43,11 @@ class SystemMetric:
     """Represents a system performance metric."""
     name: str
     metric_type: MetricType
-    value: Union[int, float, str]
+    value: int | float | str
     timestamp: datetime
-    labels: Dict[str, str] = field(default_factory=dict)
-    unit: Optional[str] = None
-    description: Optional[str] = None
+    labels: dict[str, str] = field(default_factory=dict)
+    unit: str | None = None
+    description: str | None = None
 
 
 @dataclass
@@ -59,9 +57,9 @@ class HealthCheck:
     status: HealthStatus
     timestamp: datetime
     message: str
-    details: Dict[str, Any] = field(default_factory=dict)
+    details: dict[str, Any] = field(default_factory=dict)
     execution_time: float = 0.0
-    next_check: Optional[datetime] = None
+    next_check: datetime | None = None
 
 
 @dataclass
@@ -72,11 +70,11 @@ class ErrorReport:
     error_type: str
     error_message: str
     severity: str  # low, medium, high, critical
-    context: Dict[str, Any] = field(default_factory=dict)
-    stack_trace: Optional[str] = None
-    affected_components: List[str] = field(default_factory=list)
-    recovery_suggestions: List[str] = field(default_factory=list)
-    related_errors: List[str] = field(default_factory=list)
+    context: dict[str, Any] = field(default_factory=dict)
+    stack_trace: str | None = None
+    affected_components: list[str] = field(default_factory=list)
+    recovery_suggestions: list[str] = field(default_factory=list)
+    related_errors: list[str] = field(default_factory=list)
 
 
 class SystemHealthHook(BaseHook):
@@ -92,8 +90,8 @@ class SystemHealthHook(BaseHook):
             retry_count=1
         )
         self.check_interval = check_interval
-        self.health_checks: Dict[str, HealthCheck] = {}
-        self.system_metrics: List[SystemMetric] = []
+        self.health_checks: dict[str, HealthCheck] = {}
+        self.system_metrics: list[SystemMetric] = []
         self.alert_thresholds = {
             "cpu_usage": 80.0,
             "memory_usage": 85.0,
@@ -184,7 +182,7 @@ class SystemHealthHook(BaseHook):
                 error_type=type(e).__name__
             )
 
-    async def _perform_comprehensive_health_check(self, context: HookContext) -> List[HealthCheck]:
+    async def _perform_comprehensive_health_check(self, context: HookContext) -> list[HealthCheck]:
         """Perform comprehensive system health check."""
         checks = []
 
@@ -205,11 +203,11 @@ class SystemHealthHook(BaseHook):
 
         return checks
 
-    async def _perform_resource_health_check(self, context: HookContext) -> List[HealthCheck]:
+    async def _perform_resource_health_check(self, context: HookContext) -> list[HealthCheck]:
         """Perform resource-specific health check."""
         return await self._check_system_resources()
 
-    async def _perform_component_health_check(self, context: HookContext, component: str) -> List[HealthCheck]:
+    async def _perform_component_health_check(self, context: HookContext, component: str) -> list[HealthCheck]:
         """Perform component-specific health check."""
         if component == "agents":
             return await self._check_agent_health(context)
@@ -220,7 +218,7 @@ class SystemHealthHook(BaseHook):
         else:
             return await self._perform_basic_health_check(context)
 
-    async def _perform_basic_health_check(self, context: HookContext) -> List[HealthCheck]:
+    async def _perform_basic_health_check(self, context: HookContext) -> list[HealthCheck]:
         """Perform basic health check."""
         checks = []
 
@@ -235,7 +233,7 @@ class SystemHealthHook(BaseHook):
 
         return checks
 
-    async def _check_system_resources(self) -> List[HealthCheck]:
+    async def _check_system_resources(self) -> list[HealthCheck]:
         """Check system resource usage."""
         checks = []
 
@@ -315,7 +313,7 @@ class SystemHealthHook(BaseHook):
 
         return checks
 
-    async def _check_agent_health(self, context: HookContext) -> List[HealthCheck]:
+    async def _check_agent_health(self, context: HookContext) -> list[HealthCheck]:
         """Check agent health status."""
         checks = []
 
@@ -350,7 +348,7 @@ class SystemHealthHook(BaseHook):
 
         return checks
 
-    async def _check_mcp_servers(self, context: HookContext) -> List[HealthCheck]:
+    async def _check_mcp_servers(self, context: HookContext) -> list[HealthCheck]:
         """Check MCP server health."""
         checks = []
 
@@ -387,7 +385,7 @@ class SystemHealthHook(BaseHook):
 
         return checks
 
-    async def _check_hook_system(self, context: HookContext) -> List[HealthCheck]:
+    async def _check_hook_system(self, context: HookContext) -> list[HealthCheck]:
         """Check hook system health."""
         checks = []
 
@@ -428,7 +426,7 @@ class SystemHealthHook(BaseHook):
 
         return checks
 
-    async def _check_performance_metrics(self) -> List[HealthCheck]:
+    async def _check_performance_metrics(self) -> list[HealthCheck]:
         """Check system performance metrics."""
         checks = []
 
@@ -456,7 +454,7 @@ class SystemHealthHook(BaseHook):
 
         return checks
 
-    async def _collect_system_metrics(self) -> List[SystemMetric]:
+    async def _collect_system_metrics(self) -> list[SystemMetric]:
         """Collect system performance metrics."""
         metrics = []
         current_time = datetime.now()
@@ -534,7 +532,7 @@ class SystemHealthHook(BaseHook):
 
         return metrics
 
-    def _generate_health_alerts(self, health_results: List[HealthCheck], metrics: List[SystemMetric]) -> List[Dict[str, Any]]:
+    def _generate_health_alerts(self, health_results: list[HealthCheck], metrics: list[SystemMetric]) -> list[dict[str, Any]]:
         """Generate health alerts based on check results and metrics."""
         alerts = []
 
@@ -577,7 +575,7 @@ class SystemHealthHook(BaseHook):
 
         return alerts
 
-    def _calculate_overall_health(self, health_results: List[HealthCheck]) -> str:
+    def _calculate_overall_health(self, health_results: list[HealthCheck]) -> str:
         """Calculate overall system health status."""
         if not health_results:
             return "unknown"
@@ -594,7 +592,7 @@ class SystemHealthHook(BaseHook):
         else:
             return "healthy"
 
-    def get_health_summary(self) -> Dict[str, Any]:
+    def get_health_summary(self) -> dict[str, Any]:
         """Get comprehensive health summary."""
         if not self.health_checks:
             return {"message": "No health checks available"}
@@ -641,8 +639,8 @@ class PerformanceMonitorHook(BaseHook):
             enabled=enabled,
             retry_count=0
         )
-        self.performance_data: Dict[str, List[Dict[str, Any]]] = {}
-        self.performance_snapshots: List[Dict[str, Any]] = []
+        self.performance_data: dict[str, list[dict[str, Any]]] = {}
+        self.performance_snapshots: list[dict[str, Any]] = []
         self.max_data_points = 5000
         self.max_snapshots = 100
 
@@ -692,7 +690,7 @@ class PerformanceMonitorHook(BaseHook):
                 error_type=type(e).__name__
             )
 
-    async def _capture_performance_snapshot(self, context: HookContext, component: str) -> Dict[str, Any]:
+    async def _capture_performance_snapshot(self, context: HookContext, component: str) -> dict[str, Any]:
         """Capture comprehensive performance snapshot."""
         snapshot = {
             "timestamp": datetime.now().isoformat(),
@@ -717,7 +715,7 @@ class PerformanceMonitorHook(BaseHook):
             "performance_score": snapshot["performance_indicators"].get("overall_score", 0)
         }
 
-    async def _analyze_performance_trends(self, context: HookContext, component: str) -> Dict[str, Any]:
+    async def _analyze_performance_trends(self, context: HookContext, component: str) -> dict[str, Any]:
         """Analyze performance trends over time."""
         # Get recent snapshots for trend analysis
         recent_snapshots = [s for s in self.performance_snapshots
@@ -752,7 +750,7 @@ class PerformanceMonitorHook(BaseHook):
             "trend_period": "1 hour"
         }
 
-    async def _detect_performance_bottlenecks(self, context: HookContext, component: str) -> Dict[str, Any]:
+    async def _detect_performance_bottlenecks(self, context: HookContext, component: str) -> dict[str, Any]:
         """Detect performance bottlenecks."""
         bottlenecks = []
 
@@ -797,7 +795,7 @@ class PerformanceMonitorHook(BaseHook):
             "overall_status": "degraded" if bottlenecks else "healthy"
         }
 
-    async def _capture_basic_metrics(self, context: HookContext, component: str) -> Dict[str, Any]:
+    async def _capture_basic_metrics(self, context: HookContext, component: str) -> dict[str, Any]:
         """Capture basic performance metrics."""
         metrics = await self._get_current_system_metrics()
 
@@ -808,7 +806,7 @@ class PerformanceMonitorHook(BaseHook):
             "timestamp": datetime.now().isoformat()
         }
 
-    async def _get_current_system_metrics(self) -> Dict[str, Any]:
+    async def _get_current_system_metrics(self) -> dict[str, Any]:
         """Get current system metrics."""
         try:
             import psutil
@@ -823,7 +821,7 @@ class PerformanceMonitorHook(BaseHook):
         except Exception:
             return {}
 
-    async def _get_application_metrics(self, context: HookContext) -> Dict[str, Any]:
+    async def _get_application_metrics(self, context: HookContext) -> dict[str, Any]:
         """Get application-specific metrics."""
         # This would integrate with the actual application metrics
         return {
@@ -833,7 +831,7 @@ class PerformanceMonitorHook(BaseHook):
             "throughput": context.metadata.get("throughput", 0.0)
         }
 
-    async def _get_resource_usage(self) -> Dict[str, Any]:
+    async def _get_resource_usage(self) -> dict[str, Any]:
         """Get detailed resource usage information."""
         try:
             import psutil
@@ -850,7 +848,7 @@ class PerformanceMonitorHook(BaseHook):
         except Exception:
             return {}
 
-    async def _calculate_performance_indicators(self) -> Dict[str, Any]:
+    async def _calculate_performance_indicators(self) -> dict[str, Any]:
         """Calculate performance indicators and scores."""
         indicators = {
             "overall_score": 85,  # Would be calculated based on actual metrics
@@ -862,7 +860,7 @@ class PerformanceMonitorHook(BaseHook):
 
         return indicators
 
-    def _calculate_metric_trend(self, snapshots: List[Dict[str, Any]], metric_name: str) -> Dict[str, Any]:
+    def _calculate_metric_trend(self, snapshots: list[dict[str, Any]], metric_name: str) -> dict[str, Any]:
         """Calculate trend for a specific metric."""
         if len(snapshots) < 2:
             return {"direction": "unknown", "rate": 0.0}
@@ -882,7 +880,7 @@ class PerformanceMonitorHook(BaseHook):
         # Calculate slope (trend rate)
         sum_x = sum(x_values)
         sum_y = sum(values)
-        sum_xy = sum(x * y for x, y in zip(x_values, values))
+        sum_xy = sum(x * y for x, y in zip(x_values, values, strict=False))
         sum_x2 = sum(x * x for x in x_values)
 
         slope = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x * sum_x)
@@ -897,7 +895,7 @@ class PerformanceMonitorHook(BaseHook):
             "change_percent": ((values[-1] - values[0]) / values[0] * 100) if values[0] != 0 else 0
         }
 
-    def get_performance_report(self, component: Optional[str] = None, hours: int = 24) -> Dict[str, Any]:
+    def get_performance_report(self, component: str | None = None, hours: int = 24) -> dict[str, Any]:
         """Get comprehensive performance report."""
         cutoff_time = datetime.now() - timedelta(hours=hours)
 
@@ -925,7 +923,7 @@ class PerformanceMonitorHook(BaseHook):
             "recommendations": self._generate_performance_recommendations(snapshots)
         }
 
-    def _calculate_performance_summary(self, snapshots: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _calculate_performance_summary(self, snapshots: list[dict[str, Any]]) -> dict[str, Any]:
         """Calculate performance summary from snapshots."""
         if not snapshots:
             return {}
@@ -940,7 +938,7 @@ class PerformanceMonitorHook(BaseHook):
             "score_trend": "improving" if len(scores) > 1 and scores[-1] > scores[0] else "declining" if len(scores) > 1 and scores[-1] < scores[0] else "stable"
         }
 
-    def _calculate_resource_summary(self, snapshots: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _calculate_resource_summary(self, snapshots: list[dict[str, Any]]) -> dict[str, Any]:
         """Calculate resource usage summary from snapshots."""
         if not snapshots:
             return {}
@@ -961,7 +959,7 @@ class PerformanceMonitorHook(BaseHook):
             }
         }
 
-    def _generate_performance_recommendations(self, snapshots: List[Dict[str, Any]]) -> List[str]:
+    def _generate_performance_recommendations(self, snapshots: list[dict[str, Any]]) -> list[str]:
         """Generate performance recommendations based on data."""
         recommendations = []
 
@@ -1007,8 +1005,8 @@ class ErrorTrackingHook(BaseHook):
             enabled=enabled,
             retry_count=1
         )
-        self.error_reports: List[ErrorReport] = []
-        self.error_patterns: Dict[str, Dict[str, Any]] = {}
+        self.error_reports: list[ErrorReport] = []
+        self.error_patterns: dict[str, dict[str, Any]] = {}
         self.error_thresholds = {
             "error_rate": 5.0,  # errors per hour
             "critical_error_rate": 1.0,
@@ -1127,7 +1125,7 @@ class ErrorTrackingHook(BaseHook):
                 pattern["common_context"][key] = {}
             pattern["common_context"][key][str(value)] = pattern["common_context"][key].get(str(value), 0) + 1
 
-    def _generate_recovery_suggestions(self, error_type: str, error_context: Dict[str, Any]) -> List[str]:
+    def _generate_recovery_suggestions(self, error_type: str, error_context: dict[str, Any]) -> list[str]:
         """Generate recovery suggestions based on error type and context."""
         suggestions = []
 
@@ -1170,7 +1168,7 @@ class ErrorTrackingHook(BaseHook):
 
         return suggestions
 
-    def _find_related_errors(self, error_type: str, error_message: str) -> List[str]:
+    def _find_related_errors(self, error_type: str, error_message: str) -> list[str]:
         """Find related errors based on type and message similarity."""
         related_errors = []
         cutoff_time = datetime.now() - timedelta(hours=24)
@@ -1180,16 +1178,12 @@ class ErrorTrackingHook(BaseHook):
                 continue
 
             # Check for same error type
-            if error.error_type == error_type:
-                related_errors.append(error.error_id)
-
-            # Check for similar error messages (simplified)
-            elif any(word in error.error_message.lower() for word in error_message.lower().split() if len(word) > 3):
+            if error.error_type == error_type or any(word in error.error_message.lower() for word in error_message.lower().split() if len(word) > 3):
                 related_errors.append(error.error_id)
 
         return related_errors[:5]  # Limit to 5 most recent related errors
 
-    def _check_error_thresholds(self, error_report: ErrorReport) -> List[Dict[str, Any]]:
+    def _check_error_thresholds(self, error_report: ErrorReport) -> list[dict[str, Any]]:
         """Check if error exceeds thresholds and generate alerts."""
         alerts = []
 
@@ -1234,7 +1228,7 @@ class ErrorTrackingHook(BaseHook):
 
         return alerts
 
-    def _generate_error_summary(self) -> Dict[str, Any]:
+    def _generate_error_summary(self) -> dict[str, Any]:
         """Generate comprehensive error summary."""
         if not self.error_reports:
             return {"message": "No errors tracked"}
@@ -1273,12 +1267,12 @@ class ErrorTrackingHook(BaseHook):
 
     def get_error_report(
         self,
-        error_type: Optional[str] = None,
-        component: Optional[str] = None,
-        severity: Optional[str] = None,
+        error_type: str | None = None,
+        component: str | None = None,
+        severity: str | None = None,
         hours: int = 24,
         limit: int = 50
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Get filtered error reports."""
         cutoff_time = datetime.now() - timedelta(hours=hours)
 
@@ -1321,7 +1315,7 @@ class ErrorTrackingHook(BaseHook):
             ]
         }
 
-    def get_error_patterns(self) -> Dict[str, Any]:
+    def get_error_patterns(self) -> dict[str, Any]:
         """Get error pattern analysis."""
         return {
             "total_patterns": len(self.error_patterns),

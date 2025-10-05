@@ -7,9 +7,9 @@ MCP tools with the multi-agent research system.
 """
 
 import asyncio
+import logging
 import os
 import sys
-import logging
 from pathlib import Path
 
 # Add the project root to Python path
@@ -35,7 +35,10 @@ async def test_enhanced_search_mcp_integration():
         try:
             # Try to import MCP server - this will fail without claude_agent_sdk
             try:
-                from multi_agent_research_system.mcp_tools.enhanced_search_scrape_clean import enhanced_search_server, create_enhanced_search_mcp_server
+                from multi_agent_research_system.mcp_tools.enhanced_search_scrape_clean import (
+                    create_enhanced_search_mcp_server,
+                    enhanced_search_server,
+                )
                 if enhanced_search_server is not None:
                     logger.info("✅ Enhanced search server imported successfully")
                     logger.info(f"   Server type: {type(enhanced_search_server)}")
@@ -67,9 +70,9 @@ async def test_enhanced_search_mcp_integration():
         try:
             sys.path.insert(0, str(project_root / "multi_agent_research_system" / "utils"))
             from z_search_crawl_utils import (
-                search_crawl_and_clean_direct,
+                SearchResult,
                 news_search_and_crawl_direct,
-                SearchResult
+                search_crawl_and_clean_direct,
             )
             logger.info("✅ Search utilities imported successfully")
         except ImportError as e:
@@ -78,8 +81,8 @@ async def test_enhanced_search_mcp_integration():
 
         try:
             from z_content_cleaning import (
+                assess_content_cleanliness,
                 clean_content_with_gpt5_nano,
-                assess_content_cleanliness
             )
             logger.info("✅ Content cleaning utilities imported successfully")
         except ImportError as e:
@@ -88,9 +91,9 @@ async def test_enhanced_search_mcp_integration():
 
         try:
             from z_crawl4ai_utils import (
-                SimpleCrawler,
                 CrawlResult,
-                crawl_multiple_urls_with_cleaning
+                SimpleCrawler,
+                crawl_multiple_urls_with_cleaning,
             )
             logger.info("✅ Crawl4AI utilities imported successfully")
         except ImportError as e:
@@ -103,9 +106,9 @@ async def test_enhanced_search_mcp_integration():
         try:
             sys.path.insert(0, str(project_root / "multi_agent_research_system" / "config"))
             from settings import (
-                get_settings,
+                EnhancedSearchConfig,
                 get_enhanced_search_config,
-                EnhancedSearchConfig
+                get_settings,
             )
 
             settings = get_settings()

@@ -6,8 +6,8 @@ without the @tool decorator complications.
 """
 
 import asyncio
-import sys
 import os
+import sys
 from pathlib import Path
 
 # Add current directory to path for imports
@@ -59,7 +59,7 @@ async def test_intelligent_research_directly():
             kevin_dir=kevin_dir
         )
 
-        print(f"\n📊 Results Analysis:")
+        print("\n📊 Results Analysis:")
         print(f"  - Result length: {len(result)} characters")
         print(f"  - Success: {'✅ Content extracted' if len(result) > 1000 else '❌ No content extracted'}")
 
@@ -73,7 +73,7 @@ async def test_intelligent_research_directly():
         print(f"  - Multiple sources: {'✅' if has_multiple_sources else '❌'}")
 
         # Show first 800 characters
-        print(f"\n📄 Content Preview (first 800 chars):")
+        print("\n📄 Content Preview (first 800 chars):")
         print(result[:800])
         print("...")
 

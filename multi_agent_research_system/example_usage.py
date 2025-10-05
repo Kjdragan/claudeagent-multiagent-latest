@@ -7,7 +7,6 @@ This script demonstrates how to use the system programmatically.
 
 import asyncio
 import sys
-import os
 
 # Add parent directory to path
 sys.path.append('..')

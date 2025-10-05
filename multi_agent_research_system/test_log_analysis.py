@@ -7,10 +7,8 @@ ReportGenerator, and AuditTrailManager components.
 """
 
 import asyncio
-import json
-import sys
 import os
-import time
+import sys
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -19,11 +17,11 @@ from pathlib import Path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from log_analysis import (
+    AnalyticsEngine,
+    AuditTrailManager,
     LogAggregator,
     LogSearchEngine,
-    AnalyticsEngine,
     ReportGenerator,
-    AuditTrailManager
 )
 
 
@@ -98,7 +96,7 @@ async def test_log_search_engine():
     try:
         # Create test log entries
         from log_analysis.log_aggregator import LogEntry
-        from log_analysis.log_search import SearchQuery, SearchOperator
+        from log_analysis.log_search import SearchOperator, SearchQuery
 
         test_entries = [
             LogEntry(
@@ -190,7 +188,7 @@ async def test_analytics_engine():
                 source="test_system",
                 session_id=session_id,
                 agent_name=f"agent_{i % 3}",
-                activity_type=f"process_data",
+                activity_type="process_data",
                 message=f"Processing item {i}",
                 metadata={
                     "execution_time": 0.5 + (i % 10) * 0.1,
@@ -357,7 +355,7 @@ async def test_report_generator():
         ]
 
         # Test daily summary report generation
-        from log_analysis.report_generator import ReportType, ReportFormat
+        from log_analysis.report_generator import ReportFormat, ReportType
 
         daily_report = await generator.generate_report(
             report_type=ReportType.DAILY_SUMMARY,
@@ -423,10 +421,10 @@ async def test_integration():
         print("✅ All components initialized")
 
         # Create test data
+        from log_analysis.audit_trail import AuditEventType
         from log_analysis.log_aggregator import LogEntry
-        from log_analysis.audit_trail import AuditEventType, ComplianceStandard
-        from log_analysis.report_generator import ReportType, ReportFormat
-        from log_analysis.log_search import SearchQuery, SearchOperator
+        from log_analysis.log_search import SearchOperator, SearchQuery
+        from log_analysis.report_generator import ReportFormat, ReportType
 
         test_entries = []
         for i in range(30):

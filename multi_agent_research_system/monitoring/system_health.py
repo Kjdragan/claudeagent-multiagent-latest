@@ -7,15 +7,16 @@ resource monitoring, and automated health reporting.
 
 import asyncio
 import json
+import os
+import sys
 import time
-from dataclasses import dataclass, asdict
+from collections.abc import Callable
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Callable
+from typing import Any
 
-import sys
-import os
 # Add parent directory to path for proper imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from agent_logging import StructuredLogger
@@ -37,9 +38,9 @@ class HealthCheck:
     check_function: Callable
     interval_seconds: int
     timeout_seconds: int
-    last_check: Optional[datetime] = None
+    last_check: datetime | None = None
     last_status: HealthStatus = HealthStatus.UNKNOWN
-    last_result: Optional[Dict[str, Any]] = None
+    last_result: dict[str, Any] | None = None
     consecutive_failures: int = 0
     enabled: bool = True
 
@@ -55,10 +56,10 @@ class HealthReport:
     warning_checks: int
     critical_checks: int
     unknown_checks: int
-    check_results: List[Dict[str, Any]]
-    system_resources: Dict[str, Any]
-    alerts: List[Dict[str, Any]]
-    recommendations: List[str]
+    check_results: list[dict[str, Any]]
+    system_resources: dict[str, Any]
+    alerts: list[dict[str, Any]]
+    recommendations: list[str]
 
 
 class SystemHealthMonitor:
@@ -88,9 +89,9 @@ class SystemHealthMonitor:
         )
 
         # Health tracking
-        self.health_checks: Dict[str, HealthCheck] = {}
+        self.health_checks: dict[str, HealthCheck] = {}
         self.start_time = datetime.now()
-        self.health_history: List[HealthReport] = []
+        self.health_history: list[HealthReport] = []
         self.alert_thresholds = {
             'consecutive_failures_warning': 3,
             'consecutive_failures_critical': 5,
@@ -103,7 +104,7 @@ class SystemHealthMonitor:
         }
 
         # Monitoring task
-        self.monitoring_task: Optional[asyncio.Task] = None
+        self.monitoring_task: asyncio.Task | None = None
         self.is_monitoring = False
 
         # Initialize default health checks
@@ -116,7 +117,6 @@ class SystemHealthMonitor:
 
     def _initialize_default_health_checks(self) -> None:
         """Initialize default health checks for system monitoring."""
-        import psutil
 
         # Memory health check
         self.add_health_check(
@@ -241,7 +241,7 @@ class SystemHealthMonitor:
         self.logger.info("System health monitoring stopped",
                         session_id=self.session_id)
 
-    async def run_health_check(self, name: str) -> Dict[str, Any]:
+    async def run_health_check(self, name: str) -> dict[str, Any]:
         """
         Run a specific health check manually.
 
@@ -262,7 +262,7 @@ class SystemHealthMonitor:
         health_check = self.health_checks[name]
         return await self._execute_health_check(health_check)
 
-    async def run_all_health_checks(self) -> Dict[str, Any]:
+    async def run_all_health_checks(self) -> dict[str, Any]:
         """
         Run all enabled health checks.
 
@@ -321,7 +321,7 @@ class SystemHealthMonitor:
                                 session_id=self.session_id)
                 await asyncio.sleep(self.check_interval)
 
-    async def _execute_health_check(self, health_check: HealthCheck) -> Dict[str, Any]:
+    async def _execute_health_check(self, health_check: HealthCheck) -> dict[str, Any]:
         """Execute a single health check."""
         start_time = time.time()
         result = {
@@ -379,7 +379,7 @@ class SystemHealthMonitor:
 
         return result
 
-    async def _check_memory_health(self) -> Dict[str, Any]:
+    async def _check_memory_health(self) -> dict[str, Any]:
         """Check system memory health."""
         import psutil
 
@@ -404,7 +404,7 @@ class SystemHealthMonitor:
             }
         }
 
-    async def _check_cpu_health(self) -> Dict[str, Any]:
+    async def _check_cpu_health(self) -> dict[str, Any]:
         """Check system CPU health."""
         import psutil
 
@@ -428,7 +428,7 @@ class SystemHealthMonitor:
             }
         }
 
-    async def _check_disk_health(self) -> Dict[str, Any]:
+    async def _check_disk_health(self) -> dict[str, Any]:
         """Check disk space health."""
         import psutil
 
@@ -453,7 +453,7 @@ class SystemHealthMonitor:
             }
         }
 
-    async def _check_process_health(self) -> Dict[str, Any]:
+    async def _check_process_health(self) -> dict[str, Any]:
         """Check system process health."""
         import psutil
 
@@ -482,7 +482,7 @@ class SystemHealthMonitor:
             )[:5]
         }
 
-    async def _check_logging_health(self) -> Dict[str, Any]:
+    async def _check_logging_health(self) -> dict[str, Any]:
         """Check logging system health."""
         try:
             # Test logging functionality
@@ -494,7 +494,7 @@ class SystemHealthMonitor:
                 f.write(test_message + '\n')
 
             # Read it back
-            with open(test_log_file, 'r') as f:
+            with open(test_log_file) as f:
                 content = f.read().strip()
 
             # Clean up
@@ -518,7 +518,7 @@ class SystemHealthMonitor:
                 'error': str(e)
             }
 
-    async def generate_health_report(self) -> Optional[HealthReport]:
+    async def generate_health_report(self) -> HealthReport | None:
         """Generate a comprehensive health report."""
         if not self.health_checks:
             return None
@@ -568,7 +568,7 @@ class SystemHealthMonitor:
 
         return report
 
-    async def _get_system_resources(self) -> Dict[str, Any]:
+    async def _get_system_resources(self) -> dict[str, Any]:
         """Get current system resource information."""
         try:
             import psutil
@@ -583,7 +583,7 @@ class SystemHealthMonitor:
         except Exception as e:
             return {'error': f"Failed to get system resources: {e}"}
 
-    def _generate_health_alerts(self, check_results: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _generate_health_alerts(self, check_results: dict[str, Any]) -> list[dict[str, Any]]:
         """Generate health alerts based on check results."""
         alerts = []
 
@@ -603,8 +603,8 @@ class SystemHealthMonitor:
         return alerts
 
     def _generate_health_recommendations(self,
-                                       check_results: Dict[str, Any],
-                                       alerts: List[Dict[str, Any]]) -> List[str]:
+                                       check_results: dict[str, Any],
+                                       alerts: list[dict[str, Any]]) -> list[str]:
         """Generate health recommendations based on check results."""
         recommendations = []
 
@@ -658,7 +658,7 @@ class SystemHealthMonitor:
         else:
             self.logger.info(f"{emoji} {log_message}", **log_data)
 
-    def get_health_summary(self) -> Dict[str, Any]:
+    def get_health_summary(self) -> dict[str, Any]:
         """Get current health summary."""
         if not self.health_checks:
             return {
@@ -692,7 +692,7 @@ class SystemHealthMonitor:
                 'monitoring_active': self.is_monitoring
             }
 
-    def export_health_report(self, file_path: Optional[str] = None) -> str:
+    def export_health_report(self, file_path: str | None = None) -> str:
         """
         Export health data to a JSON file.
 

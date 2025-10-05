@@ -6,21 +6,28 @@ MCP structure and SDK patterns. It provides a unified interface for hook
 management, execution, and monitoring across all hook categories.
 """
 
-import asyncio
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
-from dataclasses import dataclass, field
-
-from .base_hooks import HookManager, HookContext, HookResult
-from .tool_hooks import ToolExecutionHook, ToolPerformanceMonitor
-from .agent_hooks import AgentCommunicationHook, AgentHandoffHook, AgentStateMonitor
-from .workflow_hooks import WorkflowOrchestrationHook, StageTransitionHook, DecisionPointHook
-from .session_hooks import SessionLifecycleHook
-from .monitoring_hooks import SystemHealthHook, PerformanceMonitorHook, ErrorTrackingHook
-from .sdk_integration import SDKHookBridge, SDKMessageProcessingHook, SDKHookIntegration
-from .mcp_hooks import MCPMessageHook, MCPToolExecutionHook, MCPSessionHook
-import sys
 import os
+import sys
+from dataclasses import dataclass
+from typing import Any
+
+from .agent_hooks import AgentCommunicationHook, AgentHandoffHook, AgentStateMonitor
+from .base_hooks import HookContext, HookManager, HookResult
+from .mcp_hooks import MCPMessageHook, MCPSessionHook, MCPToolExecutionHook
+from .monitoring_hooks import (
+    ErrorTrackingHook,
+    PerformanceMonitorHook,
+    SystemHealthHook,
+)
+from .sdk_integration import SDKHookBridge, SDKHookIntegration, SDKMessageProcessingHook
+from .session_hooks import SessionLifecycleHook
+from .tool_hooks import ToolExecutionHook, ToolPerformanceMonitor
+from .workflow_hooks import (
+    DecisionPointHook,
+    StageTransitionHook,
+    WorkflowOrchestrationHook,
+)
+
 # Add parent directory to path for proper imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from agent_logging import get_logger
@@ -62,28 +69,28 @@ class HookIntegrationManager:
     proper MCP structure compliance and SDK pattern integration.
     """
 
-    def __init__(self, config: Optional[HookIntegrationConfig] = None):
+    def __init__(self, config: HookIntegrationConfig | None = None):
         """Initialize the hook integration manager."""
         self.config = config or HookIntegrationConfig()
         self.logger = get_logger("hook_integration_manager")
 
         # Initialize hook managers for different categories
-        self.hook_managers: Dict[str, HookManager] = {}
+        self.hook_managers: dict[str, HookManager] = {}
 
         # Initialize hooks
-        self.tool_hooks: Dict[str, Any] = {}
-        self.agent_hooks: Dict[str, Any] = {}
-        self.workflow_hooks: Dict[str, Any] = {}
-        self.session_hooks: Dict[str, Any] = {}
-        self.monitoring_hooks: Dict[str, Any] = {}
-        self.sdk_hooks: Dict[str, Any] = {}
-        self.mcp_hooks: Dict[str, Any] = {}
+        self.tool_hooks: dict[str, Any] = {}
+        self.agent_hooks: dict[str, Any] = {}
+        self.workflow_hooks: dict[str, Any] = {}
+        self.session_hooks: dict[str, Any] = {}
+        self.monitoring_hooks: dict[str, Any] = {}
+        self.sdk_hooks: dict[str, Any] = {}
+        self.mcp_hooks: dict[str, Any] = {}
 
         # SDK bridge for integration
-        self.sdk_bridge: Optional[SDKHookBridge] = None
+        self.sdk_bridge: SDKHookBridge | None = None
 
         # Statistics and monitoring
-        self.integration_stats: Dict[str, Any] = {}
+        self.integration_stats: dict[str, Any] = {}
         self.initialized = False
 
     async def initialize(self) -> bool:
@@ -412,8 +419,8 @@ class HookIntegrationManager:
         self,
         hook_type: str,
         context: HookContext,
-        category: Optional[str] = None
-    ) -> List[HookResult]:
+        category: str | None = None
+    ) -> list[HookResult]:
         """
         Execute hooks for a given type and optionally category.
 
@@ -473,8 +480,8 @@ class HookIntegrationManager:
     def _update_integration_stats(
         self,
         hook_type: str,
-        category: Optional[str],
-        results: List[HookResult]
+        category: str | None,
+        results: list[HookResult]
     ):
         """Update integration statistics."""
         if "total_executions" not in self.integration_stats:
@@ -515,7 +522,7 @@ class HookIntegrationManager:
             cat_stats["successful"] += sum(1 for r in results if r.success)
             cat_stats["failed"] += sum(1 for r in results if r.failed)
 
-    def get_sdk_hooks(self) -> Optional[Dict[str, Any]]:
+    def get_sdk_hooks(self) -> dict[str, Any] | None:
         """
         Get SDK-compatible hooks for integration with ClaudeAgentOptions.
 
@@ -549,7 +556,7 @@ class HookIntegrationManager:
                             error_type=type(e).__name__)
             return None
 
-    def get_hook_statistics(self) -> Dict[str, Any]:
+    def get_hook_statistics(self) -> dict[str, Any]:
         """Get comprehensive hook system statistics."""
         if not self.initialized:
             return {"message": "Hook integration manager not initialized"}

@@ -1,8 +1,7 @@
 """Test the core intelligence functions from z-playground1 implementation."""
 
-import asyncio
-import sys
 import os
+import sys
 
 # Add current directory to path for imports
 sys.path.append(os.path.dirname(__file__))
@@ -14,7 +13,10 @@ def test_relevance_scoring():
     print("=" * 80)
 
     try:
-        from tools.intelligent_research_tool import calculate_enhanced_relevance_score, extract_query_terms
+        from tools.intelligent_research_tool import (
+            calculate_enhanced_relevance_score,
+            extract_query_terms,
+        )
         print("✅ Relevance scoring functions imported successfully")
     except ImportError as e:
         print(f"❌ Failed to import relevance scoring functions: {e}")
@@ -53,10 +55,10 @@ def test_relevance_scoring():
         print(f"  Score: {score:.3f} (min expected: {test_case['expected_min_score']})")
 
         if score >= test_case["expected_min_score"]:
-            print(f"  ✅ Score meets expectation")
+            print("  ✅ Score meets expectation")
             success_count += 1
         else:
-            print(f"  ❌ Score below expectation")
+            print("  ❌ Score below expectation")
 
     print(f"\n✅ Relevance scoring test: {success_count}/{len(test_cases)} passed")
     return success_count == len(test_cases)
@@ -69,7 +71,10 @@ def test_url_selection():
     print("=" * 80)
 
     try:
-        from tools.intelligent_research_tool import select_urls_for_crawling, SearchResult
+        from tools.intelligent_research_tool import (
+            SearchResult,
+            select_urls_for_crawling,
+        )
         print("✅ URL selection function imported successfully")
     except ImportError as e:
         print(f"❌ Failed to import URL selection function: {e}")
@@ -101,7 +106,7 @@ def test_url_selection():
     expected_count = 3  # 3 sources above 0.3 threshold
     actual_count = len(selected_urls)
 
-    print(f"\nURL Selection Results:")
+    print("\nURL Selection Results:")
     print(f"  - Total results: {len(search_results)}")
     print(f"  - Above threshold 0.3: {len([r for r in search_results if r.relevance_score >= 0.3])}")
     print(f"  - Selected for crawling: {actual_count} (expected: {expected_count})")
@@ -122,9 +127,9 @@ def test_mcp_compression_logic():
     content_sizes = [50000, 20000, 10000, 5000]  # characters
     token_limit = 20000  # tokens
 
-    print(f"\nMCP Compression Simulation:")
+    print("\nMCP Compression Simulation:")
     print(f"  Token Limit: {token_limit:,} tokens")
-    print(f"  Ratio: ~1 token = 4 characters")
+    print("  Ratio: ~1 token = 4 characters")
 
     for size in content_sizes:
         estimated_tokens = size // 4
@@ -134,11 +139,11 @@ def test_mcp_compression_logic():
         print(f"  Compression Needed: {'YES' if compression_needed else 'NO'}")
 
         if compression_needed:
-            print(f"  Strategy: Multi-level compression (Top Priority → Summarized → References)")
+            print("  Strategy: Multi-level compression (Top Priority → Summarized → References)")
         else:
-            print(f"  Strategy: No compression needed")
+            print("  Strategy: No compression needed")
 
-    print(f"\n✅ MCP compression logic test: PASSED")
+    print("\n✅ MCP compression logic test: PASSED")
     return True
 
 

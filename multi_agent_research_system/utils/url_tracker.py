@@ -7,11 +7,10 @@ to prevent duplicate crawling and implement progressive retry logic.
 
 import json
 import logging
-import time
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Any
-from dataclasses import dataclass, asdict
+from typing import Any
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
@@ -26,8 +25,8 @@ class URLAttempt:
     success: bool
     content_length: int
     duration: float
-    error_message: Optional[str] = None
-    session_id: Optional[str] = None
+    error_message: str | None = None
+    session_id: str | None = None
 
 
 @dataclass
@@ -37,7 +36,7 @@ class URLRecord:
     domain: str
     first_seen: datetime
     last_attempt: datetime
-    attempts: List[URLAttempt]
+    attempts: list[URLAttempt]
     final_status: str  # 'success', 'failed', 'pending'
     total_attempts: int
     successful_extractions: int
@@ -52,7 +51,7 @@ class URLRecord:
         return any(attempt.success for attempt in self.attempts)
 
     @property
-    def last_successful_attempt(self) -> Optional[URLAttempt]:
+    def last_successful_attempt(self) -> URLAttempt | None:
         """Get the last successful attempt."""
         successful_attempts = [attempt for attempt in self.attempts if attempt.success]
         return successful_attempts[-1] if successful_attempts else None
@@ -135,8 +134,8 @@ class URLTracker:
         self.storage_dir = storage_dir
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
-        self.url_records: Dict[str, URLRecord] = {}
-        self.session_urls: Set[str] = set()
+        self.url_records: dict[str, URLRecord] = {}
+        self.session_urls: set[str] = set()
 
         # Load existing tracking data
         self._load_tracking_data()
@@ -148,7 +147,7 @@ class URLTracker:
         try:
             tracking_file = self.storage_dir / "url_tracking.json"
             if tracking_file.exists():
-                with open(tracking_file, 'r', encoding='utf-8') as f:
+                with open(tracking_file, encoding='utf-8') as f:
                     data = json.load(f)
 
                 for url_data in data.get('url_records', []):
@@ -177,7 +176,7 @@ class URLTracker:
         except Exception as e:
             logger.error(f"Error saving URL tracking data: {e}")
 
-    def _serialize_url_record(self, record: URLRecord) -> Dict[str, Any]:
+    def _serialize_url_record(self, record: URLRecord) -> dict[str, Any]:
         """Serialize URLRecord for JSON storage."""
         return {
             'url': record.url,
@@ -190,7 +189,7 @@ class URLTracker:
             'successful_extractions': record.successful_extractions
         }
 
-    def _serialize_url_attempt(self, attempt: URLAttempt) -> Dict[str, Any]:
+    def _serialize_url_attempt(self, attempt: URLAttempt) -> dict[str, Any]:
         """Serialize URLAttempt for JSON storage."""
         return {
             'url': attempt.url,
@@ -203,7 +202,7 @@ class URLTracker:
             'session_id': attempt.session_id
         }
 
-    def _deserialize_url_record(self, data: Dict[str, Any]) -> URLRecord:
+    def _deserialize_url_record(self, data: dict[str, Any]) -> URLRecord:
         """Deserialize URLRecord from JSON storage."""
         attempts = []
         for attempt_data in data.get('attempts', []):
@@ -229,7 +228,7 @@ class URLTracker:
         except Exception:
             return "unknown"
 
-    def filter_urls(self, urls: List[str], session_id: str = None) -> Tuple[List[str], List[str]]:
+    def filter_urls(self, urls: list[str], session_id: str = None) -> tuple[list[str], list[str]]:
         """
         Filter URLs to remove duplicates and already successful URLs.
 
@@ -272,8 +271,8 @@ class URLTracker:
         anti_bot_level: int,
         content_length: int,
         duration: float,
-        error_message: Optional[str] = None,
-        session_id: Optional[str] = None
+        error_message: str | None = None,
+        session_id: str | None = None
     ):
         """
         Record a crawl attempt for a URL.
@@ -352,7 +351,7 @@ class URLTracker:
         logger.info(f"Recorded crawl attempt for {url}: {'SUCCESS' if success else 'FAILED'} "
                    f"(level: {anti_bot_level}, content: {content_length} chars)")
 
-    def get_retry_candidates(self, urls: List[str]) -> List[str]:
+    def get_retry_candidates(self, urls: list[str]) -> list[str]:
         """
         Get URLs that should be retried with higher anti-bot levels.
 
@@ -390,7 +389,7 @@ class URLTracker:
 
         return self.url_records[url].get_next_anti_bot_level()
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get URL tracking statistics."""
         total_urls = len(self.url_records)
         successful_urls = sum(1 for record in self.url_records.values() if record.is_successful)
@@ -418,7 +417,7 @@ class URLTracker:
             **retry_stats  # Add all retry statistics
         }
 
-    def _calculate_retry_statistics(self) -> Dict[str, Any]:
+    def _calculate_retry_statistics(self) -> dict[str, Any]:
         """Calculate comprehensive retry statistics."""
         total_urls = len(self.url_records)
         if total_urls == 0:
@@ -522,14 +521,14 @@ class URLTracker:
         except Exception as e:
             logger.error(f"Error saving URL tracking data asynchronously: {e}")
 
-    def _write_json_file(self, file_path: Path, data: Dict[str, Any]):
+    def _write_json_file(self, file_path: Path, data: dict[str, Any]):
         """Synchronous JSON file writer for use in separate thread."""
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
 
 # Global URL tracker instance
-_url_tracker: Optional[URLTracker] = None
+_url_tracker: URLTracker | None = None
 
 
 def get_url_tracker(storage_dir: Path = None) -> URLTracker:

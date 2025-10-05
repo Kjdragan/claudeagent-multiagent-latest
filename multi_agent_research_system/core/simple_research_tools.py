@@ -12,7 +12,7 @@ import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
@@ -246,7 +246,7 @@ async def get_session_data(args: dict[str, Any]) -> dict[str, Any]:
         findings_file = session_path / "research_findings.json"
         if findings_file.exists():
             try:
-                with open(findings_file, 'r', encoding='utf-8') as f:
+                with open(findings_file, encoding='utf-8') as f:
                     findings_data = json.load(f)
                     result_data["findings"] = findings_data
 
@@ -278,7 +278,7 @@ async def get_session_data(args: dict[str, Any]) -> dict[str, Any]:
                     # Try to read the most recent research file
                     try:
                         latest_file = max(research_files, key=os.path.getctime)
-                        with open(latest_file, 'r', encoding='utf-8') as f:
+                        with open(latest_file, encoding='utf-8') as f:
                             result_data["fallback_research_content"] = f.read()
                     except Exception as e:
                         result_data["fallback_error"] = f"Error reading fallback research file: {str(e)}"
@@ -289,7 +289,7 @@ async def get_session_data(args: dict[str, Any]) -> dict[str, Any]:
         if report_files:
             try:
                 report_file = report_files[0]
-                with open(report_file, 'r', encoding='utf-8') as f:
+                with open(report_file, encoding='utf-8') as f:
                     result_data["report"] = f.read()
             except Exception as e:
                 result_data["report_error"] = f"Error reading research report: {str(e)}"
@@ -302,7 +302,7 @@ async def get_session_data(args: dict[str, Any]) -> dict[str, Any]:
                     if report_files:
                         try:
                             latest_report = max(report_files, key=os.path.getctime)
-                            with open(latest_report, 'r', encoding='utf-8') as f:
+                            with open(latest_report, encoding='utf-8') as f:
                                 result_data["fallback_report"] = f.read()
                                 result_data["fallback_report_path"] = str(latest_report)
                                 break
@@ -313,7 +313,7 @@ async def get_session_data(args: dict[str, Any]) -> dict[str, Any]:
     if data_type in ["all", "state"]:
         state_file = session_path / "session_state.json"
         if state_file.exists():
-            with open(state_file, 'r', encoding='utf-8') as f:
+            with open(state_file, encoding='utf-8') as f:
                 result_data["state"] = json.load(f)
 
     # Create comprehensive status message
@@ -346,7 +346,7 @@ async def get_session_data(args: dict[str, Any]) -> dict[str, Any]:
         status_text = f"No data found for session {session_id}"
 
     if error_messages:
-        status_text += f"\n\nWarnings:\n" + "\n".join(error_messages)
+        status_text += "\n\nWarnings:\n" + "\n".join(error_messages)
 
     return {
         "content": [{

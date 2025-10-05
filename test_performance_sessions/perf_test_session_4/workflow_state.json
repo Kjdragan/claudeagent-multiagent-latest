@@ -1,0 +1,157 @@
+{
+  "session_id": "perf_test_session_4",
+  "checkpoints": {
+    "session_created": {
+      "timestamp": "2025-10-04T17:00:00.732964",
+      "data": {
+        "session_data": {
+          "session_id": "perf_test_session_4",
+          "topic": "Performance Test Topic 4",
+          "user_requirements": {
+            "test": true
+          },
+          "start_time": "2025-10-04T17:00:00.732257",
+          "end_time": null,
+          "current_stage": "research",
+          "overall_status": "pending",
+          "stages": {
+            "research": {
+              "stage": "research",
+              "status": "pending",
+              "start_time": null,
+              "end_time": null,
+              "attempt_count": 0,
+              "max_attempts": 3,
+              "result": null,
+              "error_message": null,
+              "checkpoint_data": null,
+              "recovery_attempts": [],
+              "quality_metrics": null,
+              "editorial_metadata": null,
+              "enhancement_log": [],
+              "fallback_used": false,
+              "processing_path": []
+            },
+            "report_generation": {
+              "stage": "report_generation",
+              "status": "pending",
+              "start_time": null,
+              "end_time": null,
+              "attempt_count": 0,
+              "max_attempts": 3,
+              "result": null,
+              "error_message": null,
+              "checkpoint_data": null,
+              "recovery_attempts": [],
+              "quality_metrics": null,
+              "editorial_metadata": null,
+              "enhancement_log": [],
+              "fallback_used": false,
+              "processing_path": []
+            },
+            "editorial_review": {
+              "stage": "editorial_review",
+              "status": "pending",
+              "start_time": null,
+              "end_time": null,
+              "attempt_count": 0,
+              "max_attempts": 3,
+              "result": null,
+              "error_message": null,
+              "checkpoint_data": null,
+              "recovery_attempts": [],
+              "quality_metrics": null,
+              "editorial_metadata": null,
+              "enhancement_log": [],
+              "fallback_used": false,
+              "processing_path": []
+            },
+            "decoupled_editorial_review": {
+              "stage": "decoupled_editorial_review",
+              "status": "pending",
+              "start_time": null,
+              "end_time": null,
+              "attempt_count": 0,
+              "max_attempts": 3,
+              "result": null,
+              "error_message": null,
+              "checkpoint_data": null,
+              "recovery_attempts": [],
+              "quality_metrics": null,
+              "editorial_metadata": null,
+              "enhancement_log": [],
+              "fallback_used": false,
+              "processing_path": []
+            },
+            "quality_assessment": {
+              "stage": "quality_assessment",
+              "status": "pending",
+              "start_time": null,
+              "end_time": null,
+              "attempt_count": 0,
+              "max_attempts": 3,
+              "result": null,
+              "error_message": null,
+              "checkpoint_data": null,
+              "recovery_attempts": [],
+              "quality_metrics": null,
+              "editorial_metadata": null,
+              "enhancement_log": [],
+              "fallback_used": false,
+              "processing_path": []
+            },
+            "progressive_enhancement": {
+              "stage": "progressive_enhancement",
+              "status": "pending",
+              "start_time": null,
+              "end_time": null,
+              "attempt_count": 0,
+              "max_attempts": 3,
+              "result": null,
+              "error_message": null,
+              "checkpoint_data": null,
+              "recovery_attempts": [],
+              "quality_metrics": null,
+              "editorial_metadata": null,
+              "enhancement_log": [],
+              "fallback_used": false,
+              "processing_path": []
+            },
+            "final_output": {
+              "stage": "final_output",
+              "status": "pending",
+              "start_time": null,
+              "end_time": null,
+              "attempt_count": 0,
+              "max_attempts": 3,
+              "result": null,
+              "error_message": null,
+              "checkpoint_data": null,
+              "recovery_attempts": [],
+              "quality_metrics": null,
+              "editorial_metadata": null,
+              "enhancement_log": [],
+              "fallback_used": false,
+              "processing_path": []
+            }
+          },
+          "global_context": {},
+          "metadata": {},
+          "quality_history": [],
+          "editorial_path": [],
+          "enhancement_stages_applied": [],
+          "final_quality_score": null,
+          "processing_statistics": {}
+        }
+      }
+    },
+    "test_checkpoint": {
+      "timestamp": "2025-10-04T17:00:00.749469",
+      "data": {
+        "test_data": "checkpoint_data_perf_test_session_4"
+      }
+    }
+  },
+  "created_at": "2025-10-04T16:57:09.911689",
+  "last_updated": "2025-10-04T17:00:00.749483"
+}

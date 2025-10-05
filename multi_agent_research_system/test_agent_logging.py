@@ -6,10 +6,9 @@ This script tests the ResearchAgentLogger, ReportAgentLogger, EditorAgentLogger,
 and UICoordinatorLogger to ensure they work correctly.
 """
 
-import asyncio
 import json
-import sys
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -17,11 +16,11 @@ from pathlib import Path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 from agent_logging import (
-    ResearchAgentLogger,
-    ReportAgentLogger,
     EditorAgentLogger,
+    ReportAgentLogger,
+    ResearchAgentLogger,
     UICoordinatorLogger,
-    create_agent_logger
+    create_agent_logger,
 )
 
 
@@ -393,7 +392,7 @@ def main():
         with open(report_path, 'w') as f:
             json.dump(test_report, f, indent=2)
 
-        print(f"\n" + "=" * 50)
+        print("\n" + "=" * 50)
         print("🎉 AGENT-SPECIFIC LOGGING TESTS COMPLETE")
         print(f"📊 Test report saved to: {report_path}")
         print(f"📈 Overall Status: {test_report['overall_status']}")

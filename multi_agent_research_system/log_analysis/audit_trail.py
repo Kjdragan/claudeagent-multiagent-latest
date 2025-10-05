@@ -5,16 +5,13 @@ This module provides comprehensive audit trail capabilities including
 immutable logging, compliance reporting, and security event tracking.
 """
 
-import asyncio
 import hashlib
 import json
-from datetime import datetime, timedelta
-from dataclasses import dataclass, asdict
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from dataclasses import asdict, dataclass
+from datetime import datetime
 from enum import Enum
-
-from .log_aggregator import LogEntry
+from pathlib import Path
+from typing import Any
 
 
 class AuditEventType(Enum):
@@ -45,18 +42,18 @@ class AuditEvent:
     event_id: str
     timestamp: datetime
     event_type: AuditEventType
-    actor: Optional[str]  # User, agent, or system component
+    actor: str | None  # User, agent, or system component
     action: str
-    resource: Optional[str]  # Resource that was acted upon
+    resource: str | None  # Resource that was acted upon
     outcome: str  # 'success', 'failure', 'partial'
-    details: Dict[str, Any]
+    details: dict[str, Any]
     session_id: str
-    correlation_id: Optional[str]
-    source_ip: Optional[str]
-    user_agent: Optional[str]
-    compliance_tags: List[str]
-    data_classification: Optional[str]  # 'public', 'internal', 'confidential', 'restricted'
-    retention_period_days: Optional[int]
+    correlation_id: str | None
+    source_ip: str | None
+    user_agent: str | None
+    compliance_tags: list[str]
+    data_classification: str | None  # 'public', 'internal', 'confidential', 'restricted'
+    retention_period_days: int | None
     checksum: str  # For integrity verification
 
     def __post_init__(self):
@@ -74,9 +71,9 @@ class ComplianceReport:
     generated_at: datetime
     total_events: int
     compliance_score: float  # 0-100
-    violations: List[Dict[str, Any]]
-    recommendations: List[str]
-    evidence: Dict[str, Any]
+    violations: list[dict[str, Any]]
+    recommendations: list[str]
+    evidence: dict[str, Any]
 
 
 class AuditTrailManager:
@@ -103,8 +100,8 @@ class AuditTrailManager:
         self.enable_integrity_checks = enable_integrity_checks
 
         # Audit event storage
-        self.audit_events: List[AuditEvent] = []
-        self.event_index: Dict[str, Set[int]] = {
+        self.audit_events: list[AuditEvent] = []
+        self.event_index: dict[str, set[int]] = {
             'event_type': set(),
             'actor': set(),
             'session_id': set(),
@@ -114,15 +111,15 @@ class AuditTrailManager:
         }
 
         # Compliance tracking
-        self.compliance_standards: Dict[ComplianceStandard, Dict[str, Any]] = {}
-        self.violations: List[Dict[str, Any]] = []
+        self.compliance_standards: dict[ComplianceStandard, dict[str, Any]] = {}
+        self.violations: list[dict[str, Any]] = []
 
         # Security monitoring
-        self.security_events: List[Dict[str, Any]] = []
-        self.suspicious_activities: List[Dict[str, Any]] = []
+        self.security_events: list[dict[str, Any]] = []
+        self.suspicious_activities: list[dict[str, Any]] = []
 
         # Data retention policies
-        self.retention_policies: Dict[str, int] = {
+        self.retention_policies: dict[str, int] = {
             'security_event': retention_days * 2,  # Keep security events longer
             'user_action': retention_days,
             'system_event': retention_days // 2,
@@ -142,16 +139,16 @@ class AuditTrailManager:
     def log_audit_event(self,
                        event_type: AuditEventType,
                        action: str,
-                       actor: Optional[str] = None,
-                       resource: Optional[str] = None,
+                       actor: str | None = None,
+                       resource: str | None = None,
                        outcome: str = "success",
-                       details: Optional[Dict[str, Any]] = None,
-                       correlation_id: Optional[str] = None,
-                       source_ip: Optional[str] = None,
-                       user_agent: Optional[str] = None,
-                       compliance_tags: Optional[List[str]] = None,
+                       details: dict[str, Any] | None = None,
+                       correlation_id: str | None = None,
+                       source_ip: str | None = None,
+                       user_agent: str | None = None,
+                       compliance_tags: list[str] | None = None,
                        data_classification: str = "internal",
-                       retention_period_days: Optional[int] = None) -> str:
+                       retention_period_days: int | None = None) -> str:
         """
         Log an audit event.
 
@@ -214,7 +211,7 @@ class AuditTrailManager:
         import uuid
         return str(uuid.uuid4())
 
-    def _calculate_checksum(self, event_id: str, timestamp: datetime, action: str, details: Dict[str, Any]) -> str:
+    def _calculate_checksum(self, event_id: str, timestamp: datetime, action: str, details: dict[str, Any]) -> str:
         """Calculate checksum for integrity verification."""
         data = f"{event_id}{timestamp.isoformat()}{action}{json.dumps(details, sort_keys=True)}"
         return hashlib.sha256(data.encode()).hexdigest()
@@ -300,15 +297,15 @@ class AuditTrailManager:
         return False
 
     def search_audit_trail(self,
-                          event_type: Optional[AuditEventType] = None,
-                          actor: Optional[str] = None,
-                          session_id: Optional[str] = None,
-                          correlation_id: Optional[str] = None,
-                          compliance_tag: Optional[str] = None,
-                          data_classification: Optional[str] = None,
-                          start_time: Optional[datetime] = None,
-                          end_time: Optional[datetime] = None,
-                          limit: Optional[int] = None) -> List[AuditEvent]:
+                          event_type: AuditEventType | None = None,
+                          actor: str | None = None,
+                          session_id: str | None = None,
+                          correlation_id: str | None = None,
+                          compliance_tag: str | None = None,
+                          data_classification: str | None = None,
+                          start_time: datetime | None = None,
+                          end_time: datetime | None = None,
+                          limit: int | None = None) -> list[AuditEvent]:
         """
         Search audit trail with various filters.
 
@@ -362,7 +359,7 @@ class AuditTrailManager:
 
         return events
 
-    def verify_integrity(self, event_id: Optional[str] = None) -> Dict[str, Any]:
+    def verify_integrity(self, event_id: str | None = None) -> dict[str, Any]:
         """
         Verify integrity of audit trail.
 
@@ -456,7 +453,7 @@ class AuditTrailManager:
 
         return report
 
-    def _check_gdpr_compliance(self, events: List[AuditEvent]) -> Tuple[List[Dict[str, Any]], float]:
+    def _check_gdpr_compliance(self, events: list[AuditEvent]) -> tuple[list[dict[str, Any]], float]:
         """Check GDPR compliance."""
         violations = []
 
@@ -499,7 +496,7 @@ class AuditTrailManager:
 
         return violations, score
 
-    def _check_sox_compliance(self, events: List[AuditEvent]) -> Tuple[List[Dict[str, Any]], float]:
+    def _check_sox_compliance(self, events: list[AuditEvent]) -> tuple[list[dict[str, Any]], float]:
         """Check SOX compliance."""
         violations = []
 
@@ -529,7 +526,7 @@ class AuditTrailManager:
 
         return violations, score
 
-    def _check_hipaa_compliance(self, events: List[AuditEvent]) -> Tuple[List[Dict[str, Any]], float]:
+    def _check_hipaa_compliance(self, events: list[AuditEvent]) -> tuple[list[dict[str, Any]], float]:
         """Check HIPAA compliance."""
         violations = []
 
@@ -550,7 +547,7 @@ class AuditTrailManager:
 
         return violations, score
 
-    def _check_custom_compliance(self, events: List[AuditEvent]) -> Tuple[List[Dict[str, Any]], float]:
+    def _check_custom_compliance(self, events: list[AuditEvent]) -> tuple[list[dict[str, Any]], float]:
         """Check custom compliance rules."""
         violations = []
 
@@ -570,7 +567,7 @@ class AuditTrailManager:
 
         return violations, score
 
-    def _generate_compliance_recommendations(self, standard: ComplianceStandard, violations: List[Dict[str, Any]]) -> List[str]:
+    def _generate_compliance_recommendations(self, standard: ComplianceStandard, violations: list[dict[str, Any]]) -> list[str]:
         """Generate compliance recommendations based on violations."""
         recommendations = []
 
@@ -599,7 +596,7 @@ class AuditTrailManager:
 
         return recommendations
 
-    def _collect_compliance_evidence(self, standard: ComplianceStandard, events: List[AuditEvent]) -> Dict[str, Any]:
+    def _collect_compliance_evidence(self, standard: ComplianceStandard, events: list[AuditEvent]) -> dict[str, Any]:
         """Collect evidence for compliance reporting."""
         evidence = {
             'total_events': len(events),
@@ -648,7 +645,7 @@ class AuditTrailManager:
 
         return evidence
 
-    async def cleanup_expired_events(self) -> Dict[str, Any]:
+    async def cleanup_expired_events(self) -> dict[str, Any]:
         """Clean up expired audit events based on retention policies."""
         cleanup_start = datetime.now()
         events_removed = 0
@@ -697,7 +694,7 @@ class AuditTrailManager:
         for i, event in enumerate(self.audit_events):
             self._update_indexes(event)
 
-    def get_audit_summary(self) -> Dict[str, Any]:
+    def get_audit_summary(self) -> dict[str, Any]:
         """Get comprehensive audit summary."""
         return {
             'session_id': self.session_id,
@@ -722,7 +719,7 @@ class AuditTrailManager:
         }
 
     def export_audit_trail(self,
-                           file_path: Optional[str] = None,
+                           file_path: str | None = None,
                            include_checksums: bool = True) -> str:
         """Export audit trail to file."""
         if not file_path:

@@ -5,18 +5,16 @@ Provides specialized logging capabilities for different agent types,
 including research, report, editor, and UI coordinator agents.
 """
 
-from typing import Any, Dict, Optional
-from datetime import datetime
 from pathlib import Path
-import json
+from typing import Any
 
-from .structured_logger import StructuredLogger, get_logger
+from .structured_logger import get_logger
 
 
 class AgentLogger:
     """Specialized logger for agent-specific activities and events."""
 
-    def __init__(self, agent_name: str, log_dir: Optional[Path] = None):
+    def __init__(self, agent_name: str, log_dir: Path | None = None):
         """Initialize agent logger."""
         self.agent_name = agent_name
         self.logger = get_logger(f"agent.{agent_name}", log_dir=log_dir)
@@ -25,7 +23,7 @@ class AgentLogger:
         self,
         model: str,
         tools: list,
-        capabilities: Dict[str, Any],
+        capabilities: dict[str, Any],
         **metadata
     ) -> None:
         """Log agent initialization event."""
@@ -107,7 +105,7 @@ class AgentLogger:
         tool_name: str,
         tool_use_id: str,
         session_id: str,
-        input_data: Dict[str, Any],
+        input_data: dict[str, Any],
         **metadata
     ) -> None:
         """Log tool use attempt."""
@@ -152,7 +150,7 @@ class AgentLogger:
         error_type: str,
         error_message: str,
         session_id: str,
-        context: Dict[str, Any],
+        context: dict[str, Any],
         **metadata
     ) -> None:
         """Log agent error."""
@@ -189,7 +187,7 @@ class AgentLogger:
     def log_performance_metrics(
         self,
         session_id: str,
-        metrics: Dict[str, Any],
+        metrics: dict[str, Any],
         **metadata
     ) -> None:
         """Log agent performance metrics."""
@@ -206,7 +204,7 @@ class AgentLogger:
 class ResearchAgentLogger(AgentLogger):
     """Specialized logger for research agent activities."""
 
-    def __init__(self, log_dir: Optional[Path] = None):
+    def __init__(self, log_dir: Path | None = None):
         super().__init__("research_agent", log_dir)
 
     def log_search_start(
@@ -277,7 +275,7 @@ class ResearchAgentLogger(AgentLogger):
     def log_source_analysis(
         self,
         sources_analyzed: int,
-        relevance_scores: Dict[str, float],
+        relevance_scores: dict[str, float],
         session_id: str,
         **metadata
     ) -> None:
@@ -315,7 +313,7 @@ class ResearchAgentLogger(AgentLogger):
 class ReportAgentLogger(AgentLogger):
     """Specialized logger for report agent activities."""
 
-    def __init__(self, log_dir: Optional[Path] = None):
+    def __init__(self, log_dir: Path | None = None):
         super().__init__("report_agent", log_dir)
 
     def log_report_generation_start(
@@ -397,7 +395,7 @@ class ReportAgentLogger(AgentLogger):
 class EditorAgentLogger(AgentLogger):
     """Specialized logger for editor agent activities."""
 
-    def __init__(self, log_dir: Optional[Path] = None):
+    def __init__(self, log_dir: Path | None = None):
         super().__init__("editor_agent", log_dir)
 
     def log_editorial_review_start(
@@ -484,7 +482,7 @@ class EditorAgentLogger(AgentLogger):
 class UICoordinatorLogger(AgentLogger):
     """Specialized logger for UI coordinator activities."""
 
-    def __init__(self, log_dir: Optional[Path] = None):
+    def __init__(self, log_dir: Path | None = None):
         super().__init__("ui_coordinator", log_dir)
 
     def log_workflow_orchestration(

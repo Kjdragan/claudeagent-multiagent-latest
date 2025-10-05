@@ -5,19 +5,19 @@ Provides comprehensive monitoring of workflow execution, stage transitions,
 decision points, and orchestration patterns throughout the research process.
 """
 
-import asyncio
-import time
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Set, Callable
-from dataclasses import dataclass, field
-from enum import Enum
-
-from .base_hooks import BaseHook, HookContext, HookResult, HookStatus, HookPriority
-import sys
 import os
+import sys
+import time
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any
+
+from .base_hooks import BaseHook, HookContext, HookPriority, HookResult, HookStatus
+
 # Add parent directory to path for proper imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from agent_logging import get_logger, WorkflowLogger
+from agent_logging import WorkflowLogger
 
 
 class WorkflowStage(Enum):
@@ -49,9 +49,9 @@ class WorkflowEvent:
     session_id: str
     stage: WorkflowStage
     event_type: str  # stage_start, stage_complete, decision, error
-    data: Dict[str, Any] = field(default_factory=dict)
-    correlation_id: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
+    correlation_id: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -64,8 +64,8 @@ class StageMetrics:
     average_execution_time: float = 0.0
     min_execution_time: float = float('inf')
     max_execution_time: float = 0.0
-    last_execution: Optional[datetime] = None
-    common_errors: Dict[str, int] = field(default_factory=dict)
+    last_execution: datetime | None = None
+    common_errors: dict[str, int] = field(default_factory=dict)
 
     @property
     def success_rate(self) -> float:
@@ -84,11 +84,11 @@ class DecisionPoint:
     session_id: str
     stage: WorkflowStage
     decision_type: DecisionType
-    available_options: List[str]
+    available_options: list[str]
     chosen_option: str
-    decision_context: Dict[str, Any] = field(default_factory=dict)
+    decision_context: dict[str, Any] = field(default_factory=dict)
     execution_time: float = 0.0
-    outcome: Optional[str] = None
+    outcome: str | None = None
 
 
 class WorkflowOrchestrationHook(BaseHook):
@@ -104,9 +104,9 @@ class WorkflowOrchestrationHook(BaseHook):
             retry_count=1
         )
         self.workflow_logger = WorkflowLogger()
-        self.workflow_events: List[WorkflowEvent] = []
-        self.stage_metrics: Dict[str, StageMetrics] = {}
-        self.active_workflows: Dict[str, Dict[str, Any]] = {}
+        self.workflow_events: list[WorkflowEvent] = []
+        self.stage_metrics: dict[str, StageMetrics] = {}
+        self.active_workflows: dict[str, dict[str, Any]] = {}
         self.max_events = 2000
 
     async def execute(self, context: HookContext) -> HookResult:
@@ -455,12 +455,12 @@ class WorkflowOrchestrationHook(BaseHook):
 
     def get_workflow_events(
         self,
-        session_id: Optional[str] = None,
-        workflow_type: Optional[str] = None,
-        event_type: Optional[str] = None,
-        stage: Optional[str] = None,
+        session_id: str | None = None,
+        workflow_type: str | None = None,
+        event_type: str | None = None,
+        stage: str | None = None,
         limit: int = 100
-    ) -> List[WorkflowEvent]:
+    ) -> list[WorkflowEvent]:
         """Get filtered workflow events."""
         events = self.workflow_events.copy()
 
@@ -481,7 +481,7 @@ class WorkflowOrchestrationHook(BaseHook):
         events.sort(key=lambda e: e.timestamp, reverse=True)
         return events[:limit]
 
-    def get_stage_metrics(self, stage_name: Optional[str] = None) -> Dict[str, Any]:
+    def get_stage_metrics(self, stage_name: str | None = None) -> dict[str, Any]:
         """Get stage performance metrics."""
         if stage_name:
             if stage_name not in self.stage_metrics:
@@ -506,7 +506,7 @@ class WorkflowOrchestrationHook(BaseHook):
                 for stage_name in self.stage_metrics.keys()
             }
 
-    def get_active_workflows(self) -> Dict[str, Dict[str, Any]]:
+    def get_active_workflows(self) -> dict[str, dict[str, Any]]:
         """Get currently active workflows."""
         return {
             session_id: workflow_data.copy()
@@ -514,7 +514,7 @@ class WorkflowOrchestrationHook(BaseHook):
             if workflow_data.get("status") == "running"
         }
 
-    def get_workflow_summary(self) -> Dict[str, Any]:
+    def get_workflow_summary(self) -> dict[str, Any]:
         """Get comprehensive workflow summary."""
         total_workflows = len(self.active_workflows)
         active_workflows = len([w for w in self.active_workflows.values() if w.get("status") == "running"])
@@ -554,8 +554,8 @@ class StageTransitionHook(BaseHook):
             enabled=enabled,
             retry_count=1
         )
-        self.transition_history: List[Dict[str, Any]] = []
-        self.transition_patterns: Dict[str, int] = {}
+        self.transition_history: list[dict[str, Any]] = []
+        self.transition_patterns: dict[str, int] = {}
         self.max_history = 500
 
     async def execute(self, context: HookContext) -> HookResult:
@@ -626,7 +626,7 @@ class StageTransitionHook(BaseHook):
                 error_type=type(e).__name__
             )
 
-    def _check_unusual_patterns(self, from_stage: str, to_stage: str) -> List[str]:
+    def _check_unusual_patterns(self, from_stage: str, to_stage: str) -> list[str]:
         """Check for unusual or problematic transition patterns."""
         unusual = []
 
@@ -653,11 +653,11 @@ class StageTransitionHook(BaseHook):
 
     def get_transition_history(
         self,
-        session_id: Optional[str] = None,
-        from_stage: Optional[str] = None,
-        to_stage: Optional[str] = None,
+        session_id: str | None = None,
+        from_stage: str | None = None,
+        to_stage: str | None = None,
         limit: int = 100
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Get filtered transition history."""
         transitions = self.transition_history.copy()
 
@@ -675,7 +675,7 @@ class StageTransitionHook(BaseHook):
         transitions.sort(key=lambda t: t["timestamp"], reverse=True)
         return transitions[:limit]
 
-    def get_transition_patterns(self) -> Dict[str, Any]:
+    def get_transition_patterns(self) -> dict[str, Any]:
         """Get transition pattern analysis."""
         total_transitions = sum(self.transition_patterns.values())
 
@@ -713,8 +713,8 @@ class DecisionPointHook(BaseHook):
             enabled=enabled,
             retry_count=0
         )
-        self.decision_points: List[DecisionPoint] = []
-        self.decision_patterns: Dict[str, Dict[str, Any]] = {}
+        self.decision_points: list[DecisionPoint] = []
+        self.decision_patterns: dict[str, dict[str, Any]] = {}
         self.max_decisions = 300
 
     async def execute(self, context: HookContext) -> HookResult:
@@ -798,7 +798,7 @@ class DecisionPointHook(BaseHook):
         self,
         decision_point: str,
         decision_type: DecisionType,
-        available_options: List[str],
+        available_options: list[str],
         chosen_option: str
     ):
         """Update decision pattern statistics."""
@@ -823,7 +823,7 @@ class DecisionPointHook(BaseHook):
         if pattern["option_counts"][chosen_option] > pattern["option_counts"].get(pattern["most_common_choice"], 0):
             pattern["most_common_choice"] = chosen_option
 
-    def _analyze_decision(self, decision: DecisionPoint) -> Dict[str, Any]:
+    def _analyze_decision(self, decision: DecisionPoint) -> dict[str, Any]:
         """Analyze decision quality and patterns."""
         analysis = {
             "decision_quality": "unknown",
@@ -853,11 +853,11 @@ class DecisionPointHook(BaseHook):
 
     def get_decision_history(
         self,
-        session_id: Optional[str] = None,
-        decision_type: Optional[str] = None,
-        decision_point: Optional[str] = None,
+        session_id: str | None = None,
+        decision_type: str | None = None,
+        decision_point: str | None = None,
         limit: int = 100
-    ) -> List[DecisionPoint]:
+    ) -> list[DecisionPoint]:
         """Get filtered decision history."""
         decisions = self.decision_points.copy()
 
@@ -875,7 +875,7 @@ class DecisionPointHook(BaseHook):
         decisions.sort(key=lambda d: d.timestamp, reverse=True)
         return decisions[:limit]
 
-    def get_decision_patterns(self) -> Dict[str, Any]:
+    def get_decision_patterns(self) -> dict[str, Any]:
         """Get decision pattern analysis."""
         total_decisions = sum(pattern["total_decisions"] for pattern in self.decision_patterns.values())
 

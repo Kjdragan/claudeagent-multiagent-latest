@@ -5,13 +5,12 @@ This module provides comprehensive analytics capabilities for log data,
 including trend analysis, anomaly detection, and automated insights.
 """
 
-import asyncio
-from collections import defaultdict, Counter
-from datetime import datetime, timedelta
-from dataclasses import dataclass, asdict
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
 import statistics
+from collections import Counter, defaultdict
+from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any
 
 from .log_aggregator import LogEntry
 from .log_search import LogSearchEngine
@@ -24,9 +23,9 @@ class AnalyticsMetric:
     value: float
     unit: str
     timestamp: datetime
-    metadata: Dict[str, Any]
-    trend: Optional[str] = None  # 'up', 'down', 'stable'
-    change_percent: Optional[float] = None
+    metadata: dict[str, Any]
+    trend: str | None = None  # 'up', 'down', 'stable'
+    change_percent: float | None = None
 
 
 @dataclass
@@ -39,7 +38,7 @@ class TrendAnalysis:
     change_percent: float
     trend_direction: str  # 'increasing', 'decreasing', 'stable'
     confidence: float  # 0-1
-    data_points: List[Tuple[datetime, float]]
+    data_points: list[tuple[datetime, float]]
 
 
 @dataclass
@@ -61,8 +60,8 @@ class PerformanceInsight:
     title: str
     description: str
     impact_level: str  # 'low', 'medium', 'high'
-    recommendations: List[str]
-    supporting_data: Dict[str, Any]
+    recommendations: list[str]
+    supporting_data: dict[str, Any]
     timestamp: datetime
 
 
@@ -87,10 +86,10 @@ class AnalyticsEngine:
         self.search_engine = LogSearchEngine()
 
         # Analytics data storage
-        self.metrics_history: Dict[str, List[AnalyticsMetric]] = defaultdict(list)
-        self.trends: Dict[str, TrendAnalysis] = {}
-        self.anomalies: List[AnomalyDetection] = []
-        self.insights: List[PerformanceInsight] = []
+        self.metrics_history: dict[str, list[AnalyticsMetric]] = defaultdict(list)
+        self.trends: dict[str, TrendAnalysis] = {}
+        self.anomalies: list[AnomalyDetection] = []
+        self.insights: list[PerformanceInsight] = []
 
         # Analytics configuration
         self.trend_thresholds = {
@@ -111,8 +110,8 @@ class AnalyticsEngine:
         }
 
     async def analyze_logs(self,
-                          entries: List[LogEntry],
-                          analysis_types: Optional[List[str]] = None) -> Dict[str, Any]:
+                          entries: list[LogEntry],
+                          analysis_types: list[str] | None = None) -> dict[str, Any]:
         """
         Perform comprehensive log analysis.
 
@@ -164,7 +163,7 @@ class AnalyticsEngine:
 
         return results
 
-    async def _analyze_performance(self, entries: List[LogEntry]) -> Dict[str, Any]:
+    async def _analyze_performance(self, entries: list[LogEntry]) -> dict[str, Any]:
         """Analyze performance metrics from log entries."""
         performance_metrics = {}
 
@@ -227,7 +226,7 @@ class AnalyticsEngine:
 
         return performance_metrics
 
-    async def _analyze_usage(self, entries: List[LogEntry]) -> Dict[str, Any]:
+    async def _analyze_usage(self, entries: list[LogEntry]) -> dict[str, Any]:
         """Analyze usage patterns and statistics."""
         usage_stats = {}
 
@@ -272,7 +271,7 @@ class AnalyticsEngine:
 
         return usage_stats
 
-    async def _analyze_errors(self, entries: List[LogEntry]) -> Dict[str, Any]:
+    async def _analyze_errors(self, entries: list[LogEntry]) -> dict[str, Any]:
         """Analyze error patterns and trends."""
         error_entries = [e for e in entries if e.level in ['ERROR', 'CRITICAL']]
 
@@ -311,7 +310,7 @@ class AnalyticsEngine:
 
         return error_analysis
 
-    async def _analyze_trends(self, entries: List[LogEntry]) -> Dict[str, Any]:
+    async def _analyze_trends(self, entries: list[LogEntry]) -> dict[str, Any]:
         """Analyze trends in various metrics."""
         trends = {}
 
@@ -383,7 +382,7 @@ class AnalyticsEngine:
 
         return trends
 
-    async def _detect_anomalies(self, entries: List[LogEntry]) -> Dict[str, Any]:
+    async def _detect_anomalies(self, entries: list[LogEntry]) -> dict[str, Any]:
         """Detect anomalies in log data."""
         anomalies = []
 
@@ -440,7 +439,7 @@ class AnalyticsEngine:
             'recent_anomalies': [asdict(a) for a in sorted(anomalies, key=lambda x: x.timestamp, reverse=True)[:10]]
         }
 
-    async def _generate_insights(self, analysis_results: Dict[str, Any]) -> List[PerformanceInsight]:
+    async def _generate_insights(self, analysis_results: dict[str, Any]) -> list[PerformanceInsight]:
         """Generate performance insights from analysis results."""
         insights = []
 
@@ -557,7 +556,7 @@ class AnalyticsEngine:
         self.insights.extend(insights)
         return insights
 
-    def _bucket_entries_by_time(self, entries: List[LogEntry], bucket_size: timedelta) -> Dict[datetime, List[LogEntry]]:
+    def _bucket_entries_by_time(self, entries: list[LogEntry], bucket_size: timedelta) -> dict[datetime, list[LogEntry]]:
         """Bucket entries by time intervals."""
         buckets = defaultdict(list)
 
@@ -577,7 +576,7 @@ class AnalyticsEngine:
 
         return dict(buckets)
 
-    def _percentile(self, data: List[float], percentile: int) -> float:
+    def _percentile(self, data: list[float], percentile: int) -> float:
         """Calculate percentile of data."""
         if not data:
             return 0.0
@@ -590,7 +589,7 @@ class AnalyticsEngine:
             upper = sorted_data[int(index) + 1]
             return lower + (upper - lower) * (index - int(index))
 
-    def _calculate_trend(self, values: List[float]) -> Dict[str, Any]:
+    def _calculate_trend(self, values: list[float]) -> dict[str, Any]:
         """Calculate trend statistics."""
         if len(values) < 2:
             return {'direction': 'stable', 'change_percent': 0.0, 'confidence': 0.0}
@@ -603,7 +602,7 @@ class AnalyticsEngine:
         x_mean = statistics.mean(x_values)
         y_mean = statistics.mean(values)
 
-        numerator = sum((x - x_mean) * (y - y_mean) for x, y in zip(x_values, values))
+        numerator = sum((x - x_mean) * (y - y_mean) for x, y in zip(x_values, values, strict=False))
         denominator = sum((x - x_mean) ** 2 for x in x_values)
 
         if denominator == 0:
@@ -639,7 +638,7 @@ class AnalyticsEngine:
             'confidence': confidence
         }
 
-    def _detect_statistical_anomalies(self, values: List[float], timestamps: List[datetime], metric_name: str) -> List[AnomalyDetection]:
+    def _detect_statistical_anomalies(self, values: list[float], timestamps: list[datetime], metric_name: str) -> list[AnomalyDetection]:
         """Detect statistical anomalies in time series data."""
         anomalies = []
 
@@ -652,7 +651,7 @@ class AnalyticsEngine:
 
         # Detect anomalies
         threshold = self.anomaly_thresholds['deviation_percent'] / 100.0
-        for i, (value, timestamp) in enumerate(zip(values, timestamps)):
+        for i, (value, timestamp) in enumerate(zip(values, timestamps, strict=False)):
             if std_dev > 0:
                 z_score = abs(value - mean_val) / std_dev
                 deviation_percent = (abs(value - mean_val) / mean_val) * 100 if mean_val != 0 else 0
@@ -677,7 +676,7 @@ class AnalyticsEngine:
 
         return anomalies
 
-    def get_analytics_summary(self) -> Dict[str, Any]:
+    def get_analytics_summary(self) -> dict[str, Any]:
         """Get summary of analytics data."""
         return {
             'session_id': self.session_id,
@@ -690,7 +689,7 @@ class AnalyticsEngine:
             'analytics_directory': str(self.analytics_dir)
         }
 
-    def export_analytics_data(self, file_path: Optional[str] = None) -> str:
+    def export_analytics_data(self, file_path: str | None = None) -> str:
         """Export analytics data to file."""
         if not file_path:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

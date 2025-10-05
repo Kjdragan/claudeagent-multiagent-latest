@@ -13,15 +13,14 @@ Implements the 4-level progressive anti-bot escalation system from the technical
 import asyncio
 import logging
 import random
-import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any, Tuple
 from enum import Enum
+from typing import Any
 
-from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, BrowserConfig, CacheMode
-from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
+from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode, CrawlerRunConfig
 from crawl4ai.content_filter_strategy import PruningContentFilter
+from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +38,8 @@ class EscalationResult:
     """Result of anti-bot escalation attempt."""
     url: str
     success: bool
-    content: Optional[str] = None
-    error: Optional[str] = None
+    content: str | None = None
+    error: str | None = None
     duration: float = 0.0
     attempts_made: int = 0
     final_level: int = 0
@@ -56,7 +55,7 @@ class EscalationStats:
     successful_crawls: int = 0
     failed_crawls: int = 0
     escalations_triggered: int = 0
-    level_success_rates: Dict[int, float] = field(default_factory=dict)
+    level_success_rates: dict[int, float] = field(default_factory=dict)
     avg_attempts_per_url: float = 0.0
     total_duration: float = 0.0
 
@@ -76,7 +75,7 @@ class AntiBotEscalationManager:
     def __init__(self):
         """Initialize the anti-bot escalation manager."""
         self.stats = EscalationStats()
-        self.domain_success_history: Dict[str, List[bool]] = {}
+        self.domain_success_history: dict[str, list[bool]] = {}
         self.escalation_thresholds = {
             0: 0.7,   # Start escalation at 70% failure rate
             1: 0.5,   # Escalate to level 2 at 50% failure rate
@@ -201,13 +200,13 @@ class AntiBotEscalationManager:
 
     async def crawl_multiple_with_escalation(
         self,
-        urls: List[str],
+        urls: list[str],
         initial_level: int = 0,
         max_level: int = 3,
         max_concurrent: int = 5,
         use_content_filter: bool = False,
         session_id: str = "default"
-    ) -> List[EscalationResult]:
+    ) -> list[EscalationResult]:
         """
         Crawl multiple URLs with concurrent anti-bot escalation.
 
@@ -274,7 +273,7 @@ class AntiBotEscalationManager:
         level: int,
         use_content_filter: bool,
         session_id: str
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> tuple[bool, str | None]:
         """Crawl URL at specific anti-bot level."""
         try:
             # Get configurations for level
@@ -383,7 +382,7 @@ class AntiBotEscalationManager:
 
         return config
 
-    def _get_browser_config(self, level: int) -> Optional[BrowserConfig]:
+    def _get_browser_config(self, level: int) -> BrowserConfig | None:
         """Get browser configuration for specific anti-bot level."""
 
         if level >= AntiBotLevel.ADVANCED.value:
@@ -452,7 +451,7 @@ class AntiBotEscalationManager:
             self.stats.level_success_rates[level] = []
         self.stats.level_success_rates[level].append(success)
 
-    def _update_global_stats(self, results: List[EscalationResult], duration: timedelta):
+    def _update_global_stats(self, results: list[EscalationResult], duration: timedelta):
         """Update global escalation statistics."""
         self.stats.total_attempts += len(results)
         self.stats.successful_crawls += sum(1 for r in results if r.success)
@@ -461,7 +460,7 @@ class AntiBotEscalationManager:
         self.stats.total_duration += duration.total_seconds()
         self.stats.avg_attempts_per_url = sum(r.attempts_made for r in results) / len(results) if results else 0
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get comprehensive escalation statistics."""
         # Calculate level-specific success rates
         level_rates = {}
@@ -498,7 +497,7 @@ class AntiBotEscalationManager:
 
 
 # Global escalation manager instance
-_global_escalation_manager: Optional[AntiBotEscalationManager] = None
+_global_escalation_manager: AntiBotEscalationManager | None = None
 
 
 def get_escalation_manager() -> AntiBotEscalationManager:

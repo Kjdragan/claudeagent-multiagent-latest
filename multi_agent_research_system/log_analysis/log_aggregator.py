@@ -7,15 +7,15 @@ including agent logs, monitoring data, and system events.
 
 import asyncio
 import json
+import os
 import re
+import sys
 from collections import defaultdict
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any
 
-import sys
-import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from agent_logging import StructuredLogger
 
@@ -27,12 +27,12 @@ class LogEntry:
     level: str
     source: str  # Component that generated the log
     session_id: str
-    agent_name: Optional[str]
-    activity_type: Optional[str]
+    agent_name: str | None
+    activity_type: str | None
     message: str
-    metadata: Dict[str, Any]
-    correlation_id: Optional[str] = None
-    tags: List[str] = None
+    metadata: dict[str, Any]
+    correlation_id: str | None = None
+    tags: list[str] = None
 
     def __post_init__(self):
         if self.tags is None:
@@ -80,10 +80,10 @@ class LogAggregator:
         )
 
         # Log storage
-        self.log_entries: List[LogEntry] = []
-        self.log_sources: Dict[str, LogSource] = {}
-        self.indexed_fields: Dict[str, Dict[str, Set]] = defaultdict(lambda: defaultdict(set))
-        self.session_activities: Dict[str, List[LogEntry]] = defaultdict(list)
+        self.log_entries: list[LogEntry] = []
+        self.log_sources: dict[str, LogSource] = {}
+        self.indexed_fields: dict[str, dict[str, set]] = defaultdict(lambda: defaultdict(set))
+        self.session_activities: dict[str, list[LogEntry]] = defaultdict(list)
 
         # Aggregation statistics
         self.stats = {
@@ -95,7 +95,7 @@ class LogAggregator:
         }
 
         # Background aggregation task
-        self.aggregation_task: Optional[asyncio.Task] = None
+        self.aggregation_task: asyncio.Task | None = None
         self.is_aggregating = False
 
         self._initialize_default_sources()
@@ -217,7 +217,7 @@ class LogAggregator:
                                 session_id=self.session_id)
                 await asyncio.sleep(interval_seconds)
 
-    async def aggregate_logs(self) -> Dict[str, Any]:
+    async def aggregate_logs(self) -> dict[str, Any]:
         """
         Aggregate logs from all configured sources.
 
@@ -271,7 +271,7 @@ class LogAggregator:
 
         return aggregation_stats
 
-    async def _aggregate_from_source(self, log_source: LogSource) -> List[LogEntry]:
+    async def _aggregate_from_source(self, log_source: LogSource) -> list[LogEntry]:
         """Aggregate logs from a specific source."""
         entries = []
 
@@ -292,7 +292,7 @@ class LogAggregator:
 
         return entries
 
-    async def _process_log_file(self, file_path: Path, log_source: LogSource) -> List[LogEntry]:
+    async def _process_log_file(self, file_path: Path, log_source: LogSource) -> list[LogEntry]:
         """Process a single log file and convert to LogEntry objects."""
         entries = []
 
@@ -311,11 +311,11 @@ class LogAggregator:
 
         return entries
 
-    async def _process_json_file(self, file_path: Path, log_source: LogSource) -> List[LogEntry]:
+    async def _process_json_file(self, file_path: Path, log_source: LogSource) -> list[LogEntry]:
         """Process JSON log file."""
         entries = []
 
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, encoding='utf-8') as f:
             for line_num, line in enumerate(f, 1):
                 try:
                     data = json.loads(line.strip())
@@ -329,11 +329,11 @@ class LogAggregator:
 
         return entries
 
-    async def _process_structured_file(self, file_path: Path, log_source: LogSource) -> List[LogEntry]:
+    async def _process_structured_file(self, file_path: Path, log_source: LogSource) -> list[LogEntry]:
         """Process structured log file (JSONL format)."""
         entries = []
 
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, encoding='utf-8') as f:
             for line_num, line in enumerate(f, 1):
                 try:
                     data = json.loads(line.strip())
@@ -347,7 +347,7 @@ class LogAggregator:
 
         return entries
 
-    async def _process_plain_file(self, file_path: Path, log_source: LogSource) -> List[LogEntry]:
+    async def _process_plain_file(self, file_path: Path, log_source: LogSource) -> list[LogEntry]:
         """Process plain text log file."""
         entries = []
 
@@ -358,7 +358,7 @@ class LogAggregator:
             r'(\w+\s+\d+\s+\d{2}:\d{2}:\d{2})\s+(\w+)\s+(.*)'
         ]
 
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, encoding='utf-8') as f:
             for line_num, line in enumerate(f, 1):
                 line = line.strip()
                 if not line:
@@ -393,7 +393,7 @@ class LogAggregator:
 
         return entries
 
-    def _convert_to_log_entry(self, data: Dict[str, Any], log_source: LogSource, file_path: Path, line_num: int) -> Optional[LogEntry]:
+    def _convert_to_log_entry(self, data: dict[str, Any], log_source: LogSource, file_path: Path, line_num: int) -> LogEntry | None:
         """Convert log data to LogEntry format."""
         try:
             # Extract timestamp
@@ -438,7 +438,7 @@ class LogAggregator:
             self.logger.debug(f"Error converting log entry: {e}")
             return None
 
-    def _extract_timestamp(self, data: Dict[str, Any]) -> datetime:
+    def _extract_timestamp(self, data: dict[str, Any]) -> datetime:
         """Extract timestamp from log data."""
         # Try various timestamp fields
         timestamp_fields = ['timestamp', 'time', 'datetime', 'created', '@timestamp']
@@ -528,15 +528,15 @@ class LogAggregator:
                             cutoff_time=cutoff_time.isoformat())
 
     def get_entries(self,
-                   limit: Optional[int] = None,
+                   limit: int | None = None,
                    offset: int = 0,
-                   level_filter: Optional[str] = None,
-                   source_filter: Optional[str] = None,
-                   agent_filter: Optional[str] = None,
-                   session_filter: Optional[str] = None,
-                   tag_filter: Optional[str] = None,
-                   start_time: Optional[datetime] = None,
-                   end_time: Optional[datetime] = None) -> List[LogEntry]:
+                   level_filter: str | None = None,
+                   source_filter: str | None = None,
+                   agent_filter: str | None = None,
+                   session_filter: str | None = None,
+                   tag_filter: str | None = None,
+                   start_time: datetime | None = None,
+                   end_time: datetime | None = None) -> list[LogEntry]:
         """
         Get log entries with filtering options.
 
@@ -587,7 +587,7 @@ class LogAggregator:
 
         return entries
 
-    def get_aggregation_stats(self) -> Dict[str, Any]:
+    def get_aggregation_stats(self) -> dict[str, Any]:
         """Get current aggregation statistics."""
         return {
             'session_id': self.session_id,
@@ -602,7 +602,7 @@ class LogAggregator:
         }
 
     def export_aggregated_logs(self,
-                              file_path: Optional[str] = None,
+                              file_path: str | None = None,
                               format: str = 'json',
                               include_metadata: bool = True) -> str:
         """

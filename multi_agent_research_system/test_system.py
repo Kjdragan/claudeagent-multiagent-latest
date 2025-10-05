@@ -5,8 +5,6 @@ Validates system components without requiring external dependencies.
 """
 
 import sys
-import os
-import json
 from pathlib import Path
 
 # Add parent directory to path
@@ -40,8 +38,14 @@ def test_research_tools():
     print("Testing research tools...")
 
     from core.research_tools import (
-        conduct_research, analyze_sources, generate_report, revise_report,
-        review_report, identify_research_gaps, manage_session, save_report
+        analyze_sources,
+        conduct_research,
+        generate_report,
+        identify_research_gaps,
+        manage_session,
+        review_report,
+        revise_report,
+        save_report,
     )
 
     # Test that tools are callable

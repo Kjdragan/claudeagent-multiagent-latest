@@ -4,11 +4,8 @@ This module provides a high-performance search tool using SERP API
 to replace the WebPrime MCP search system.
 """
 
-import asyncio
-import json
 import os
 from pathlib import Path
-from typing import Any, Dict
 
 from claude_agent_sdk import tool
 
@@ -16,8 +13,8 @@ try:
     from ..utils.serp_search_utils import serp_search_and_extract
 except ImportError:
     # Fallback for when running as script
-    import sys
     import os
+    import sys
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
     from utils.serp_search_utils import serp_search_and_extract
 

@@ -8,28 +8,24 @@ This tool provides high-quality content extraction with:
 - Technical content preservation
 """
 
-import asyncio
 import logging
-from pathlib import Path
-from typing import Any, Dict
 
 from claude_agent_sdk import tool
 
 try:
-    from ..utils.crawl4ai_utils import (
-        scrape_and_clean_single_url_direct,
-        crawl_multiple_urls_with_cleaning
-    )
     from ..utils.content_cleaning import clean_content_with_judge_optimization
+    from ..utils.crawl4ai_utils import (
+        crawl_multiple_urls_with_cleaning,
+        scrape_and_clean_single_url_direct,
+    )
 except ImportError:
-    import sys
     import os
+    import sys
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
     from utils.crawl4ai_utils import (
+        crawl_multiple_urls_with_cleaning,
         scrape_and_clean_single_url_direct,
-        crawl_multiple_urls_with_cleaning
     )
-    from utils.content_cleaning import clean_content_with_judge_optimization
 
 logger = logging.getLogger(__name__)
 

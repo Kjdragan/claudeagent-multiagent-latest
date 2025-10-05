@@ -9,15 +9,13 @@ import json
 import logging
 import logging.handlers
 import sys
-import time
-import uuid
+from contextvars import ContextVar
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
-from contextvars import ContextVar
+from typing import Any
 
 # Context variable for correlation ID
-correlation_id: ContextVar[Optional[str]] = ContextVar('correlation_id', default=None)
+correlation_id: ContextVar[str | None] = ContextVar('correlation_id', default=None)
 
 
 class StructuredFormatter(logging.Formatter):
@@ -70,7 +68,7 @@ class StructuredLogger:
     def __init__(
         self,
         name: str,
-        log_dir: Optional[Path] = None,
+        log_dir: Path | None = None,
         log_level: str = "INFO",
         enable_console: bool = True,
         max_file_size: int = 10 * 1024 * 1024,  # 10MB
@@ -203,8 +201,8 @@ class StructuredLogger:
         tool_name: str,
         tool_use_id: str,
         session_id: str,
-        execution_time: Optional[float] = None,
-        success: Optional[bool] = None,
+        execution_time: float | None = None,
+        success: bool | None = None,
         **metadata
     ) -> None:
         """Log tool execution event."""
@@ -249,7 +247,7 @@ class StructuredLogger:
         self,
         error: Exception,
         session_id: str,
-        context: Dict[str, Any],
+        context: dict[str, Any],
         **metadata
     ) -> None:
         """Log error with full context information."""
@@ -266,12 +264,12 @@ class StructuredLogger:
 
 
 # Global logger registry
-_loggers: Dict[str, StructuredLogger] = {}
+_loggers: dict[str, StructuredLogger] = {}
 
 
 def get_logger(
     name: str,
-    log_dir: Optional[Path] = None,
+    log_dir: Path | None = None,
     log_level: str = "INFO",
     enable_console: bool = True
 ) -> StructuredLogger:
@@ -292,7 +290,7 @@ def get_logger(
 
 
 def configure_global_logging(
-    log_dir: Optional[Path] = None,
+    log_dir: Path | None = None,
     log_level: str = "INFO",
     enable_console: bool = True
 ) -> None:

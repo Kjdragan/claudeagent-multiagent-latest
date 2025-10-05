@@ -5,25 +5,21 @@ This module provides specialized logging classes for each agent type,
 enhancing visibility into agent-specific activities and decisions.
 """
 
-import json
-import time
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
-from pathlib import Path
+from typing import Any
 
-from .structured_logger import StructuredLogger
 from .base import AgentLogger
 
 
 class ResearchAgentLogger(AgentLogger):
     """Specialized logger for Research Agent activities including search execution, source validation, and data collection."""
 
-    def __init__(self, session_id: Optional[str] = None, base_log_dir: str = "logs"):
+    def __init__(self, session_id: str | None = None, base_log_dir: str = "logs"):
         super().__init__("research_agent", session_id, base_log_dir)
-        self.search_history: List[Dict[str, Any]] = []
-        self.source_quality_log: List[Dict[str, Any]] = []
-        self.research_metrics: Dict[str, Any] = {
+        self.search_history: list[dict[str, Any]] = []
+        self.source_quality_log: list[dict[str, Any]] = []
+        self.research_metrics: dict[str, Any] = {
             "total_searches": 0,
             "successful_searches": 0,
             "total_sources_found": 0,
@@ -35,7 +31,7 @@ class ResearchAgentLogger(AgentLogger):
 
     def log_search_initiation(self,
                            query: str,
-                           search_params: Dict[str, Any],
+                           search_params: dict[str, Any],
                            topic: str,
                            estimated_results: int) -> None:
         """Log the initiation of a research search."""
@@ -71,8 +67,8 @@ class ResearchAgentLogger(AgentLogger):
     def log_search_results(self,
                          search_id: str,
                          results_count: int,
-                         top_results: List[Dict[str, Any]],
-                         relevance_scores: List[float],
+                         top_results: list[dict[str, Any]],
+                         relevance_scores: list[float],
                          search_duration: float) -> None:
         """Log the results of a research search."""
         timestamp = datetime.now().isoformat()
@@ -149,7 +145,7 @@ class ResearchAgentLogger(AgentLogger):
     def log_research_synthesis(self,
                             topic: str,
                             sources_used: int,
-                            key_findings: List[str],
+                            key_findings: list[str],
                             confidence_level: float,
                             synthesis_duration: float) -> None:
         """Log the synthesis of research findings."""
@@ -181,7 +177,7 @@ class ResearchAgentLogger(AgentLogger):
                                    extraction_time=extraction_time,
                                    agent_name="research_agent")
 
-    def get_research_summary(self) -> Dict[str, Any]:
+    def get_research_summary(self) -> dict[str, Any]:
         """Get a summary of research activities."""
         return {
             "session_id": self.session_id,
@@ -199,11 +195,11 @@ class ResearchAgentLogger(AgentLogger):
 class ReportAgentLogger(AgentLogger):
     """Specialized logger for Report Agent activities including content generation, structuring, and synthesis."""
 
-    def __init__(self, session_id: Optional[str] = None, base_log_dir: str = "logs"):
+    def __init__(self, session_id: str | None = None, base_log_dir: str = "logs"):
         super().__init__("report_agent", session_id, base_log_dir)
-        self.content_generation_log: List[Dict[str, Any]] = []
-        self.section_progress: Dict[str, Any] = {}
-        self.report_metrics: Dict[str, Any] = {
+        self.content_generation_log: list[dict[str, Any]] = []
+        self.section_progress: dict[str, Any] = {}
+        self.report_metrics: dict[str, Any] = {
             "total_sections_generated": 0,
             "total_words_generated": 0,
             "average_section_generation_time": 0.0,
@@ -249,7 +245,7 @@ class ReportAgentLogger(AgentLogger):
                                       generation_time: float,
                                       sources_cited: int,
                                       coherence_score: float,
-                                      quality_metrics: Dict[str, float]) -> None:
+                                      quality_metrics: dict[str, float]) -> None:
         """Log the completion of section generation."""
         timestamp = datetime.now().isoformat()
 
@@ -351,7 +347,7 @@ class ReportAgentLogger(AgentLogger):
                                    formatting_time=formatting_time,
                                    agent_name="report_agent")
 
-    def get_report_summary(self) -> Dict[str, Any]:
+    def get_report_summary(self) -> dict[str, Any]:
         """Get a summary of report generation activities."""
         return {
             "session_id": self.session_id,
@@ -369,11 +365,11 @@ class ReportAgentLogger(AgentLogger):
 class EditorAgentLogger(AgentLogger):
     """Specialized logger for Editor Agent activities including review, quality assessment, and feedback generation."""
 
-    def __init__(self, session_id: Optional[str] = None, base_log_dir: str = "logs"):
+    def __init__(self, session_id: str | None = None, base_log_dir: str = "logs"):
         super().__init__("editor_agent", session_id, base_log_dir)
-        self.review_history: List[Dict[str, Any]] = []
-        self.quality_assessments: Dict[str, Any] = {}
-        self.editor_metrics: Dict[str, Any] = {
+        self.review_history: list[dict[str, Any]] = []
+        self.quality_assessments: dict[str, Any] = {}
+        self.editor_metrics: dict[str, Any] = {
             "total_reviews_completed": 0,
             "issues_identified": 0,
             "suggestions_provided": 0,
@@ -393,7 +389,7 @@ class EditorAgentLogger(AgentLogger):
                             document_title: str,
                             document_type: str,
                             word_count: int,
-                            review_focus_areas: List[str]) -> None:
+                            review_focus_areas: list[str]) -> None:
         """Log the initiation of an editorial review."""
         review_id = str(uuid.uuid4())
         timestamp = datetime.now().isoformat()
@@ -424,8 +420,8 @@ class EditorAgentLogger(AgentLogger):
                              assessment_category: str,
                              score: float,
                              max_score: float,
-                             issues_found: List[str],
-                             strengths_identified: List[str]) -> None:
+                             issues_found: list[str],
+                             strengths_identified: list[str]) -> None:
         """Log detailed quality assessment."""
         timestamp = datetime.now().isoformat()
 
@@ -543,7 +539,7 @@ class EditorAgentLogger(AgentLogger):
     def log_review_completion(self,
                             review_id: str,
                             overall_quality_score: float,
-                            revision_recommendations: List[str],
+                            revision_recommendations: list[str],
                             review_duration: float) -> None:
         """Log the completion of the editorial review."""
         timestamp = datetime.now().isoformat()
@@ -578,7 +574,7 @@ class EditorAgentLogger(AgentLogger):
                                    review_duration=review_duration,
                                    agent_name="editor_agent")
 
-    def get_editor_summary(self) -> Dict[str, Any]:
+    def get_editor_summary(self) -> dict[str, Any]:
         """Get a summary of editorial activities."""
         recent_scores = self.editor_metrics["quality_scores_trend"][-10:]  # Last 10 reviews
         average_recent_score = sum(s["quality_score"] for s in recent_scores) / len(recent_scores) if recent_scores else 0.0
@@ -596,12 +592,12 @@ class EditorAgentLogger(AgentLogger):
 class UICoordinatorLogger(AgentLogger):
     """Specialized logger for UI Coordinator activities including workflow management and user interactions."""
 
-    def __init__(self, session_id: Optional[str] = None, base_log_dir: str = "logs"):
+    def __init__(self, session_id: str | None = None, base_log_dir: str = "logs"):
         super().__init__("ui_coordinator", session_id, base_log_dir)
-        self.workflow_events: List[Dict[str, Any]] = []
-        self.user_interactions: List[Dict[str, Any]] = []
-        self.agent_handoffs: List[Dict[str, Any]] = []
-        self.coordinator_metrics: Dict[str, Any] = {
+        self.workflow_events: list[dict[str, Any]] = []
+        self.user_interactions: list[dict[str, Any]] = []
+        self.agent_handoffs: list[dict[str, Any]] = []
+        self.coordinator_metrics: dict[str, Any] = {
             "total_workflows_managed": 0,
             "user_requests_handled": 0,
             "agent_handoffs_coordinated": 0,
@@ -624,7 +620,7 @@ class UICoordinatorLogger(AgentLogger):
                               workflow_id: str,
                               user_request: str,
                               workflow_type: str,
-                              estimated_stages: List[str],
+                              estimated_stages: list[str],
                               priority_level: str) -> None:
         """Log the initiation of a research workflow."""
         timestamp = datetime.now().isoformat()
@@ -691,7 +687,7 @@ class UICoordinatorLogger(AgentLogger):
                         from_agent: str,
                         to_agent: str,
                         handoff_reason: str,
-                        context_transmitted: Dict[str, Any]) -> None:
+                        context_transmitted: dict[str, Any]) -> None:
         """Log the coordination of agent handoffs."""
         timestamp = datetime.now().isoformat()
 
@@ -723,7 +719,7 @@ class UICoordinatorLogger(AgentLogger):
                            interaction_type: str,
                            user_message: str,
                            system_response: str,
-                           satisfaction_indicator: Optional[str],
+                           satisfaction_indicator: str | None,
                            response_time: float) -> None:
         """Log user interactions and satisfaction indicators."""
         timestamp = datetime.now().isoformat()
@@ -760,10 +756,10 @@ class UICoordinatorLogger(AgentLogger):
 
     def log_workflow_completion(self,
                               workflow_id: str,
-                              final_deliverables: List[str],
+                              final_deliverables: list[str],
                               total_duration: float,
-                              user_satisfaction: Optional[float],
-                              issues_encountered: List[str]) -> None:
+                              user_satisfaction: float | None,
+                              issues_encountered: list[str]) -> None:
         """Log the completion of a workflow."""
         timestamp = datetime.now().isoformat()
 
@@ -828,7 +824,7 @@ class UICoordinatorLogger(AgentLogger):
                                    impact_assessment=impact_assessment,
                                    agent_name="ui_coordinator")
 
-    def get_coordinator_summary(self) -> Dict[str, Any]:
+    def get_coordinator_summary(self) -> dict[str, Any]:
         """Get a summary of coordination activities."""
         # Workflow events and workflow entries are different - workflow entries have status
         workflow_entries = [w for w in self.workflow_events if "workflow_id" in w and "status" in w]
@@ -857,7 +853,7 @@ class UICoordinatorLogger(AgentLogger):
 
 
 # Factory function to create appropriate agent logger
-def create_agent_logger(agent_type: str, session_id: Optional[str] = None, base_log_dir: str = "logs") -> AgentLogger:
+def create_agent_logger(agent_type: str, session_id: str | None = None, base_log_dir: str = "logs") -> AgentLogger:
     """Create the appropriate agent logger based on agent type."""
 
     agent_logger_classes = {

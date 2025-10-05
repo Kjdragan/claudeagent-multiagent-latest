@@ -13,11 +13,9 @@ Features:
 """
 
 import logging
-import json
-from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -35,10 +33,10 @@ class ContentAllocation:
     """Content allocation result with metadata."""
     primary_content: str
     metadata_content: str
-    allocation_stats: Dict[str, Any]
+    allocation_stats: dict[str, Any]
     compression_applied: bool
-    token_usage: Dict[str, int]
-    priority_distribution: Dict[ContentPriority, int]
+    token_usage: dict[str, int]
+    priority_distribution: dict[ContentPriority, int]
 
 
 class MCPComplianceManager:
@@ -79,8 +77,8 @@ class MCPComplianceManager:
     def allocate_content(
         self,
         raw_content: str,
-        metadata: Dict[str, Any],
-        context: Dict[str, Any]
+        metadata: dict[str, Any],
+        context: dict[str, Any]
     ) -> ContentAllocation:
         """
         Allocate content according to MCP compliance standards.
@@ -135,7 +133,7 @@ class MCPComplianceManager:
             # Fallback to simple allocation
             return self._fallback_allocation(raw_content, metadata, context)
 
-    def _analyze_content(self, content: str, context: Dict[str, Any]) -> Dict[str, Any]:
+    def _analyze_content(self, content: str, context: dict[str, Any]) -> dict[str, Any]:
         """Analyze content and determine priority distribution."""
         analysis = {
             'total_length': len(content),
@@ -165,7 +163,7 @@ class MCPComplianceManager:
 
         return analysis
 
-    def _split_into_sections(self, content: str) -> List[Dict[str, Any]]:
+    def _split_into_sections(self, content: str) -> list[dict[str, Any]]:
         """Split content into logical sections with metadata."""
         sections = []
         lines = content.split('\n')
@@ -204,7 +202,7 @@ class MCPComplianceManager:
 
         return sections
 
-    def _extract_key_points(self, content: str, context: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _extract_key_points(self, content: str, context: dict[str, Any]) -> list[dict[str, Any]]:
         """Extract key points from content."""
         key_points = []
         lines = content.split('\n')
@@ -238,10 +236,10 @@ class MCPComplianceManager:
 
     def _assign_priorities(
         self,
-        sections: List[Dict[str, Any]],
-        key_points: List[Dict[str, Any]],
-        context: Dict[str, Any]
-    ) -> Dict[ContentPriority, int]:
+        sections: list[dict[str, Any]],
+        key_points: list[dict[str, Any]],
+        context: dict[str, Any]
+    ) -> dict[ContentPriority, int]:
         """Assign priority levels to content sections."""
         priorities = {
             ContentPriority.CRITICAL: 0,
@@ -278,7 +276,7 @@ class MCPComplianceManager:
     def _allocate_primary_content(
         self,
         content: str,
-        analysis: Dict[str, Any],
+        analysis: dict[str, Any],
         max_tokens: int
     ) -> str:
         """Allocate primary content based on priority and token limits."""
@@ -305,8 +303,8 @@ class MCPComplianceManager:
 
     def _select_content_by_priority(
         self,
-        sections: List[Dict[str, Any]],
-        priority_distribution: Dict[ContentPriority, int],
+        sections: list[dict[str, Any]],
+        priority_distribution: dict[ContentPriority, int],
         max_chars: int
     ) -> str:
         """Select content sections based on priority distribution."""
@@ -344,7 +342,7 @@ class MCPComplianceManager:
 
         return '\n\n'.join(allocated_sections)
 
-    def _format_key_points(self, key_points: List[Dict[str, Any]]) -> str:
+    def _format_key_points(self, key_points: list[dict[str, Any]]) -> str:
         """Format key points for inclusion."""
         if not key_points:
             return ""
@@ -357,9 +355,9 @@ class MCPComplianceManager:
 
     def _generate_enhanced_metadata(
         self,
-        base_metadata: Dict[str, Any],
-        content_analysis: Dict[str, Any],
-        context: Dict[str, Any],
+        base_metadata: dict[str, Any],
+        content_analysis: dict[str, Any],
+        context: dict[str, Any],
         max_tokens: int
     ) -> str:
         """Generate enhanced metadata within token limits."""
@@ -394,17 +392,17 @@ class MCPComplianceManager:
             "",
             "## Technical Details",
             "",
-            f"**Enhanced Relevance Scoring**: Position 40% + Title 30% + Snippet 30%",
-            f"**Anti-Bot Escalation**: Progressive levels 0-3 with smart retry",
-            f"**AI Content Cleaning**: GPT-5-nano powered via Pydantic AI",
-            f"**Content Quality Judge**: Multi-criteria assessment with feedback loops",
-            f"**Search Strategy Auto-Selection**: Google vs SERP News routing",
+            "**Enhanced Relevance Scoring**: Position 40% + Title 30% + Snippet 30%",
+            "**Anti-Bot Escalation**: Progressive levels 0-3 with smart retry",
+            "**AI Content Cleaning**: GPT-5-nano powered via Pydantic AI",
+            "**Content Quality Judge**: Multi-criteria assessment with feedback loops",
+            "**Search Strategy Auto-Selection**: Google vs SERP News routing",
             "",
             "## Session Information",
             "",
             f"**Work Products Directory**: {base_metadata.get('workproduct_dir', 'N/A')}",
-            f"**MCP Compliance**: Multi-level content allocation (70/30 split)",
-            f"**Token Management**: Smart compression with quality preservation",
+            "**MCP Compliance**: Multi-level content allocation (70/30 split)",
+            "**Token Management**: Smart compression with quality preservation",
             "",
             "---",
             "",
@@ -422,7 +420,7 @@ class MCPComplianceManager:
 
         return metadata_content
 
-    def _calculate_section_relevance(self, section: Dict[str, Any], query_terms: List[str]) -> float:
+    def _calculate_section_relevance(self, section: dict[str, Any], query_terms: list[str]) -> float:
         """Calculate relevance score for a content section."""
         content = section.get('content', '').lower()
         title = section.get('title', '').lower()
@@ -440,7 +438,7 @@ class MCPComplianceManager:
 
         return min(1.0, relevance_score)
 
-    def _calculate_line_relevance(self, line: str, query_terms: List[str]) -> float:
+    def _calculate_line_relevance(self, line: str, query_terms: list[str]) -> float:
         """Calculate relevance score for a single line."""
         if not query_terms:
             return 0.5
@@ -454,8 +452,8 @@ class MCPComplianceManager:
         original_content: str,
         primary_content: str,
         metadata_content: str,
-        analysis: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        analysis: dict[str, Any]
+    ) -> dict[str, Any]:
         """Calculate allocation statistics."""
         compression_ratio = len(primary_content) / len(original_content) if original_content else 1.0
 
@@ -473,7 +471,7 @@ class MCPComplianceManager:
             }
         }
 
-    def _estimate_token_usage(self, primary_content: str, metadata_content: str) -> Dict[str, int]:
+    def _estimate_token_usage(self, primary_content: str, metadata_content: str) -> dict[str, int]:
         """Estimate token usage for content."""
         primary_tokens = int(len(primary_content) / self.chars_per_token)
         metadata_tokens = int(len(metadata_content) / self.chars_per_token)
@@ -490,8 +488,8 @@ class MCPComplianceManager:
     def _fallback_allocation(
         self,
         content: str,
-        metadata: Dict[str, Any],
-        context: Dict[str, Any]
+        metadata: dict[str, Any],
+        context: dict[str, Any]
     ) -> ContentAllocation:
         """Fallback allocation for error cases."""
         max_chars = int(self.max_tokens * self.primary_content_ratio * self.chars_per_token)
@@ -519,7 +517,7 @@ class MCPComplianceManager:
 
 
 # Global MCP compliance manager instance
-_global_mcp_manager: Optional[MCPComplianceManager] = None
+_global_mcp_manager: MCPComplianceManager | None = None
 
 
 def get_mcp_compliance_manager(max_tokens: int = 25000) -> MCPComplianceManager:

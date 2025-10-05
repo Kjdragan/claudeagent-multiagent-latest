@@ -15,14 +15,14 @@ Key optimizations:
 
 import asyncio
 import logging
-from datetime import datetime
-from typing import List, Optional, Dict, Any
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
 from urllib.parse import urlparse
 
-from crawl4ai import AsyncWebCrawler, CrawlerRunConfig, BrowserConfig, CacheMode
-from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
+from crawl4ai import AsyncWebCrawler, CacheMode, CrawlerRunConfig
 from crawl4ai.content_filter_strategy import PruningContentFilter
+from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
 # Import Logfire configuration
 try:
@@ -52,8 +52,8 @@ class OptimizedCrawlResult:
     """Enhanced result structure with performance metrics."""
     url: str
     success: bool
-    content: Optional[str] = None
-    error: Optional[str] = None
+    content: str | None = None
+    error: str | None = None
     duration: float = 0.0
     word_count: int = 0
     char_count: int = 0
@@ -71,7 +71,7 @@ class OptimizedCrawler:
     of the multi-stage crawling strategy.
     """
 
-    def __init__(self, browser_configs: Optional[Dict] = None):
+    def __init__(self, browser_configs: dict | None = None):
         """Initialize with optional browser configurations."""
         self.browser_configs = browser_configs or {}
         self._stats = {
@@ -370,9 +370,9 @@ class OptimizedCrawler:
 
     async def crawl_multiple_optimized(
         self,
-        urls: List[str],
+        urls: list[str],
         max_concurrent: int = 5
-    ) -> List[OptimizedCrawlResult]:
+    ) -> list[OptimizedCrawlResult]:
         """
         Optimized parallel crawling with intelligent fallback for each URL.
 
@@ -426,7 +426,7 @@ class OptimizedCrawler:
 
             return final_results
 
-    def get_performance_stats(self) -> Dict[str, Any]:
+    def get_performance_stats(self) -> dict[str, Any]:
         """Get comprehensive performance statistics."""
         stats = self._stats.copy()
         if stats['total_crawls'] > 0:
@@ -441,10 +441,10 @@ class OptimizedCrawler:
 
 
 # Global optimized crawler instance
-_global_optimized_crawler: Optional[OptimizedCrawler] = None
+_global_optimized_crawler: OptimizedCrawler | None = None
 
 
-def get_optimized_crawler(browser_configs: Optional[Dict] = None) -> OptimizedCrawler:
+def get_optimized_crawler(browser_configs: dict | None = None) -> OptimizedCrawler:
     """Get or create global optimized crawler instance."""
     global _global_optimized_crawler
     if _global_optimized_crawler is None or browser_configs:
@@ -505,7 +505,10 @@ async def optimized_scrape_and_clean_single_url(
 
         try:
             # Import content cleaning utilities
-            from utils.content_cleaning import clean_content_with_judge_optimization, assess_content_cleanliness
+            from utils.content_cleaning import (
+                assess_content_cleanliness,
+                clean_content_with_judge_optimization,
+            )
 
             if preserve_technical_content:
                 # For technical content, use judge optimization
@@ -513,7 +516,7 @@ async def optimized_scrape_and_clean_single_url(
                 is_clean, judge_score = await assess_content_cleanliness(cleaned_content, url, 0.75)
 
                 if is_clean:
-                    logger.info(f"✅ Content clean enough - skipping AI cleaning (saving ~35-40 seconds)")
+                    logger.info("✅ Content clean enough - skipping AI cleaning (saving ~35-40 seconds)")
                     cleaning_metadata = {
                         "judge_score": judge_score,
                         "cleaning_performed": False,
@@ -521,8 +524,10 @@ async def optimized_scrape_and_clean_single_url(
                         "latency_saved": "~35-40 seconds"
                     }
                 else:
-                    logger.info(f"🧽 Content needs cleaning - running AI cleaning")
-                    from utils.content_cleaning import clean_technical_content_with_gpt5_nano
+                    logger.info("🧽 Content needs cleaning - running AI cleaning")
+                    from utils.content_cleaning import (
+                        clean_technical_content_with_gpt5_nano,
+                    )
                     cleaned_content = await clean_technical_content_with_gpt5_nano(
                         cleaned_content, url, search_query, session_id
                     )
@@ -594,13 +599,13 @@ async def optimized_scrape_and_clean_single_url(
 
 
 async def optimized_crawl_multiple_urls_with_cleaning(
-    urls: List[str],
+    urls: list[str],
     session_id: str,
     search_query: str,
     max_concurrent: int = 10,
     extraction_mode: str = "article",
     include_metadata: bool = True
-) -> List[dict]:
+) -> list[dict]:
     """
     Optimized parallel crawling with immediate AI cleaning for each URL.
 
@@ -608,6 +613,7 @@ async def optimized_crawl_multiple_urls_with_cleaning(
     but uses the optimized crawler with fixed Stage 1 configuration.
     """
     import asyncio
+
     from utils.content_cleaning import clean_content_with_gpt5_nano
 
     with logfire.span("optimized_crawl_multiple_urls_with_cleaning",

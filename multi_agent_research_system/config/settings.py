@@ -6,9 +6,9 @@ and content cleaning functionality.
 """
 
 import os
-from typing import Dict, Any, Optional
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -45,7 +45,7 @@ class EnhancedSearchConfig:
 
     # Work product directories
     default_workproduct_dir: str = "/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/work_products"
-    kevin_workproducts_dir: Optional[str] = None
+    kevin_workproducts_dir: str | None = None
 
     # Content cleaning settings
     default_cleanliness_threshold: float = 0.7
@@ -142,7 +142,7 @@ class SettingsManager:
         workproduct_dir.mkdir(parents=True, exist_ok=True)
         return workproduct_dir
 
-    def get_default_search_params(self) -> Dict[str, Any]:
+    def get_default_search_params(self) -> dict[str, Any]:
         """Get default search parameters."""
         return {
             "num_results": self._enhanced_search_config.default_num_results,
@@ -153,7 +153,7 @@ class SettingsManager:
             "session_id": "default"
         }
 
-    def get_debug_info(self) -> Dict[str, Any]:
+    def get_debug_info(self) -> dict[str, Any]:
         """Get debug information about current configuration."""
         return {
             "enhanced_search_config": {

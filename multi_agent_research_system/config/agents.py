@@ -4,13 +4,13 @@ This module defines agents using the proper SDK configuration approach with
 AgentDefinition objects and tool decorators.
 """
 
-from dataclasses import dataclass
-from typing import Dict, Any, List
 import json
+import os
 
 # Import from parent directory structure
 import sys
-import os
+from dataclasses import dataclass
+
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 try:
@@ -23,7 +23,7 @@ except ImportError:
     class AgentDefinition:
         description: str
         prompt: str
-        tools: List[str] | None = None
+        tools: list[str] | None = None
         model: str = "sonnet"
 
 
@@ -404,7 +404,7 @@ Always prioritize smooth workflow execution and user satisfaction. Provide clear
     )
 
 
-def get_all_agent_definitions() -> Dict[str, AgentDefinition]:
+def get_all_agent_definitions() -> dict[str, AgentDefinition]:
     """Get all agent definitions for the research system."""
     return {
         "research_agent": get_research_agent_definition(),

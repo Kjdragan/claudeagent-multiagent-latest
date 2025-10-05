@@ -7,19 +7,17 @@ These hooks understand MCP message formats, tool execution patterns, and
 control protocol integration.
 """
 
-import asyncio
 import json
-import time
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
-from dataclasses import dataclass, field
-
-from .base_hooks import BaseHook, HookContext, HookResult, HookStatus, HookPriority
-import sys
 import os
+import sys
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any
+
+from .base_hooks import BaseHook, HookContext, HookPriority, HookResult, HookStatus
+
 # Add parent directory to path for proper imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from agent_logging import get_logger
 
 
 @dataclass
@@ -29,11 +27,11 @@ class MCPMessageInfo:
     subtype: str
     timestamp: datetime
     session_id: str
-    request_id: Optional[str] = None
-    parent_tool_use_id: Optional[str] = None
+    request_id: str | None = None
+    parent_tool_use_id: str | None = None
     content_size: int = 0
     processing_time: float = 0.0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -41,16 +39,16 @@ class MCPToolExecution:
     """MCP tool execution information with comprehensive tracking."""
     tool_name: str
     tool_use_id: str
-    input_data: Dict[str, Any]
+    input_data: dict[str, Any]
     start_time: datetime
-    end_time: Optional[datetime] = None
-    execution_time: Optional[float] = None
+    end_time: datetime | None = None
+    execution_time: float | None = None
     result_size: int = 0
     success: bool = False
-    error_message: Optional[str] = None
-    mcp_server: Optional[str] = None
+    error_message: str | None = None
+    mcp_server: str | None = None
     permission_required: bool = False
-    permission_granted: Optional[bool] = None
+    permission_granted: bool | None = None
 
 
 class MCPMessageHook(BaseHook):
@@ -70,10 +68,10 @@ class MCPMessageHook(BaseHook):
             enabled=enabled,
             retry_count=1
         )
-        self.message_history: List[MCPMessageInfo] = []
+        self.message_history: list[MCPMessageInfo] = []
         self.max_history = 5000
-        self.message_type_stats: Dict[str, int] = {}
-        self.session_message_counts: Dict[str, int] = {}
+        self.message_type_stats: dict[str, int] = {}
+        self.session_message_counts: dict[str, int] = {}
 
     async def execute(self, context: HookContext) -> HookResult:
         """Execute MCP message processing and validation."""
@@ -142,7 +140,7 @@ class MCPMessageHook(BaseHook):
                 error_type=type(e).__name__
             )
 
-    async def _validate_mcp_structure(self, message_info: MCPMessageInfo) -> Dict[str, Any]:
+    async def _validate_mcp_structure(self, message_info: MCPMessageInfo) -> dict[str, Any]:
         """Validate MCP message structure and compliance."""
         issues = []
         valid = True
@@ -200,7 +198,7 @@ class MCPMessageHook(BaseHook):
         if len(self.message_history) > self.max_history:
             self.message_history = self.message_history[-self.max_history:]
 
-    def get_mcp_message_stats(self) -> Dict[str, Any]:
+    def get_mcp_message_stats(self) -> dict[str, Any]:
         """Get comprehensive MCP message statistics."""
         if not self.message_history:
             return {"message": "No MCP messages processed"}
@@ -256,9 +254,9 @@ class MCPToolExecutionHook(BaseHook):
             enabled=enabled,
             retry_count=0
         )
-        self.tool_executions: List[MCPToolExecution] = []
+        self.tool_executions: list[MCPToolExecution] = []
         self.max_executions = 2000
-        self.tool_stats: Dict[str, Dict[str, Any]] = {}
+        self.tool_stats: dict[str, dict[str, Any]] = {}
 
     async def execute(self, context: HookContext) -> HookResult:
         """Execute MCP tool execution monitoring."""
@@ -302,7 +300,7 @@ class MCPToolExecutionHook(BaseHook):
         context: HookContext,
         tool_name: str,
         tool_use_id: str,
-        tool_input: Dict[str, Any]
+        tool_input: dict[str, Any]
     ) -> HookResult:
         """Handle tool execution start."""
         execution = MCPToolExecution(
@@ -478,7 +476,7 @@ class MCPToolExecutionHook(BaseHook):
         if len(self.tool_executions) > self.max_executions:
             self.tool_executions = self.tool_executions[-self.max_executions:]
 
-    def get_mcp_tool_stats(self) -> Dict[str, Any]:
+    def get_mcp_tool_stats(self) -> dict[str, Any]:
         """Get comprehensive MCP tool execution statistics."""
         if not self.tool_stats:
             return {"message": "No MCP tool executions recorded"}
@@ -558,8 +556,8 @@ class MCPSessionHook(BaseHook):
             enabled=enabled,
             retry_count=1
         )
-        self.active_sessions: Dict[str, Dict[str, Any]] = {}
-        self.session_history: List[Dict[str, Any]] = []
+        self.active_sessions: dict[str, dict[str, Any]] = {}
+        self.session_history: list[dict[str, Any]] = []
         self.max_history = 1000
 
     async def execute(self, context: HookContext) -> HookResult:
@@ -743,7 +741,7 @@ class MCPSessionHook(BaseHook):
             }
         )
 
-    def get_mcp_session_stats(self) -> Dict[str, Any]:
+    def get_mcp_session_stats(self) -> dict[str, Any]:
         """Get comprehensive MCP session statistics."""
         return {
             "active_sessions": len(self.active_sessions),
@@ -774,7 +772,7 @@ class MCPSessionHook(BaseHook):
             "session_averages": self._calculate_session_averages()
         }
 
-    def _calculate_session_averages(self) -> Dict[str, float]:
+    def _calculate_session_averages(self) -> dict[str, float]:
         """Calculate average session metrics."""
         if not self.session_history:
             return {}

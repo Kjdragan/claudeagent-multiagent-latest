@@ -5,10 +5,10 @@ from various sources to support the research process.
 """
 
 import json
-import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from claude_agent_sdk import tool
+
 from ..core.base_agent import BaseAgent, Message
 
 
@@ -50,10 +50,10 @@ Always provide source attribution and confidence levels for your findings."""
     @tool("web_research", "Conduct comprehensive web research on a topic", {
         "topic": str,
         "research_depth": str,
-        "focus_areas": List[str],
+        "focus_areas": list[str],
         "max_sources": int
     })
-    async def web_research(self, args: Dict[str, Any]) -> Dict[str, Any]:
+    async def web_research(self, args: dict[str, Any]) -> dict[str, Any]:
         """Conduct comprehensive web research on a specified topic."""
         topic = args["topic"]
         research_depth = args.get("research_depth", "medium")
@@ -138,10 +138,10 @@ Always provide source attribution and confidence levels for your findings."""
         }
 
     @tool("source_analysis", "Analyze and validate research sources", {
-        "sources": List[Dict[str, Any]],
-        "validation_criteria": List[str]
+        "sources": list[dict[str, Any]],
+        "validation_criteria": list[str]
     })
-    async def source_analysis(self, args: Dict[str, Any]) -> Dict[str, Any]:
+    async def source_analysis(self, args: dict[str, Any]) -> dict[str, Any]:
         """Analyze and validate the credibility of research sources."""
         sources = args["sources"]
         validation_criteria = args.get("validation_criteria", [
@@ -198,11 +198,11 @@ Always provide source attribution and confidence levels for your findings."""
         }
 
     @tool("information_synthesis", "Synthesize research findings into coherent insights", {
-        "research_data": Dict[str, Any],
-        "synthesis_goals": List[str],
+        "research_data": dict[str, Any],
+        "synthesis_goals": list[str],
         "target_audience": str
     })
-    async def information_synthesis(self, args: Dict[str, Any]) -> Dict[str, Any]:
+    async def information_synthesis(self, args: dict[str, Any]) -> dict[str, Any]:
         """Synthesize research findings into coherent insights."""
         research_data = args["research_data"]
         synthesis_goals = args.get("synthesis_goals", [
@@ -273,7 +273,7 @@ Always provide source attribution and confidence levels for your findings."""
             }
         }
 
-    async def handle_research_request(self, message: Message) -> Optional[Message]:
+    async def handle_research_request(self, message: Message) -> Message | None:
         """Handle initial research request from UI coordinator."""
         payload = message.payload
         topic = payload.get("topic")
@@ -333,7 +333,7 @@ Always provide source attribution and confidence levels for your findings."""
             correlation_id=message.correlation_id
         )
 
-    async def handle_additional_research(self, message: Message) -> Optional[Message]:
+    async def handle_additional_research(self, message: Message) -> Message | None:
         """Handle request for additional research on specific topics."""
         payload = message.payload
         research_gaps = payload.get("research_gaps", [])
@@ -365,6 +365,6 @@ Always provide source attribution and confidence levels for your findings."""
             correlation_id=message.correlation_id
         )
 
-    def get_tools(self) -> List:
+    def get_tools(self) -> list:
         """Get the list of tools for this agent."""
         return [self.web_research, self.source_analysis, self.information_synthesis]

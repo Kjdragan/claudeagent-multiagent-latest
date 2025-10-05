@@ -6,6 +6,7 @@ Test script for API integration with the real Anthropic endpoint.
 import asyncio
 import os
 import sys
+
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -23,8 +24,9 @@ else:
     print("❌ No API key found")
     sys.exit(1)
 
-from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions, create_sdk_mcp_server
 from core.orchestrator import ResearchOrchestrator
+
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
 
 async def test_api_connection():
