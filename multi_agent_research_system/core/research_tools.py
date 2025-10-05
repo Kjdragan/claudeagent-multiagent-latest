@@ -460,3 +460,239 @@ def convert_to_markdown(report: dict[str, Any], format_type: str = "markdown") -
         markdown += "\n"
 
     return markdown
+
+
+# Session Management Tools
+@tool("get_session_data", "Access research data and session information", {
+    "session_id": str,
+    "data_type": str
+})
+async def get_session_data(args: dict[str, Any]) -> dict[str, Any]:
+    """Access research data and session information for multi-agent workflows."""
+    if _logger:
+        _logger.info(f"Getting session data for session: {args.get('session_id', 'Unknown')}")
+
+    session_id = args.get("session_id")
+    data_type = args.get("data_type", "all")  # all, research, report, session_info
+
+    if not session_id:
+        return {
+            "success": False,
+            "error": "session_id is required",
+            "data": {}
+        }
+
+    try:
+        # Get the project root directory and construct session path
+        current_file = Path(__file__)
+        project_root = current_file.parent.parent.parent  # Go up from core/ to project root
+        kevin_dir = project_root / "KEVIN"
+        session_path = kevin_dir / "sessions" / session_id
+
+        if not session_path.exists():
+            return {
+                "success": False,
+                "error": f"Session directory not found: {session_path}",
+                "data": {}
+            }
+
+        result = {
+            "success": True,
+            "session_id": session_id,
+            "data_type": data_type,
+            "data": {}
+        }
+
+        # Get research data
+        if data_type in ["all", "research"]:
+            research_dir = session_path / "research"
+            if research_dir.exists():
+                research_files = list(research_dir.glob("*.md"))
+                research_data = []
+
+                for research_file in research_files:
+                    try:
+                        content = research_file.read_text(encoding='utf-8')
+                        research_data.append({
+                            "filename": research_file.name,
+                            "filepath": str(research_file),
+                            "content": content,
+                            "size": len(content)
+                        })
+                    except Exception as e:
+                        if _logger:
+                            _logger.warning(f"Could not read research file {research_file}: {e}")
+
+                result["data"]["research_files"] = research_data
+                result["data"]["research_count"] = len(research_data)
+
+        # Get report data
+        if data_type in ["all", "report"]:
+            working_dir = session_path / "working"
+            if working_dir.exists():
+                report_files = list(working_dir.glob("*.md"))
+                report_data = []
+
+                for report_file in report_files:
+                    try:
+                        content = report_file.read_text(encoding='utf-8')
+                        report_data.append({
+                            "filename": report_file.name,
+                            "filepath": str(report_file),
+                            "content": content,
+                            "size": len(content)
+                        })
+                    except Exception as e:
+                        if _logger:
+                            _logger.warning(f"Could not read report file {report_file}: {e}")
+
+                result["data"]["report_files"] = report_data
+                result["data"]["report_count"] = len(report_data)
+
+        # Get session info
+        if data_type in ["all", "session_info"]:
+            session_state_file = session_path / "session_state.json"
+            session_info = {}
+
+            if session_state_file.exists():
+                try:
+                    session_info = json.loads(session_state_file.read_text(encoding='utf-8'))
+                except Exception as e:
+                    if _logger:
+                        _logger.warning(f"Could not read session state file: {e}")
+
+            result["data"]["session_info"] = session_info
+
+        # Get final reports
+        if data_type in ["all", "final"]:
+            final_dir = session_path / "final"
+            if final_dir.exists():
+                final_files = list(final_dir.glob("*.md"))
+                final_data = []
+
+                for final_file in final_files:
+                    try:
+                        content = final_file.read_text(encoding='utf-8')
+                        final_data.append({
+                            "filename": final_file.name,
+                            "filepath": str(final_file),
+                            "content": content,
+                            "size": len(content)
+                        })
+                    except Exception as e:
+                        if _logger:
+                            _logger.warning(f"Could not read final file {final_file}: {e}")
+
+                result["data"]["final_files"] = final_data
+                result["data"]["final_count"] = len(final_data)
+
+        if _logger:
+            _logger.info(f"Successfully retrieved session data for {session_id}: {data_type}")
+
+        return result
+
+    except Exception as e:
+        error_msg = f"Error accessing session data: {str(e)}"
+        if _logger:
+            _logger.error(error_msg)
+
+        return {
+            "success": False,
+            "error": error_msg,
+            "session_id": session_id,
+            "data": {}
+        }
+
+
+@tool("create_research_report", "Create and save comprehensive reports", {
+    "report_type": str,
+    "content": str,
+    "session_id": str,
+    "title": str
+})
+async def create_research_report(args: dict[str, Any]) -> dict[str, Any]:
+    """Create and save comprehensive research reports with proper formatting."""
+    if _logger:
+        _logger.info(f"Creating research report: {args.get('report_type', 'Unknown')} for session {args.get('session_id', 'Unknown')}")
+
+    report_type = args.get("report_type", "draft")
+    content = args.get("content", "")
+    session_id = args.get("session_id")
+    title = args.get("title", f"{report_type.title()} Report")
+
+    if not session_id:
+        return {
+            "success": False,
+            "error": "session_id is required",
+            "report_content": "",
+            "recommended_filepath": ""
+        }
+
+    if not content:
+        return {
+            "success": False,
+            "error": "content is required",
+            "report_content": "",
+            "recommended_filepath": ""
+        }
+
+    try:
+        # Get the project root directory and construct session path
+        current_file = Path(__file__)
+        project_root = current_file.parent.parent.parent  # Go up from core/ to project root
+        kevin_dir = project_root / "KEVIN"
+        session_path = kevin_dir / "sessions" / session_id
+
+        # Ensure working directory exists
+        working_dir = session_path / "working"
+        working_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate timestamp and filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()[:50]
+        filename = f"DRAFT_{safe_title}_{timestamp}.md"
+        filepath = working_dir / filename
+
+        # Format the report content with proper structure
+        formatted_content = f"""# {title}
+
+**Session ID**: {session_id}
+**Report Type**: {report_type}
+**Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+---
+
+{content}
+
+---
+
+*Generated by Claude Agent SDK Multi-Agent Research System*
+"""
+
+        # Write the report to file
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(formatted_content)
+
+        if _logger:
+            _logger.info(f"Successfully created research report: {filepath}")
+
+        return {
+            "success": True,
+            "report_content": formatted_content,
+            "recommended_filepath": str(filepath.absolute()),
+            "filename": filename,
+            "report_type": report_type,
+            "session_id": session_id
+        }
+
+    except Exception as e:
+        error_msg = f"Error creating research report: {str(e)}"
+        if _logger:
+            _logger.error(error_msg)
+
+        return {
+            "success": False,
+            "error": error_msg,
+            "report_content": "",
+            "recommended_filepath": ""
+        }
