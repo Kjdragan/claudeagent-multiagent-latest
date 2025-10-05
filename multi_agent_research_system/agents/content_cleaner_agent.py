@@ -21,14 +21,23 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not available, use existing environment
+
 # Pydantic AI imports
 try:
-    from pydantic_ai import Agent, RunContext
+    from pydantic import BaseModel
+    from pydantic_ai import Agent
     from pydantic_ai.models.openai import OpenAIModel
     PYDAI_AVAILABLE = True
 except ImportError:
     logging.warning("Pydantic AI not available - using fallback content cleaning")
     PYDAI_AVAILABLE = False
+    BaseModel = None
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +80,20 @@ class ContentCleaningContext:
     max_content_length: int = 50000
 
 
+# Pydantic model for structured AI output
+if PYDAI_AVAILABLE and BaseModel:
+    class CleanedContentOutput(BaseModel):
+        """Structured output from AI content cleaning."""
+        cleaned_content: str
+        quality_score: int  # 0-100
+        relevance_score: float  # 0.0-1.0
+        key_points: list[str]
+        topics_detected: list[str]
+        cleaning_notes: list[str]
+else:
+    CleanedContentOutput = None
+
+
 class ContentCleanerAgent:
     """
     AI-powered content cleaner using GPT-5-nano via Pydantic AI.
@@ -100,31 +123,15 @@ class ContentCleanerAgent:
         elif PYDAI_AVAILABLE:
             try:
                 # Initialize Pydantic AI agent with OpenAI model
-                # Add timeout settings to prevent hanging on slow API responses
-                import httpx
-                http_client = httpx.AsyncClient(
-                    timeout=httpx.Timeout(
-                        connect=5.0,   # 5 seconds to establish connection
-                        read=30.0,     # 30 seconds to read response (per chunk)
-                        write=10.0,    # 10 seconds to write request
-                        pool=10.0      # 10 seconds to acquire connection from pool
-                    )
-                )
-
-                from pydantic_ai.models.openai import Provider
-                provider = Provider(http_client=http_client)
-
-                model = OpenAIModel(
-                    self.model_name,
-                    api_key=self.api_key,
-                    provider=provider
-                )
+                # Note: Pydantic AI gets API key from OPENAI_API_KEY environment variable
+                model = OpenAIModel(self.model_name)
                 self.agent = Agent(
                     model,
+                    output_type=CleanedContentOutput,
                     system_prompt=self._get_system_prompt(),
                     deps_type=ContentCleaningContext
                 )
-                logger.info(f"Content cleaner agent initialized with model: {model_name} (timeout: 30s)")
+                logger.info(f"Content cleaner agent initialized with model: {model_name} (structured output: CleanedContentOutput)")
             except Exception as e:
                 logger.error(f"Failed to initialize Pydantic AI agent: {e}")
                 self.agent = None
@@ -292,20 +299,21 @@ class ContentCleanerAgent:
 
             logger.debug(f"AI cleaning completed for {context.url}")
 
-            # Parse the structured result
-            cleaned_data = result.data
+            # Parse the structured result from Pydantic model
+            # Pydantic AI uses 'output' attribute (previously 'data')
+            cleaned_data = result.output  # This is now a CleanedContentOutput instance
 
             return CleanedContent(
                 original_content=raw_content,
-                cleaned_content=cleaned_data.get('cleaned_content', raw_content),
-                quality_score=cleaned_data.get('quality_score', 50),
-                quality_level=self._get_quality_level(cleaned_data.get('quality_score', 50)),
-                relevance_score=cleaned_data.get('relevance_score', 0.5),
-                word_count=len(cleaned_data.get('cleaned_content', '').split()),
-                char_count=len(cleaned_data.get('cleaned_content', '')),
-                key_points=cleaned_data.get('key_points', []),
-                topics_detected=cleaned_data.get('topics_detected', []),
-                cleaning_notes=cleaned_data.get('cleaning_notes', []),
+                cleaned_content=cleaned_data.cleaned_content,
+                quality_score=cleaned_data.quality_score,
+                quality_level=self._get_quality_level(cleaned_data.quality_score),
+                relevance_score=cleaned_data.relevance_score,
+                word_count=len(cleaned_data.cleaned_content.split()),
+                char_count=len(cleaned_data.cleaned_content),
+                key_points=cleaned_data.key_points,
+                topics_detected=cleaned_data.topics_detected,
+                cleaning_notes=cleaned_data.cleaning_notes,
                 processing_time=0.0,  # Will be set by caller
                 model_used=self.model_name
             )
@@ -327,42 +335,42 @@ class ContentCleanerAgent:
                 ModernWebContentCleaner,
             )
 
-            modern_cleaner = ModernWebContentCleaner(self.logger)
-            cleaning_result = modern_cleaner.clean_article_content(
+            modern_cleaner = ModernWebContentCleaner(logger)
+            cleaned_text = modern_cleaner.clean_article_content(
                 raw_content,
                 context.search_query
             )
 
             # Calculate relevance to search query
             relevance_score = self._calculate_relevance_score(
-                cleaning_result, context.search_query, context.query_terms
+                cleaned_text, context.search_query, context.query_terms
             )
 
             # Estimate quality based on content characteristics
-            quality_score = self._estimate_quality_score(cleaning_result, relevance_score)
+            quality_score = self._estimate_quality_score(cleaned_text, relevance_score)
 
             # Extract key points (basic approach)
-            key_points = self._extract_key_points(cleaning_result)
+            key_points = self._extract_key_points(cleaned_text)
 
             # Detect topics (basic approach)
-            topics = self._detect_topics(cleaning_result)
+            topics = self._detect_topics(cleaned_text)
 
             # Include cleaning metadata
             cleaning_notes = [
                 "Enhanced rule-based cleaning with modern web patterns",
-                f"Removed {cleaning_result.noise_removed} characters of noise",
-                f"Quality score: {cleaning_result.quality_score}/100",
-                f"Patterns matched: {len(cleaning_result.patterns_matched)}"
+                f"Original length: {len(raw_content)} chars",
+                f"Cleaned length: {len(cleaned_text)} chars",
+                f"Estimated quality score: {quality_score}/100"
             ]
 
             return CleanedContent(
                 original_content=raw_content,
-                cleaned_content=cleaning_result,
+                cleaned_content=cleaned_text,
                 quality_score=quality_score,
                 quality_level=self._get_quality_level(quality_score),
                 relevance_score=relevance_score,
-                word_count=len(cleaning_result.split()),
-                char_count=len(cleaning_result),
+                word_count=len(cleaned_text.split()),
+                char_count=len(cleaned_text),
                 key_points=key_points,
                 topics_detected=topics,
                 cleaning_notes=cleaning_notes,

@@ -399,6 +399,7 @@ class SessionSearchBudget:
                 "successful_scrapes": f"{self.editorial_successful_scrapes}/{self.editorial_successful_scrapes_limit}",
                 "search_queries": f"{self.editorial_search_queries}/{self.editorial_search_queries_limit}",
                 "search_queries_remaining": self.editorial_search_queries_limit - self.editorial_search_queries,
+                "search_queries_reached_limit": self.editorial_search_queries >= self.editorial_search_queries_limit,
                 "urls_processed": self.editorial_urls_processed,
                 "can_proceed": self.can_editorial_research_proceed()[0]
             },
@@ -816,6 +817,47 @@ class ResearchOrchestrator:
             serper_status = 'SET' if serper_key != 'NOT_SET' else 'NOT_SET'
             openai_key = os.getenv('OPENAI_API_KEY', 'NOT_SET')
             openai_status = 'SET' if openai_key != 'NOT_SET' else 'NOT_SET'
+
+            # FAIL-FAST VALIDATION: Critical API keys must be present
+            critical_errors = []
+
+            if serper_key == 'NOT_SET':
+                critical_errors.append("CRITICAL: SERP_API_KEY is missing! Web search functionality will not work.")
+                self.logger.error("❌ CRITICAL FAILURE: SERP_API_KEY is NOT SET!")
+
+            if openai_key == 'NOT_SET':
+                critical_errors.append("CRITICAL: OPENAI_API_KEY is missing! Content processing will fail.")
+                self.logger.error("❌ CRITICAL FAILURE: OPENAI_API_KEY is NOT SET!")
+
+            # Check for SERPER_API_KEY vs SERP_API_KEY discrepancy
+            serper_key_alt = os.getenv('SERPER_API_KEY', 'NOT_SET')
+            if serper_key_alt != 'NOT_SET' and serper_key == 'NOT_SET':
+                critical_errors.append("CRITICAL: Found SERPER_API_KEY but system expects SERP_API_KEY - API key name mismatch!")
+                self.logger.error("❌ CRITICAL FAILURE: API key name mismatch! Found SERPER_API_KEY but expect SERP_API_KEY")
+            elif serper_key == 'NOT_SET' and serper_key_alt == 'NOT_SET':
+                critical_errors.append("CRITICAL: Neither SERP_API_KEY nor SERPER_API_KEY found in environment!")
+                self.logger.error("❌ CRITICAL FAILURE: No search API key found!")
+
+            # Fail fast and hard if critical API configuration is missing
+            if critical_errors:
+                self.logger.error("🚨 CRITICAL CONFIGURATION ERRORS DETECTED - SYSTEM WILL FAIL FAST")
+                self.logger.error("During development, we fail immediately to expose configuration issues!")
+                for error in critical_errors:
+                    self.logger.error(f"  - {error}")
+                self.logger.error("")
+                self.logger.error("To fix these errors:")
+                self.logger.error("1. Set SERP_API_KEY environment variable for search functionality")
+                self.logger.error("2. Set OPENAI_API_KEY environment variable for content processing")
+                self.logger.error("3. Ensure API keys are valid and have proper permissions")
+                self.logger.error("")
+                self.logger.error("Example:")
+                self.logger.error("export SERP_API_KEY='your-serper-api-key'")
+                self.logger.error("export OPENAI_API_KEY='your-openai-api-key'")
+                self.logger.error("")
+
+                # During development, fail hard and fast
+                raise RuntimeError(f"CRITICAL CONFIGURATION FAILURE: {'; '.join(critical_errors)}")
+
             self.logger.info("   SERP API Search: Enabled (high-performance replacement for WebPrime MCP)")
             self.logger.info(f"   SERP_API_KEY Status: {serper_status}")
             self.logger.info(f"   OPENAI_API_KEY Status: {openai_status}")
@@ -2705,12 +2747,18 @@ class ResearchOrchestrator:
                 {"❌ BUDGET EXHAUSTED: DO NOT execute new searches. Use findings from previous attempts only." if remaining_budget <= 0 else ""}
 
                 MANDATORY RESEARCH INSTRUCTIONS:
-                1. IMMEDIATELY execute mcp__enhanced_search_scrape_clean__expanded_query_search_and_extract with the topic
-                2. This tool consolidates multiple searches into one efficient workflow (query expansion → SERP searches → deduplication → ranked scraping)
-                3. Set max_expanded_queries to 3 for comprehensive coverage
-                4. Set target_successful_scrapes to {min(15, remaining_budget)} to stay within budget
-                5. Use mcp__research_tools__save_research_findings to save your findings
-                6. Use mcp__research_tools__capture_search_results to structure results
+                1. IMMEDIATELY execute mcp__zplayground1_search__zplayground1_search_scrape_clean with the topic
+                2. This tool performs complete search, scrape, and clean workflow in a single operation
+                3. REQUIRED PARAMETERS (use these exact values):
+                   - query: "{clean_topic}" (the research topic)
+                   - search_mode: "news" (MUST be either "web" or "news" - use "news" for current events)
+                   - anti_bot_level: 2 (MUST be integer 0-3, where 0=basic, 1=enhanced, 2=advanced, 3=stealth)
+                   - num_results: 15
+                   - auto_crawl_top: {min(10, remaining_budget)}
+                   - crawl_threshold: 0.3 (MUST be float between 0.0-1.0, relevance score threshold for crawling)
+                   - session_id: "{session_id}"
+                4. Use mcp__research_tools__save_research_findings to save your findings
+                5. Use mcp__research_tools__capture_search_results to structure results
 
                 SEARCH BUDGET CONSTRAINTS:
                 - **STRICT LIMIT**: Maximum {search_budget.primary_successful_scrapes_limit} successful content extractions per session
@@ -3167,7 +3215,18 @@ class ResearchOrchestrator:
         """
         content_sources = []
         session_data = self.active_sessions[session_id]
-        session_dir = Path(session_data.get("workspace_dir", os.getcwd())) / session_id
+
+        # FAIL-FAST: Use the correct session directory structure
+        # The session directory should be KEVIN/sessions/{session_id}
+        kevin_base = os.environ.get('KEVIN_WORKPRODUCTS_DIR', '/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN')
+        session_dir = Path(kevin_base) / "sessions" / session_id
+
+        self.logger.debug(f"Looking for content sources in session directory: {session_dir}")
+
+        # Validate session directory exists
+        if not session_dir.exists():
+            self.logger.warning(f"Session directory does not exist: {session_dir}")
+            return content_sources
 
         try:
             # Look for research findings
@@ -3230,7 +3289,12 @@ This session had limited research output available. The editorial agent has proc
                 self.logger.info(f"Created minimal content file: {minimal_file}")
 
         except Exception as e:
-            self.logger.error(f"Error collecting content sources for session {session_id}: {e}")
+            self.logger.error(f"FAIL-FAST: Error collecting content sources for session {session_id}: {e}")
+            self.logger.error(f"Session directory: {session_dir}")
+            self.logger.error(f"Working directory: {os.getcwd()}")
+            self.logger.error("This error would have been silently ignored - now we fail fast to expose directory structure issues!")
+            # During development, fail hard to expose configuration issues
+            raise RuntimeError(f"CRITICAL CONTENT SOURCE COLLECTION ERROR: {e}")
 
         return content_sources
 

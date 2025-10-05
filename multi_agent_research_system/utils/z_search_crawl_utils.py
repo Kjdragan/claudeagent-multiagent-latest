@@ -56,9 +56,27 @@ async def execute_serper_search(
     try:
         import httpx
 
-        serper_api_key = os.getenv("SERPER_API_KEY")
+        # FAIL-FAST: Check for correct API key name - must match orchestrator expectations
+        serper_api_key = os.getenv("SERP_API_KEY")  # Note: SERP_API_KEY, not SERPER_API_KEY
+
         if not serper_api_key:
-            logger.warning("SERPER_API_KEY not found in environment variables")
+            # During development, fail hard and fast with clear error message
+            error_msg = "CRITICAL: SERP_API_KEY not found in environment variables!"
+            logger.error(f"❌ {error_msg}")
+            logger.error("Search functionality cannot work without SERP_API_KEY!")
+            logger.error("Expected environment variable: SERP_API_KEY")
+            logger.error("Set with: export SERP_API_KEY='your-serper-api-key'")
+
+            # Check if user has the wrong API key name
+            if os.getenv("SERPER_API_KEY"):
+                logger.error("🚨 FOUND SERPER_API_KEY but system expects SERP_API_KEY!")
+                logger.error("Please rename your environment variable from SERPER_API_KEY to SERP_API_KEY")
+
+            # During development, fail immediately instead of returning empty results
+            raise RuntimeError(f"CRITICAL SEARCH CONFIGURATION FAILURE: {error_msg}")
+
+            # Note: The following return will never be reached due to the RuntimeError above
+            # but keeping it for clarity if the fail-fast approach is later softened
             return []
 
         # Choose endpoint based on search type
@@ -131,7 +149,16 @@ async def execute_serper_search(
             return []
 
     except Exception as e:
+        # FAIL-FAST: During development, re-raise critical errors instead of swallowing them
         logger.error(f"Error in Serper search: {e}")
+
+        # Check if this is a critical configuration error that should fail fast
+        if "CRITICAL" in str(e) or "API_KEY" in str(e) or "Configuration" in str(e):
+            logger.error("FAIL-FAST: Critical configuration error detected - re-raising to expose configuration issues!")
+            raise  # Re-raise the critical error instead of returning empty results
+
+        # For other errors, return empty list for now
+        logger.warning("Non-critical search error - returning empty results")
         return []
 
 
@@ -523,7 +550,8 @@ async def search_crawl_and_clean_direct(
             cleaning_stats = []
 
             for i, (cleaned_result, (original_content, context)) in enumerate(zip(cleaning_results, cleaning_contexts, strict=False)):
-                if cleaned_result.quality_score >= 50:  # Quality threshold
+                # Accept all content regardless of quality score - user wants results, not perfection
+                if cleaned_result.quality_score >= 0:  # Quality threshold (accept everything)
                     cleaned_content_list.append(cleaned_result.cleaned_content)
                     cleaned_urls.append(context.url)
 

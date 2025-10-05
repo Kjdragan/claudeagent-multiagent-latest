@@ -133,31 +133,68 @@ def create_zplayground1_mcp_server():
             Dictionary with content and metadata
         """
         try:
-            # Extract parameters with defaults
+            # Extract parameters with FAIL-FAST validation
             query = args.get("query")
             if not query:
+                error_msg = "❌ **CRITICAL ERROR**: 'query' parameter is required and cannot be empty!"
+                logger.error(f"FAIL-FAST: {error_msg}")
                 return {
-                    "content": [{"type": "text", "text": "❌ **Error**: 'query' parameter is required"}],
+                    "content": [{"type": "text", "text": error_msg}],
                     "is_error": True
                 }
 
-            search_mode = args.get("search_mode", "web")
-            num_results = int(args.get("num_results", 15))
-            auto_crawl_top = int(args.get("auto_crawl_top", 10))
-            crawl_threshold = float(args.get("crawl_threshold", 0.3))
-            anti_bot_level = int(args.get("anti_bot_level", 1))
-            max_concurrent = int(args.get("max_concurrent", 15))
-            session_id = args.get("session_id", "default")
-            workproduct_prefix = args.get("workproduct_prefix", "")
+            # Extract and validate parameters with detailed error reporting
+            try:
+                search_mode = args.get("search_mode", "web")
+                if search_mode not in ["web", "news"]:
+                    raise ValueError(f"Invalid search_mode '{search_mode}'. Must be 'web' or 'news'")
 
-            # Validate parameters
-            if anti_bot_level < 0 or anti_bot_level > 3:
-                anti_bot_level = 1
-                logger.warning(f"Invalid anti_bot_level, using default: {anti_bot_level}")
+                num_results = int(args.get("num_results", 15))
+                if not (1 <= num_results <= 50):
+                    raise ValueError(f"Invalid num_results '{num_results}'. Must be between 1 and 50")
 
-            if max_concurrent < 1 or max_concurrent > 20:
-                max_concurrent = min(max(1, max_concurrent), 15)
-                logger.warning(f"Invalid max_concurrent, using: {max_concurrent}")
+                auto_crawl_top = int(args.get("auto_crawl_top", 10))
+                if not (0 <= auto_crawl_top <= 20):
+                    raise ValueError(f"Invalid auto_crawl_top '{auto_crawl_top}'. Must be between 0 and 20")
+
+                crawl_threshold = float(args.get("crawl_threshold", 0.3))
+                if not (0.0 <= crawl_threshold <= 1.0):
+                    raise ValueError(f"Invalid crawl_threshold '{crawl_threshold}'. Must be between 0.0 and 1.0")
+
+                # FAIL-FAST: Fix the parameter validation issue for anti_bot_level
+                anti_bot_level_raw = args.get("anti_bot_level", 1)
+                logger.debug(f"Raw anti_bot_level parameter: {anti_bot_level_raw} (type: {type(anti_bot_level_raw)})")
+
+                try:
+                    anti_bot_level = int(anti_bot_level_raw)
+                except (ValueError, TypeError) as e:
+                    error_msg = f"FAIL-FAST: Invalid anti_bot_level parameter '{anti_bot_level_raw}' (type: {type(anti_bot_level_raw)}). Must be an integer between 0 and 3!"
+                    logger.error(f"❌ {error_msg}")
+                    logger.error(f"This is the exact error that was causing the system to fail silently!")
+                    logger.error(f"Parameter validation error: {e}")
+                    raise ValueError(error_msg)
+
+                if not (0 <= anti_bot_level <= 3):
+                    raise ValueError(f"Invalid anti_bot_level '{anti_bot_level}'. Must be between 0 and 3")
+
+                max_concurrent = int(args.get("max_concurrent", 15))
+                if not (1 <= max_concurrent <= 20):
+                    raise ValueError(f"Invalid max_concurrent '{max_concurrent}'. Must be between 1 and 20")
+
+                session_id = args.get("session_id", "default")
+                workproduct_prefix = args.get("workproduct_prefix", "")
+
+            except (ValueError, TypeError) as param_error:
+                error_msg = f"❌ **CRITICAL PARAMETER VALIDATION ERROR**: {param_error}"
+                logger.error(f"FAIL-FAST PARAMETER ERROR: {error_msg}")
+                logger.error("This error would have been silently ignored before - now we fail fast!")
+                return {
+                    "content": [{"type": "text", "text": error_msg}],
+                    "is_error": True,
+                    "error_details": str(param_error)
+                }
+
+            # Parameter validation is now handled above with FAIL-FAST approach
 
             # Set up work product directory using session-based structure
             workproduct_dir = os.environ.get('KEVIN_WORKPRODUCTS_DIR')

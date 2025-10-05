@@ -27,15 +27,17 @@ logger = logging.getLogger(__name__)
 
 class AntiBotLevel(Enum):
     """Anti-bot escalation levels."""
-    BASIC = 0          # Basic SERP API and simple crawl
-    ENHANCED = 1       # Enhanced headers + JavaScript rendering
-    ADVANCED = 2       # Advanced proxy rotation + browser automation
-    STEALTH = 3        # Stealth mode with full browser simulation
+
+    BASIC = 0  # Basic SERP API and simple crawl
+    ENHANCED = 1  # Enhanced headers + JavaScript rendering
+    ADVANCED = 2  # Advanced proxy rotation + browser automation
+    STEALTH = 3  # Stealth mode with full browser simulation
 
 
 @dataclass
 class EscalationResult:
     """Result of anti-bot escalation attempt."""
+
     url: str
     success: bool
     content: str | None = None
@@ -51,6 +53,7 @@ class EscalationResult:
 @dataclass
 class EscalationStats:
     """Statistics for anti-bot escalation system."""
+
     total_attempts: int = 0
     successful_crawls: int = 0
     failed_crawls: int = 0
@@ -77,13 +80,13 @@ class AntiBotEscalationManager:
         self.stats = EscalationStats()
         self.domain_success_history: dict[str, list[bool]] = {}
         self.escalation_thresholds = {
-            0: 0.7,   # Start escalation at 70% failure rate
-            1: 0.5,   # Escalate to level 2 at 50% failure rate
-            2: 0.3,   # Escalate to level 3 at 30% failure rate
+            0: 0.7,  # Start escalation at 70% failure rate
+            1: 0.5,  # Escalate to level 2 at 50% failure rate
+            2: 0.3,  # Escalate to level 3 at 30% failure rate
         }
         self.max_attempts_per_url = 4
         self.base_delay = 1.0  # Base delay in seconds
-        self.max_delay = 30.0   # Maximum delay in seconds
+        self.max_delay = 30.0  # Maximum delay in seconds
 
     async def crawl_with_escalation(
         self,
@@ -91,7 +94,7 @@ class AntiBotEscalationManager:
         initial_level: int = 0,
         max_level: int = 3,
         use_content_filter: bool = False,
-        session_id: str = "default"
+        session_id: str = "default",
     ) -> EscalationResult:
         """
         Crawl URL with progressive anti-bot escalation.
@@ -114,6 +117,7 @@ class AntiBotEscalationManager:
         try:
             # Extract domain for tracking
             from urllib.parse import urlparse
+
             domain = urlparse(url).netloc.lower()
 
             # Determine optimal starting level based on domain history
@@ -128,40 +132,49 @@ class AntiBotEscalationManager:
 
                 # Apply delay between attempts (with jitter)
                 if attempt > 0:
-                    delay = min(self.base_delay * (2 ** (attempt - 1)) + random.uniform(0, 1), self.max_delay)
+                    delay = min(
+                        self.base_delay * (2 ** (attempt - 1)) + random.uniform(0, 1),
+                        self.max_delay,
+                    )
                     await asyncio.sleep(delay)
 
                 # Attempt crawl at current level
-                result = await self._crawl_at_level(
+                crawl_success, crawl_content = await self._crawl_at_level(
                     url, current_level, use_content_filter, session_id
                 )
 
-                if result.success:
+                if crawl_success:
                     # Record successful attempt
                     self._record_attempt(domain, True, current_level)
 
                     # Calculate metrics
                     duration = (datetime.now() - start_time).total_seconds()
-                    word_count = len(result.content.split()) if result.content else 0
-                    char_count = len(result.content) if result.content else 0
+                    word_count = len(crawl_content.split()) if crawl_content else 0
+                    char_count = len(crawl_content) if crawl_content else 0
+
+                    logger.debug(
+                        f"Successfully crawled {url}: {char_count} chars in {duration:.1f}s (level {current_level})"
+                    )
 
                     return EscalationResult(
                         url=url,
                         success=True,
-                        content=result.content,
+                        content=crawl_content,
                         duration=duration,
                         attempts_made=attempts_made,
                         final_level=final_level,
                         escalation_used=escalation_used,
                         word_count=word_count,
-                        char_count=char_count
+                        char_count=char_count,
                     )
                 else:
                     # Record failed attempt
                     self._record_attempt(domain, False, current_level)
 
                     # Check if we should escalate
-                    if current_level < max_level and self._should_escalate(domain, current_level, attempt):
+                    if current_level < max_level and self._should_escalate(
+                        domain, current_level, attempt
+                    ):
                         current_level += 1
                         escalation_used = True
                         logger.info(f"Escalating to level {current_level} for {url}")
@@ -174,28 +187,35 @@ class AntiBotEscalationManager:
             duration = (datetime.now() - start_time).total_seconds()
             self._record_attempt(domain, False, final_level)
 
+            # Distinguish between expected crawling failures and system errors
+            error_msg = f"All {attempts_made} attempts failed across levels {initial_level}-{final_level}"
+            logger.debug(f"Crawling failed for {url}: {error_msg}")
+
             return EscalationResult(
                 url=url,
                 success=False,
-                error=f"All {attempts_made} attempts failed across levels {initial_level}-{final_level}",
+                error=error_msg,
                 duration=duration,
                 attempts_made=attempts_made,
                 final_level=final_level,
-                escalation_used=escalation_used
+                escalation_used=escalation_used,
             )
 
         except Exception as e:
             duration = (datetime.now() - start_time).total_seconds()
-            logger.error(f"Escalation crawl failed for {url}: {e}")
+            # Distinguish between system errors (real bugs) and crawling failures (expected)
+            error_msg = f"System error during crawl: {str(e)}"
+            logger.error(f"❌ SYSTEM ERROR in crawling infrastructure: {error_msg}")
+            logger.debug(f"Full error details for {url}: {e}")
 
             return EscalationResult(
                 url=url,
                 success=False,
-                error=str(e),
+                error=error_msg,
                 duration=duration,
                 attempts_made=attempts_made,
                 final_level=final_level,
-                escalation_used=escalation_used
+                escalation_used=escalation_used,
             )
 
     async def crawl_multiple_with_escalation(
@@ -205,7 +225,7 @@ class AntiBotEscalationManager:
         max_level: int = 3,
         max_concurrent: int = 5,
         use_content_filter: bool = False,
-        session_id: str = "default"
+        session_id: str = "default",
     ) -> list[EscalationResult]:
         """
         Crawl multiple URLs with concurrent anti-bot escalation.
@@ -224,8 +244,10 @@ class AntiBotEscalationManager:
         if not urls:
             return []
 
-        logger.info(f"Starting batch crawl with escalation: {len(urls)} URLs, "
-                   f"level {initial_level}-{max_level}, max_concurrent={max_concurrent}")
+        logger.info(
+            f"Starting batch crawl with escalation: {len(urls)} URLs, "
+            f"level {initial_level}-{max_level}, max_concurrent={max_concurrent}"
+        )
 
         # Create semaphore to limit concurrent operations
         semaphore = asyncio.Semaphore(max_concurrent)
@@ -245,11 +267,9 @@ class AntiBotEscalationManager:
         final_results = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                final_results.append(EscalationResult(
-                    url=urls[i],
-                    success=False,
-                    error=str(result)
-                ))
+                final_results.append(
+                    EscalationResult(url=urls[i], success=False, error=str(result))
+                )
             else:
                 final_results.append(result)
 
@@ -261,18 +281,16 @@ class AntiBotEscalationManager:
         escalations = sum(1 for r in final_results if r.escalation_used)
         avg_attempts = sum(r.attempts_made for r in final_results) / len(final_results)
 
-        logger.info(f"Batch crawl completed: {successful}/{len(urls)} successful "
-                   f"({successful/len(urls):.1%}), {escalations} escalations, "
-                   f"{avg_attempts:.1f} avg attempts")
+        logger.info(
+            f"Batch crawl completed: {successful}/{len(urls)} successful "
+            f"({successful / len(urls):.1%}), {escalations} escalations, "
+            f"{avg_attempts:.1f} avg attempts"
+        )
 
         return final_results
 
     async def _crawl_at_level(
-        self,
-        url: str,
-        level: int,
-        use_content_filter: bool,
-        session_id: str
+        self, url: str, level: int, use_content_filter: bool, session_id: str
     ) -> tuple[bool, str | None]:
         """Crawl URL at specific anti-bot level."""
         try:
@@ -297,7 +315,9 @@ class AntiBotEscalationManager:
             logger.debug(f"Level {level} crawl failed for {url}: {e}")
             return False, str(e)
 
-    def _get_crawl_config(self, level: int, use_content_filter: bool) -> CrawlerRunConfig:
+    def _get_crawl_config(
+        self, level: int, use_content_filter: bool
+    ) -> CrawlerRunConfig:
         """Get crawl configuration for specific anti-bot level."""
 
         if level == AntiBotLevel.BASIC.value:
@@ -305,7 +325,7 @@ class AntiBotEscalationManager:
             config = CrawlerRunConfig(
                 cache_mode=CacheMode.BYPASS,
                 check_robots_txt=False,
-                remove_overlay_elements=True
+                remove_overlay_elements=True,
             )
 
         elif level == AntiBotLevel.ENHANCED.value:
@@ -317,7 +337,7 @@ class AntiBotEscalationManager:
                 simulate_user=True,
                 magic=True,
                 wait_for="body",
-                page_timeout=30000
+                page_timeout=30000,
             )
 
         elif level == AntiBotLevel.ADVANCED.value:
@@ -330,15 +350,7 @@ class AntiBotEscalationManager:
                 magic=True,
                 wait_until="domcontentloaded",
                 page_timeout=45000,
-                headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.5',
-                    'Accept-Encoding': 'gzip, deflate',
-                    'DNT': '1',
-                    'Connection': 'keep-alive',
-                    'Upgrade-Insecure-Requests': '1'
-                }
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             )
 
         else:  # STEALTH
@@ -355,22 +367,10 @@ class AntiBotEscalationManager:
                 js_code=[
                     "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})",
                     "Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]})",
-                    "Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']})"
+                    "Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']})",
                 ],
-                headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.5',
-                    'Accept-Encoding': 'gzip, deflate',
-                    'DNT': '1',
-                    'Connection': 'keep-alive',
-                    'Upgrade-Insecure-Requests': '1',
-                    'Sec-Fetch-Dest': 'document',
-                    'Sec-Fetch-Mode': 'navigate',
-                    'Sec-Fetch-Site': 'none',
-                    'Sec-Fetch-User': '?1'
-                },
-                css_selector="main, article, .content, .article-body, .post-content"
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                css_selector="main, article, .content, .article-body, .post-content",
             )
 
         # Add content filtering if requested
@@ -392,7 +392,7 @@ class AntiBotEscalationManager:
                 browser_type="chromium",
                 viewport_width=1920,
                 viewport_height=1080,
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             )
         else:
             # Use default for basic and enhanced levels
@@ -444,21 +444,27 @@ class AntiBotEscalationManager:
 
         # Keep only last 20 attempts per domain
         if len(self.domain_success_history[domain]) > 20:
-            self.domain_success_history[domain] = self.domain_success_history[domain][-20:]
+            self.domain_success_history[domain] = self.domain_success_history[domain][
+                -20:
+            ]
 
         # Update level-specific stats
         if level not in self.stats.level_success_rates:
             self.stats.level_success_rates[level] = []
         self.stats.level_success_rates[level].append(success)
 
-    def _update_global_stats(self, results: list[EscalationResult], duration: timedelta):
+    def _update_global_stats(
+        self, results: list[EscalationResult], duration: timedelta
+    ):
         """Update global escalation statistics."""
         self.stats.total_attempts += len(results)
         self.stats.successful_crawls += sum(1 for r in results if r.success)
         self.stats.failed_crawls += sum(1 for r in results if not r.success)
         self.stats.escalations_triggered += sum(1 for r in results if r.escalation_used)
         self.stats.total_duration += duration.total_seconds()
-        self.stats.avg_attempts_per_url = sum(r.attempts_made for r in results) / len(results) if results else 0
+        self.stats.avg_attempts_per_url = (
+            sum(r.attempts_made for r in results) / len(results) if results else 0
+        )
 
     def get_stats(self) -> dict[str, Any]:
         """Get comprehensive escalation statistics."""
@@ -474,20 +480,23 @@ class AntiBotEscalationManager:
             "failed_crawls": self.stats.failed_crawls,
             "overall_success_rate": (
                 self.stats.successful_crawls / self.stats.total_attempts
-                if self.stats.total_attempts > 0 else 0
+                if self.stats.total_attempts > 0
+                else 0
             ),
             "escalations_triggered": self.stats.escalations_triggered,
             "escalation_rate": (
                 self.stats.escalations_triggered / self.stats.total_attempts
-                if self.stats.total_attempts > 0 else 0
+                if self.stats.total_attempts > 0
+                else 0
             ),
             "avg_attempts_per_url": self.stats.avg_attempts_per_url,
             "avg_duration_per_crawl": (
                 self.stats.total_duration / self.stats.total_attempts
-                if self.stats.total_attempts > 0 else 0
+                if self.stats.total_attempts > 0
+                else 0
             ),
             "level_success_rates": level_rates,
-            "domains_tracked": len(self.domain_success_history)
+            "domains_tracked": len(self.domain_success_history),
         }
 
     def reset_stats(self):
