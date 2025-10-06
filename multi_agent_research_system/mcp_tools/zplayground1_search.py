@@ -165,14 +165,37 @@ def create_zplayground1_mcp_server():
                 anti_bot_level_raw = args.get("anti_bot_level", 1)
                 logger.debug(f"Raw anti_bot_level parameter: {anti_bot_level_raw} (type: {type(anti_bot_level_raw)})")
 
-                try:
-                    anti_bot_level = int(anti_bot_level_raw)
-                except (ValueError, TypeError) as e:
-                    error_msg = f"FAIL-FAST: Invalid anti_bot_level parameter '{anti_bot_level_raw}' (type: {type(anti_bot_level_raw)}). Must be an integer between 0 and 3!"
-                    logger.error(f"❌ {error_msg}")
-                    logger.error(f"This is the exact error that was causing the system to fail silently!")
-                    logger.error(f"Parameter validation error: {e}")
-                    raise ValueError(error_msg)
+                # Handle string to integer conversion for anti_bot_level
+                if isinstance(anti_bot_level_raw, str):
+                    # Map common string values to integers
+                    level_mapping = {
+                        "basic": 0,
+                        "enhanced": 1,
+                        "advanced": 2,
+                        "stealth": 3,
+                        "low": 0,
+                        "medium": 1,
+                        "high": 2,
+                        "maximum": 3
+                    }
+                    anti_bot_level_str = anti_bot_level_raw.lower().strip()
+                    if anti_bot_level_str in level_mapping:
+                        anti_bot_level = level_mapping[anti_bot_level_str]
+                        logger.info(f"🔄 Converted anti_bot_level from string '{anti_bot_level_raw}' to integer {anti_bot_level}")
+                    else:
+                        error_msg = f"FAIL-FAST: Invalid anti_bot_level parameter '{anti_bot_level_raw}' (type: {type(anti_bot_level_raw)}). Must be an integer between 0 and 3, or one of: {list(level_mapping.keys())}"
+                        logger.error(f"❌ {error_msg}")
+                        logger.error(f"String to integer mapping failed - unknown string value")
+                        raise ValueError(error_msg)
+                else:
+                    try:
+                        anti_bot_level = int(anti_bot_level_raw)
+                    except (ValueError, TypeError) as e:
+                        error_msg = f"FAIL-FAST: Invalid anti_bot_level parameter '{anti_bot_level_raw}' (type: {type(anti_bot_level_raw)}). Must be an integer between 0 and 3!"
+                        logger.error(f"❌ {error_msg}")
+                        logger.error(f"This is the exact error that was causing the system to fail silently!")
+                        logger.error(f"Parameter validation error: {e}")
+                        raise ValueError(error_msg)
 
                 if not (0 <= anti_bot_level <= 3):
                     raise ValueError(f"Invalid anti_bot_level '{anti_bot_level}'. Must be between 0 and 3")
