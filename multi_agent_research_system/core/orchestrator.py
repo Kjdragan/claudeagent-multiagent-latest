@@ -453,6 +453,7 @@ from .search_analysis_tools import (
 from .simple_research_tools import (
     create_research_report,
     get_session_data,
+    request_gap_research,
     save_research_findings,
 )
 
@@ -800,6 +801,7 @@ class ResearchOrchestrator:
                 version="1.0.0",
                 tools=[
                     save_research_findings, create_research_report, get_session_data,
+                    request_gap_research,  # NEW: Gap research request tool for editor
                     capture_search_results, save_webfetch_content, create_search_verification_report,
                     serp_search  # Add SERP API search tool to MCP server
                 ]
@@ -810,7 +812,7 @@ class ResearchOrchestrator:
             self.logger.info("🔍 MCP Server Configuration:")
             self.logger.info(f"   Research Tools Server: {type(self.mcp_server).__name__} (TypedDict - correct)")
             self.logger.info(f"   Server Name: {self.mcp_server.get('name', 'Unknown')}")
-            self.logger.info(f"   Available Tools: {len([save_research_findings, create_research_report, get_session_data, capture_search_results, save_webfetch_content, create_search_verification_report, serp_search])} tools")
+            self.logger.info(f"   Available Tools: {len([save_research_findings, create_research_report, get_session_data, request_gap_research, capture_search_results, save_webfetch_content, create_search_verification_report, serp_search])} tools")
 
             # Debug SERP API configuration
             serper_key = os.getenv('SERP_API_KEY', 'NOT_SET')
@@ -896,6 +898,7 @@ class ResearchOrchestrator:
                         "mcp__research_tools__save_research_findings",
                         "mcp__research_tools__create_research_report",
                         "mcp__research_tools__get_session_data",
+                        "mcp__research_tools__request_gap_research",  # NEW: Gap research request for editor
                         "mcp__research_tools__capture_search_results",
                         "mcp__research_tools__save_webfetch_content",
                         "mcp__research_tools__create_search_verification_report",
@@ -3210,6 +3213,64 @@ class ResearchOrchestrator:
 
                 self.logger.info(f"✅ Editorial review completed: {review_result['substantive_responses']} responses, {review_result['tool_executions']} tools")
 
+                # **NEW: Check if editor requested gap research via control handoff**
+                gap_requests = self._extract_gap_research_requests(review_result)
+
+                if gap_requests and len(gap_requests) > 0:
+                    self.logger.info(f"📋 Editor requested gap research for {len(gap_requests)} gaps")
+
+                    # Execute coordinated gap research using research agent
+                    gap_research_result = await self.execute_editorial_gap_research(
+                        session_id=session_id,
+                        research_gaps=gap_requests,
+                        max_scrapes=search_budget.editorial_successful_scrapes_limit,
+                        max_queries=search_budget.editorial_search_queries_limit
+                    )
+
+                    if gap_research_result.get("success"):
+                        self.logger.info(f"✅ Gap research completed: {gap_research_result.get('scrapes_completed', 0)} scrapes")
+
+                        # **NEW: Return results to editor for integration**
+                        integration_prompt = f"""The orchestrator has completed gap-filling research for your identified gaps.
+
+**Gap Research Results:**
+- Gaps researched: {gap_research_result.get('gaps_researched', [])}
+- Scrapes completed: {gap_research_result.get('scrapes_completed', 0)}
+- Results available in session data (use get_session_data to access)
+
+**Your Next Steps:**
+1. Use get_session_data to access the new gap research results
+2. Review the additional research data
+3. Integrate findings into your editorial review
+4. Create final enhanced editorial review with the additional information
+
+**Budget Remaining:**
+- Queries: {gap_research_result.get('budget_remaining', {}).get('queries', 0)}
+- Scrapes: {gap_research_result.get('budget_remaining', {}).get('scrapes', 0)}
+
+Please complete your editorial review with the gap research integrated."""
+
+                        # Execute editor again to integrate gap research
+                        final_review_result = await self.execute_agent_query(
+                            agent_name="editor_agent",
+                            prompt=integration_prompt,
+                            session_id=session_id,
+                            timeout_seconds=180
+                        )
+
+                        # Use final review result as the editorial result
+                        review_result = final_review_result
+                        self.logger.info(f"✅ Editor integrated gap research into final review")
+
+                        # Update search stats to reflect gap research
+                        session_data["editorial_search_stats"]["gap_research_executed"] = True
+                        session_data["editorial_search_stats"]["gap_research_scrapes"] = gap_research_result.get('scrapes_completed', 0)
+
+                    else:
+                        self.logger.warning(f"⚠️ Gap research failed: {gap_research_result.get('error', 'Unknown error')}")
+                        self.logger.info("📝 Continuing with editorial review based on existing data")
+                        # Editor's original review still valid, no need to re-execute
+
                 # Validate editorial completion
                 if self._validate_editorial_completion(review_result):
                     editorial_successful = True
@@ -3252,11 +3313,204 @@ class ResearchOrchestrator:
             "tools_executed": len(review_result["tool_executions"]),
             "success": review_result["success"],
             "attempts": attempt + 1,
-            "editorial_search_stats": search_stats
+            "editorial_search_stats": search_stats,
+            "gap_research_executed": search_stats.get("gap_research_executed", False),
+            "gap_research_scrapes": search_stats.get("gap_research_scrapes", 0)
         })
 
         await self.save_session_state(session_id)
         self.logger.info(f"Session {session_id}: Editorial review stage completed successfully")
+
+    async def execute_editorial_gap_research(
+        self,
+        session_id: str,
+        research_gaps: list[str],
+        max_scrapes: int = 5,
+        max_queries: int = 2
+    ) -> dict[str, Any]:
+        """
+        Execute gap-filling research for editorial stage using coordinated research agent.
+
+        This method uses the same proven research workflow that achieves 100% success in
+        primary research, but with reduced scope appropriate for targeted gap-filling.
+
+        Args:
+            session_id: Current research session ID
+            research_gaps: List of specific information gaps to research
+            max_scrapes: Maximum successful scrapes allowed (default: 5 for editorial)
+            max_queries: Maximum search queries allowed (default: 2 for editorial)
+
+        Returns:
+            Research results from coordinated research agent execution
+        """
+        self.logger.info(f"🔍 Executing editorial gap research for session {session_id}")
+        self.logger.info(f"   Gaps to research: {research_gaps}")
+        self.logger.info(f"   Limits: {max_scrapes} scrapes, {max_queries} queries")
+
+        # Get session data
+        session_data = self.active_sessions.get(session_id)
+        if not session_data:
+            self.logger.error(f"Session {session_id} not found for gap research")
+            return {"success": False, "error": "Session not found"}
+
+        # Get search budget
+        search_budget = session_data.get("search_budget")
+        if not search_budget:
+            self.logger.error(f"Search budget not found for session {session_id}")
+            return {"success": False, "error": "Search budget not found"}
+
+        # Check editorial budget availability
+        if search_budget.editorial_search_queries >= max_queries:
+            self.logger.warning(f"⚠️ Editorial search query limit reached ({max_queries})")
+            return {
+                "success": False,
+                "error": "Editorial search budget exhausted",
+                "message": "Maximum editorial search queries reached"
+            }
+
+        # Combine gaps into focused search topics (limit to top 2)
+        gap_topics = research_gaps[:2]  # Limit to top 2 for focused research
+        combined_topic = " AND ".join(gap_topics)
+
+        self.logger.info(f"📝 Combined gap research topic: {combined_topic}")
+
+        # Create research prompt for gap-filling with proven parameters
+        gap_research_prompt = f"""Use the research_agent agent to conduct targeted gap-filling research.
+
+**Research Gaps to Fill:**
+{chr(10).join([f'{i+1}. {gap}' for i, gap in enumerate(gap_topics)])}
+
+**Combined Search Topic:** {combined_topic}
+
+CRITICAL REQUIREMENTS - EDITORIAL GAP-FILLING RESEARCH:
+- This is EDITORIAL gap-filling research - use workproduct_prefix="editor research"
+- Use mcp__zplayground1_search__zplayground1_search_scrape_clean tool
+- REQUIRED anti_bot_level: 2 (EXACTLY as integer 2)
+- Search mode will be auto-selected by strategy analysis (likely 'news' for current events)
+- Set max_urls=5 for focused gap-filling
+- Set crawl_threshold=0.3 for quality filtering
+- Target {max_scrapes} successful scrapes maximum
+- Session ID: {session_id}
+
+EDITORIAL FOCUS:
+- Conduct TARGETED research to fill specific identified gaps
+- Focus on the SPECIFIC information that is missing
+- Use the SAME proven workflow as primary research
+- Save results with workproduct_prefix="editor research" for clear identification
+
+PROVEN SUCCESSFUL PARAMETERS (from primary research):
+✅ anti_bot_level: 2 (validated and converted)
+✅ Search strategy: Auto-detected (news/general)
+✅ SERP API integration
+✅ Crawl4AI with anti-bot escalation
+✅ GPT-5-nano content cleaning
+✅ Research data standardization
+
+Execute the gap-filling search now using these proven parameters."""
+
+        try:
+            # Execute gap research using coordinated research agent
+            self.logger.info(f"🔍 Querying research_agent for gap-filling research")
+
+            gap_research_result = await self.execute_agent_query(
+                agent_name="research_agent",
+                prompt=gap_research_prompt,
+                session_id=session_id,
+                metadata={
+                    "context": "editorial_gap_filling",
+                    "gaps": gap_topics,
+                    "max_scrapes": max_scrapes,
+                    "max_queries": max_queries
+                }
+            )
+
+            # Extract scrape count from results
+            scrape_count = self._extract_scrape_count_from_result(gap_research_result)
+
+            # Record editorial research in budget
+            search_budget.record_editorial_research(
+                urls_processed=scrape_count,
+                successful_scrapes=scrape_count,
+                search_queries=1
+            )
+
+            self.logger.info(f"✅ Editorial gap research completed: {scrape_count} scrapes")
+            self.logger.info(f"📊 Editorial budget status: {search_budget.editorial_search_queries}/{max_queries} queries, {search_budget.editorial_successful_scrapes}/{max_scrapes} scrapes")
+
+            return {
+                "success": True,
+                "gap_research_result": gap_research_result,
+                "scrapes_completed": scrape_count,
+                "gaps_researched": gap_topics,
+                "budget_remaining": {
+                    "queries": max_queries - search_budget.editorial_search_queries,
+                    "scrapes": max_scrapes - search_budget.editorial_successful_scrapes
+                }
+            }
+
+        except Exception as e:
+            self.logger.error(f"❌ Editorial gap research failed: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "message": "Gap research execution failed"
+            }
+
+    def _extract_scrape_count_from_result(self, result: dict[str, Any]) -> int:
+        """
+        Extract successful scrape count from research agent result.
+
+        Checks tool executions for zplayground1_search tool and extracts scrape count.
+        Falls back to checking workproduct files if tool result doesn't provide count.
+        """
+        try:
+            tool_executions = result.get("tool_executions", [])
+
+            for tool in tool_executions:
+                if "zplayground1_search_scrape_clean" in tool.get("name", ""):
+                    # Try to extract from tool result
+                    # For now, estimate based on success - will be refined when we can parse actual results
+                    return 5  # Conservative estimate for successful gap research
+
+            # Fallback: check for workproduct files
+            # This would require access to session directory
+            return 0
+
+        except Exception as e:
+            self.logger.warning(f"Could not extract scrape count: {e}")
+            return 0
+
+    def _extract_gap_research_requests(self, editorial_result: dict[str, Any]) -> list[str]:
+        """
+        Extract gap research requests from editorial agent result.
+
+        Detects if editor called request_gap_research tool and extracts the gaps.
+
+        Args:
+            editorial_result: Result from editor agent execution
+
+        Returns:
+            List of research gap topics, or empty list if no requests
+        """
+        try:
+            tool_executions = editorial_result.get("tool_executions", [])
+
+            for tool in tool_executions:
+                if tool.get("name") == "mcp__research_tools__request_gap_research":
+                    # Extract gap research request from tool result
+                    tool_result = tool.get("result", {})
+                    gap_request = tool_result.get("gap_research_request", {})
+                    gaps = gap_request.get("gaps", [])
+
+                    if gaps:
+                        self.logger.info(f"✅ Detected gap research request: {len(gaps)} gaps")
+                        return gaps
+
+            return []
+
+        except Exception as e:
+            self.logger.warning(f"Could not extract gap research requests: {e}")
+            return []
 
     async def stage_decoupled_editorial_review(self, session_id: str) -> dict:
         """

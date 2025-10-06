@@ -365,3 +365,80 @@ async def get_session_data(args: dict[str, Any]) -> dict[str, Any]:
             "data_types_found": list(result_data.keys())
         }
     }
+
+
+@tool("request_gap_research", "Request orchestrator to execute gap-filling research for identified information gaps", {
+    "gaps": list[str],
+    "session_id": str,
+    "priority": str,
+    "context": str
+})
+async def request_gap_research(args: dict[str, Any]) -> dict[str, Any]:
+    """
+    Request orchestrator to execute gap-filling research.
+
+    This tool creates a structured request that the orchestrator will detect and handle
+    by coordinating the research agent to execute targeted gap-filling searches using
+    the proven successful workflow.
+
+    Args:
+        gaps: List of specific information gaps/topics to research (e.g.,
+              ["Russia Ukraine October 2025 casualties", "frontline changes"])
+        session_id: Current research session ID
+        priority: Priority level - "high", "medium", or "low"
+        context: Additional context about why these gaps need to be filled
+
+    Returns:
+        Structured request that orchestrator will process
+    """
+    gaps = args["gaps"]
+    session_id = args["session_id"]
+    priority = args.get("priority", "medium")
+    context = args.get("context", "Editorial review identified information gaps")
+
+    # Validate inputs
+    if not gaps or len(gaps) == 0:
+        return {
+            "content": [{
+                "type": "text",
+                "text": "⚠️ No research gaps provided. Please specify at least one gap to research."
+            }],
+            "is_error": True
+        }
+
+    if len(gaps) > 3:
+        gaps = gaps[:3]  # Limit to top 3 gaps for focused research
+        if _logger:
+            _logger.info(f"Limited gap research to top 3 gaps (from {len(args['gaps'])} provided)")
+
+    # Create structured request
+    request = {
+        "type": "editorial_gap_research_request",
+        "session_id": session_id,
+        "gaps": gaps,
+        "gap_count": len(gaps),
+        "priority": priority,
+        "context": context,
+        "timestamp": datetime.now().isoformat(),
+        "requested_by": "editor_agent"
+    }
+
+    if _logger:
+        _logger.info(f"Gap research request created: {len(gaps)} gaps for session {session_id[:8]}")
+
+    return {
+        "content": [{
+            "type": "text",
+            "text": f"""✅ Gap research request created successfully.
+
+**Gaps to Research:** {len(gaps)}
+{chr(10).join([f'  {i+1}. {gap}' for i, gap in enumerate(gaps)])}
+
+**Priority:** {priority}
+**Context:** {context}
+
+The orchestrator will execute this research using the proven research workflow and return results for integration into your editorial review."""
+        }],
+        "gap_research_request": request,
+        "success": True
+    }
