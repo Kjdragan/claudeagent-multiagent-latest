@@ -10,7 +10,8 @@
       "Bash(uv run:*)",
       "Bash(find:*)",
       "Bash(timeout:*)",
-      "Bash(env)"
+      "Bash(env)",
+      "Bash(python3 -m ruff check:*)"
     ],
     "deny": [],
     "ask": []

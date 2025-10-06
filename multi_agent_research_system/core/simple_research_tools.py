@@ -147,7 +147,8 @@ async def create_research_report(args: dict[str, Any]) -> dict[str, Any]:
     # Generate filename with sanitized topic
     sanitized_topic = topic.replace(' ', '_').replace('/', '_')[:50]  # Limit length
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    extension = "md" if format_type == "markdown" else "txt"
+    # Always use .md extension for all reports (markdown is the standard format)
+    extension = "md"
 
     # Include report type in filename for clarity with prefixes for better organization
     # Format: PREFIX_reporttype_topic_timestamp.ext

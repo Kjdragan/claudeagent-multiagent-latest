@@ -16,8 +16,17 @@ logger = logging.getLogger(__name__)
 
 class SearchResult:
     """Enhanced search result data structure"""
-    def __init__(self, title: str, link: str, snippet: str, position: int = 0,
-                 date: str = None, source: str = None, relevance_score: float = 0.0):
+
+    def __init__(
+        self,
+        title: str,
+        link: str,
+        snippet: str,
+        position: int = 0,
+        date: str = None,
+        source: str = None,
+        relevance_score: float = 0.0,
+    ):
         self.title = title
         self.link = link
         self.snippet = snippet
@@ -38,7 +47,7 @@ async def execute_serper_search(
     search_type: str = "search",
     num_results: int = 10,
     country: str = "us",
-    language: str = "en"
+    language: str = "en",
 ) -> list[SearchResult]:
     """
     Execute search using Serper API.
@@ -57,7 +66,9 @@ async def execute_serper_search(
         import httpx
 
         # FAIL-FAST: Check for correct API key name - must match orchestrator expectations
-        serper_api_key = os.getenv("SERP_API_KEY")  # Note: SERP_API_KEY, not SERPER_API_KEY
+        serper_api_key = os.getenv(
+            "SERP_API_KEY"
+        )  # Note: SERP_API_KEY, not SERPER_API_KEY
 
         if not serper_api_key:
             # During development, fail hard and fast with clear error message
@@ -70,7 +81,9 @@ async def execute_serper_search(
             # Check if user has the wrong API key name
             if os.getenv("SERPER_API_KEY"):
                 logger.error("🚨 FOUND SERPER_API_KEY but system expects SERP_API_KEY!")
-                logger.error("Please rename your environment variable from SERPER_API_KEY to SERP_API_KEY")
+                logger.error(
+                    "Please rename your environment variable from SERPER_API_KEY to SERP_API_KEY"
+                )
 
             # During development, fail immediately instead of returning empty results
             raise RuntimeError(f"CRITICAL SEARCH CONFIGURATION FAILURE: {error_msg}")
@@ -88,13 +101,10 @@ async def execute_serper_search(
             "q": query,
             "num": min(num_results, 100),  # Serper limit
             "gl": country,
-            "hl": language
+            "hl": language,
         }
 
-        headers = {
-            "X-API-KEY": serper_api_key,
-            "Content-Type": "application/json"
-        }
+        headers = {"X-API-KEY": serper_api_key, "Content-Type": "application/json"}
 
         logger.info(f"Executing {search_type} search for: {query}")
 
@@ -111,8 +121,10 @@ async def execute_serper_search(
                 raw_results = data.get("organic", [])
 
             # Parse query terms for enhanced relevance scoring
-            query_terms = query.lower().replace('or', ' ').replace('and', ' ').split()
-            query_terms = [term.strip() for term in query_terms if len(term.strip()) > 2]
+            query_terms = query.lower().replace("or", " ").replace("and", " ").split()
+            query_terms = [
+                term.strip() for term in query_terms if len(term.strip()) > 2
+            ]
 
             # Convert to SearchResult objects with enhanced relevance scoring
             search_results = []
@@ -127,7 +139,7 @@ async def execute_serper_search(
                     snippet=snippet,
                     position=position,
                     query_terms=query_terms,
-                    url=result.get("link", "")
+                    url=result.get("link", ""),
                 )
 
                 search_result = SearchResult(
@@ -137,11 +149,13 @@ async def execute_serper_search(
                     position=position,
                     date=result.get("date", ""),
                     source=result.get("source", ""),
-                    relevance_score=relevance_score
+                    relevance_score=relevance_score,
                 )
                 search_results.append(search_result)
 
-            logger.info(f"Retrieved {len(search_results)} search results for query: '{query}'")
+            logger.info(
+                f"Retrieved {len(search_results)} search results for query: '{query}'"
+            )
             return search_results
 
         else:
@@ -154,7 +168,9 @@ async def execute_serper_search(
 
         # Check if this is a critical configuration error that should fail fast
         if "CRITICAL" in str(e) or "API_KEY" in str(e) or "Configuration" in str(e):
-            logger.error("FAIL-FAST: Critical configuration error detected - re-raising to expose configuration issues!")
+            logger.error(
+                "FAIL-FAST: Critical configuration error detected - re-raising to expose configuration issues!"
+            )
             raise  # Re-raise the critical error instead of returning empty results
 
         # For other errors, return empty list for now
@@ -163,9 +179,7 @@ async def execute_serper_search(
 
 
 def select_urls_for_crawling(
-    search_results: list[SearchResult],
-    limit: int = 10,
-    min_relevance: float = 0.4
+    search_results: list[SearchResult], limit: int = 10, min_relevance: float = 0.4
 ) -> list[str]:
     """
     Select URLs for crawling based on relevance scores.
@@ -181,7 +195,8 @@ def select_urls_for_crawling(
     try:
         # Filter by relevance threshold (ensure type safety)
         filtered_results = [
-            result for result in search_results
+            result
+            for result in search_results
             if float(result.relevance_score) >= float(min_relevance) and result.link
         ]
 
@@ -196,7 +211,9 @@ def select_urls_for_crawling(
         logger.info(f"  - Total results: {len(search_results)}")
         logger.info(f"  - Above threshold: {len(filtered_results)}")
         logger.info(f"  - Selected for crawling: {len(urls)}")
-        logger.info(f"  - Rejected: {len(search_results) - len(filtered_results)} below threshold")
+        logger.info(
+            f"  - Rejected: {len(search_results) - len(filtered_results)} below threshold"
+        )
         return urls
 
     except Exception as e:
@@ -217,24 +234,23 @@ def format_search_results(search_results: list[SearchResult]) -> str:
     if not search_results:
         return "No search results found."
 
-    result_parts = [
-        f"# Search Results ({len(search_results)} found)",
-        ""
-    ]
+    result_parts = [f"# Search Results ({len(search_results)} found)", ""]
 
     for i, result in enumerate(search_results, 1):
-        result_parts.extend([
-            f"## {i}. {result.title}",
-            f"**URL**: {result.link}",
-            f"**Source**: {result.source}" if result.source else "",
-            f"**Date**: {result.date}" if result.date else "",
-            f"**Relevance Score**: {result.relevance_score:.2f}",
-            "",
-            result.snippet,
-            "",
-            "---",
-            ""
-        ])
+        result_parts.extend(
+            [
+                f"## {i}. {result.title}",
+                f"**URL**: {result.link}",
+                f"**Source**: {result.source}" if result.source else "",
+                f"**Date**: {result.date}" if result.date else "",
+                f"**Relevance Score**: {result.relevance_score:.2f}",
+                "",
+                result.snippet,
+                "",
+                "---",
+                "",
+            ]
+        )
 
     return "\n".join(result_parts)
 
@@ -245,7 +261,8 @@ def save_work_product(
     urls: list[str],
     query: str,
     session_id: str = "default",
-    workproduct_dir: str = None
+    workproduct_dir: str = None,
+    workproduct_prefix: str = "",
 ) -> str:
     """
     Save detailed search and crawl results to work product file.
@@ -257,6 +274,7 @@ def save_work_product(
         query: Original search query
         session_id: Session identifier
         workproduct_dir: Directory to save work products
+        workproduct_prefix: Prefix for workproduct naming (e.g., "editor research")
 
     Returns:
         Path to saved work product file
@@ -265,20 +283,36 @@ def save_work_product(
         # Determine correct session directory structure
         if workproduct_dir is None:
             # Default to KEVIN sessions directory with proper categorical organization
-            base_sessions_dir = "/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/sessions"
+            base_sessions_dir = (
+                "/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/sessions"
+            )
             session_dir = os.path.join(base_sessions_dir, session_id)
             research_dir = os.path.join(session_dir, "research")
             Path(research_dir).mkdir(parents=True, exist_ok=True)
 
-            # Generate timestamp and filename with numbered prefix
+            # Generate timestamp and filename with proper prefix based on workproduct type
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"1-search_workproduct_{timestamp}.md"
+
+            if workproduct_prefix == "editor research":
+                # Editorial search workproduct
+                filename = f"editor-search-workproduct_{timestamp}.md"
+            else:
+                # Regular research workproduct
+                filename = f"search_workproduct_{timestamp}.md"
+
             filepath = os.path.join(research_dir, filename)
         else:
-            # Custom workproduct directory (legacy support)
+            # Custom workproduct directory (updated to use standard naming)
             Path(workproduct_dir).mkdir(parents=True, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"enhanced-search-crawl-workproduct_{timestamp}.md"
+
+            if workproduct_prefix == "editor research":
+                # Editorial search workproduct
+                filename = f"editor-search-workproduct_{timestamp}.md"
+            else:
+                # Regular research workproduct
+                filename = f"search_workproduct_{timestamp}.md"
+
             filepath = os.path.join(workproduct_dir, filename)
 
         # Build work product content
@@ -300,24 +334,24 @@ def save_work_product(
 
         # Add search results overview
         for i, result in enumerate(search_results, 1):
-            workproduct_content.extend([
-                f"### {i}. {result.title}",
-                f"**URL**: {result.link}",
-                f"**Source**: {result.source}" if result.source else "",
-                f"**Date**: {result.date}" if result.date else "",
-                f"**Relevance Score**: {result.relevance_score:.2f}",
-                "",
-                f"**Snippet**: {result.snippet}",
-                "",
-                "---",
-                ""
-            ])
+            workproduct_content.extend(
+                [
+                    f"### {i}. {result.title}",
+                    f"**URL**: {result.link}",
+                    f"**Source**: {result.source}" if result.source else "",
+                    f"**Date**: {result.date}" if result.date else "",
+                    f"**Relevance Score**: {result.relevance_score:.2f}",
+                    "",
+                    f"**Snippet**: {result.snippet}",
+                    "",
+                    "---",
+                    "",
+                ]
+            )
 
-        workproduct_content.extend([
-            "",
-            "## 📄 Detailed Crawled Content (AI Cleaned)",
-            ""
-        ])
+        workproduct_content.extend(
+            ["", "## 📄 Detailed Crawled Content (AI Cleaned)", ""]
+        )
 
         # Add detailed crawled content
         for i, (content, url) in enumerate(zip(crawled_content, urls, strict=False), 1):
@@ -328,42 +362,46 @@ def save_work_product(
                     title = result.title
                     break
 
-            workproduct_content.extend([
-                f"## 🌐 {i}. {title}",
-                "",
-                f"**URL**: {url}",
-                f"**Extraction Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-                f"**Content Length**: {len(content)} characters",
-                "**Processing**: ✅ Cleaned with GPT-5-nano",
-                "",
-                "### 📄 Full Cleaned Content",
-                "",
-                "---",
-                "",
-                content,
-                "",
-                "---",
-                ""
-            ])
+            workproduct_content.extend(
+                [
+                    f"## 🌐 {i}. {title}",
+                    "",
+                    f"**URL**: {url}",
+                    f"**Extraction Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                    f"**Content Length**: {len(content)} characters",
+                    "**Processing**: ✅ Cleaned with GPT-5-nano",
+                    "",
+                    "### 📄 Full Cleaned Content",
+                    "",
+                    "---",
+                    "",
+                    content,
+                    "",
+                    "---",
+                    "",
+                ]
+            )
 
         # Add footer
-        workproduct_content.extend([
-            "",
-            "## 📊 Processing Summary",
-            "",
-            f"- **Search Query**: {query}",
-            f"- **Search Results Found**: {len(search_results)}",
-            f"- **URLs Successfully Crawled**: {len(crawled_content)}",
-            "- **Content Cleaning**: GPT-5-nano AI processing",
-            "- **Total Processing Time**: Combined search+crawl+clean in single operation",
-            "- **Performance**: Parallel processing with anti-bot detection",
-            "",
-            "*Generated by Enhanced Search+Crawl+Clean Tool - Powered by zPlayground1 technology*"
-        ])
+        workproduct_content.extend(
+            [
+                "",
+                "## 📊 Processing Summary",
+                "",
+                f"- **Search Query**: {query}",
+                f"- **Search Results Found**: {len(search_results)}",
+                f"- **URLs Successfully Crawled**: {len(crawled_content)}",
+                "- **Content Cleaning**: GPT-5-nano AI processing",
+                "- **Total Processing Time**: Combined search+crawl+clean in single operation",
+                "- **Performance**: Parallel processing with anti-bot detection",
+                "",
+                "*Generated by Enhanced Search+Crawl+Clean Tool - Powered by zPlayground1 technology*",
+            ]
+        )
 
         # Write to file
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(workproduct_content))
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write("\n".join(workproduct_content))
 
         logger.info(f"✅ Work product saved to: {filepath}")
         return filepath
@@ -382,7 +420,8 @@ async def search_crawl_and_clean_direct(
     max_concurrent: int = 15,
     session_id: str = "default",
     anti_bot_level: int = 1,
-    workproduct_dir: str = None
+    workproduct_dir: str = None,
+    workproduct_prefix: str = "",
 ) -> str:
     """
     Combined search, crawl, and clean operation using zPlayground1 technology.
@@ -403,21 +442,27 @@ async def search_crawl_and_clean_direct(
         session_id: Session identifier
         anti_bot_level: Progressive anti-bot level (0-3)
         workproduct_dir: Directory for work products
+        workproduct_prefix: Prefix for workproduct naming (e.g., "editor research")
 
     Returns:
         Full detailed content for orchestrator agent processing
     """
     try:
         start_time = datetime.now()
-        logger.info(f"Starting enhanced search+crawl+clean for query: '{query}' (anti_bot_level: {anti_bot_level})")
+        logger.info(
+            f"Starting enhanced search+crawl+clean for query: '{query}' (anti_bot_level: {anti_bot_level})"
+        )
 
         # Step 1: Intelligent search strategy selection
         from utils.search_strategy_selector import get_search_strategy_selector
+
         strategy_selector = get_search_strategy_selector()
 
         strategy_analysis = strategy_selector.select_search_strategy(query)
-        logger.info(f"Search strategy analysis: {strategy_analysis.recommended_strategy.value} "
-                   f"(confidence: {strategy_analysis.confidence:.2f})")
+        logger.info(
+            f"Search strategy analysis: {strategy_analysis.recommended_strategy.value} "
+            f"(confidence: {strategy_analysis.confidence:.2f})"
+        )
 
         # Determine optimal search type based on strategy
         if strategy_analysis.recommended_strategy.value == "news":
@@ -433,9 +478,7 @@ async def search_crawl_and_clean_direct(
 
         # Step 2: Execute search with optimal strategy (1-2 seconds)
         search_results = await execute_serper_search(
-            query=query,
-            search_type=optimal_search_type,
-            num_results=num_results
+            query=query, search_type=optimal_search_type, num_results=num_results
         )
 
         if not search_results:
@@ -445,7 +488,7 @@ async def search_crawl_and_clean_direct(
         urls_to_crawl = select_urls_for_crawling(
             search_results=search_results,
             limit=auto_crawl_top,
-            min_relevance=crawl_threshold
+            min_relevance=crawl_threshold,
         )
 
         if not urls_to_crawl:
@@ -454,7 +497,9 @@ async def search_crawl_and_clean_direct(
             return f"{search_section}\n\n**Note**: No URLs met the crawling threshold ({crawl_threshold}). Standard search results provided above."
 
         # Step 3: Execute parallel crawling with progressive anti-bot escalation
-        logger.info(f"Crawling {len(urls_to_crawl)} URLs with anti-bot escalation (level: {anti_bot_level})")
+        logger.info(
+            f"Crawling {len(urls_to_crawl)} URLs with anti-bot escalation (level: {anti_bot_level})"
+        )
 
         # Import anti-bot escalation system
         from utils.anti_bot_escalation import get_escalation_manager
@@ -466,7 +511,7 @@ async def search_crawl_and_clean_direct(
             max_level=3,
             max_concurrent=max_concurrent,
             use_content_filter=False,
-            session_id=session_id
+            session_id=session_id,
         )
 
         end_time = datetime.now()
@@ -490,28 +535,35 @@ async def search_crawl_and_clean_direct(
                 if result.escalation_used:
                     escalation_info += f" (escalated from {result.final_level - result.attempts_made + 1})"
 
-                logger.info(f"✅ Anti-bot escalation success: {len(content)} chars from {result.url} "
-                           f"[{escalation_info}, {result.attempts_made} attempts, {result.duration:.1f}s]")
+                logger.info(
+                    f"✅ Anti-bot escalation success: {len(content)} chars from {result.url} "
+                    f"[{escalation_info}, {result.attempts_made} attempts, {result.duration:.1f}s]"
+                )
             else:
-                logger.error(f"❌ Anti-bot escalation FAILED: {result.url} "
-                           f"[L{result.final_level}, {result.attempts_made} attempts] - {result.error}")
+                logger.error(
+                    f"❌ Anti-bot escalation FAILED: {result.url} "
+                    f"[L{result.final_level}, {result.attempts_made} attempts] - {result.error}"
+                )
 
             # Track escalation statistics
-            escalation_stats.append({
-                'url': result.url,
-                'success': result.success,
-                'attempts': result.attempts_made,
-                'final_level': result.final_level,
-                'escalation_used': result.escalation_used,
-                'duration': result.duration,
-                'word_count': result.word_count,
-                'char_count': result.char_count
-            })
+            escalation_stats.append(
+                {
+                    "url": result.url,
+                    "success": result.success,
+                    "attempts": result.attempts_made,
+                    "final_level": result.final_level,
+                    "escalation_used": result.escalation_used,
+                    "duration": result.duration,
+                    "word_count": result.word_count,
+                    "char_count": result.char_count,
+                }
+            )
 
         if crawled_content_list:
-
             # Step 5: Apply AI content cleaning with GPT-5-nano
-            logger.info(f"Applying AI content cleaning to {len(crawled_content_list)} crawled articles")
+            logger.info(
+                f"Applying AI content cleaning to {len(crawled_content_list)} crawled articles"
+            )
 
             from agents.content_cleaner_agent import (
                 ContentCleaningContext,
@@ -523,8 +575,11 @@ async def search_crawl_and_clean_direct(
 
             # Prepare content for cleaning
             cleaning_contexts = []
-            for content, url in zip(crawled_content_list, successful_urls, strict=False):
+            for content, url in zip(
+                crawled_content_list, successful_urls, strict=False
+            ):
                 from urllib.parse import urlparse
+
                 domain = urlparse(url).netloc.lower()
 
                 context = ContentCleaningContext(
@@ -534,14 +589,13 @@ async def search_crawl_and_clean_direct(
                     source_domain=domain,
                     session_id=session_id,
                     min_quality_threshold=50,
-                    max_content_length=50000
+                    max_content_length=50000,
                 )
                 cleaning_contexts.append((content, context))
 
             # Clean content concurrently
             cleaning_results = await content_cleaner.clean_multiple_contents(
-                cleaning_contexts,
-                max_concurrent=min(5, len(crawled_content_list))
+                cleaning_contexts, max_concurrent=min(5, len(crawled_content_list))
             )
 
             # Filter and replace with cleaned content
@@ -549,29 +603,39 @@ async def search_crawl_and_clean_direct(
             cleaned_urls = []
             cleaning_stats = []
 
-            for i, (cleaned_result, (original_content, context)) in enumerate(zip(cleaning_results, cleaning_contexts, strict=False)):
+            for i, (cleaned_result, (original_content, context)) in enumerate(
+                zip(cleaning_results, cleaning_contexts, strict=False)
+            ):
                 # Accept all content regardless of quality score - user wants results, not perfection
-                if cleaned_result.quality_score >= 0:  # Quality threshold (accept everything)
+                if (
+                    cleaned_result.quality_score >= 0
+                ):  # Quality threshold (accept everything)
                     cleaned_content_list.append(cleaned_result.cleaned_content)
                     cleaned_urls.append(context.url)
 
-                    cleaning_stats.append({
-                        'url': context.url,
-                        'quality_score': cleaned_result.quality_score,
-                        'quality_level': cleaned_result.quality_level.value,
-                        'relevance_score': cleaned_result.relevance_score,
-                        'word_count': cleaned_result.word_count,
-                        'char_count': cleaned_result.char_count,
-                        'key_points_count': len(cleaned_result.key_points),
-                        'topics_detected': cleaned_result.topics_detected,
-                        'model_used': cleaned_result.model_used,
-                        'processing_time': cleaned_result.processing_time
-                    })
+                    cleaning_stats.append(
+                        {
+                            "url": context.url,
+                            "quality_score": cleaned_result.quality_score,
+                            "quality_level": cleaned_result.quality_level.value,
+                            "relevance_score": cleaned_result.relevance_score,
+                            "word_count": cleaned_result.word_count,
+                            "char_count": cleaned_result.char_count,
+                            "key_points_count": len(cleaned_result.key_points),
+                            "topics_detected": cleaned_result.topics_detected,
+                            "model_used": cleaned_result.model_used,
+                            "processing_time": cleaned_result.processing_time,
+                        }
+                    )
 
-                    logger.info(f"✅ AI content cleaning: {cleaned_result.quality_score}/100 "
-                               f"({cleaned_result.quality_level.value}) - {context.url}")
+                    logger.info(
+                        f"✅ AI content cleaning: {cleaned_result.quality_score}/100 "
+                        f"({cleaned_result.quality_level.value}) - {context.url}"
+                    )
                 else:
-                    logger.warning(f"⚠️ Content below quality threshold ({cleaned_result.quality_score}/100) - {context.url}")
+                    logger.warning(
+                        f"⚠️ Content below quality threshold ({cleaned_result.quality_score}/100) - {context.url}"
+                    )
 
             # Update successful URLs and content based on cleaning results
             successful_urls = cleaned_urls
@@ -588,7 +652,8 @@ async def search_crawl_and_clean_direct(
                 urls=successful_urls,
                 query=query,
                 session_id=session_id,
-                workproduct_dir=workproduct_dir
+                workproduct_dir=workproduct_dir,
+                workproduct_prefix=workproduct_prefix,
             )
 
             # Step 7: Standardize research data for report generation integration
@@ -601,19 +666,27 @@ async def search_crawl_and_clean_direct(
 
                 # Determine session directory from workproduct directory
                 if workproduct_dir and os.path.exists(workproduct_dir):
-                    session_dir = os.path.dirname(workproduct_dir)  # Go up one level to session dir
+                    session_dir = os.path.dirname(
+                        workproduct_dir
+                    )  # Go up one level to session dir
                     standardized_path = standardize_and_save_research_data(
                         session_id=session_id,
                         research_topic=query,
                         workproduct_dir=workproduct_dir,
-                        session_dir=session_dir
+                        session_dir=session_dir,
                     )
                     if standardized_path:
-                        logger.info(f"✅ Research data standardized for report generation: {standardized_path}")
+                        logger.info(
+                            f"✅ Research data standardized for report generation: {standardized_path}"
+                        )
                     else:
-                        logger.warning("⚠️ Research data standardization failed, but research completed successfully")
+                        logger.warning(
+                            "⚠️ Research data standardization failed, but research completed successfully"
+                        )
                 else:
-                    logger.warning(f"⚠️ Cannot standardize research data - workproduct directory not found: {workproduct_dir}")
+                    logger.warning(
+                        f"⚠️ Cannot standardize research data - workproduct directory not found: {workproduct_dir}"
+                    )
             except Exception as e:
                 logger.error(f"⚠️ Research data standardization error: {e}")
 
@@ -621,9 +694,16 @@ async def search_crawl_and_clean_direct(
             # Include EVERYTHING for the orchestrator to analyze
 
             # Calculate escalation statistics
-            successful_crawls = sum(1 for stat in escalation_stats if stat['success'])
-            escalations_triggered = sum(1 for stat in escalation_stats if stat['escalation_used'])
-            avg_attempts = sum(stat['attempts'] for stat in escalation_stats) / len(escalation_stats) if escalation_stats else 0
+            successful_crawls = sum(1 for stat in escalation_stats if stat["success"])
+            escalations_triggered = sum(
+                1 for stat in escalation_stats if stat["escalation_used"]
+            )
+            avg_attempts = (
+                sum(stat["attempts"] for stat in escalation_stats)
+                / len(escalation_stats)
+                if escalation_stats
+                else 0
+            )
 
             orchestrator_data = f"""# ENHANCED SEARCH+CRAWL+CLEAN COMPLETE DATA
 
@@ -632,7 +712,7 @@ async def search_crawl_and_clean_direct(
 **Search Results**: {len(search_results)} found
 **URLs Crawled**: {len(successful_urls)} successfully processed
 **Anti-Bot Escalation**: Level {anti_bot_level} initial, up to level 3
-**Crawl Success Rate**: {successful_crawls}/{len(escalation_stats)} ({successful_crawls/len(escalation_stats):.1%})
+**Crawl Success Rate**: {successful_crawls}/{len(escalation_stats)} ({successful_crawls / len(escalation_stats):.1%})
 **Escalations Triggered**: {escalations_triggered}
 **Avg Attempts per URL**: {avg_attempts:.1f}
 **Processing Time**: {total_duration:.2f}s
@@ -662,8 +742,8 @@ async def search_crawl_and_clean_direct(
 """
 
             for stat in escalation_stats:
-                escalation_mark = "✅" if stat['escalation_used'] else "—"
-                success_mark = "✅" if stat['success'] else "❌"
+                escalation_mark = "✅" if stat["escalation_used"] else "—"
+                success_mark = "✅" if stat["success"] else "❌"
                 orchestrator_data += f"| {stat['url'][:50]}... | {success_mark} | {stat['attempts']} | L{stat['final_level']} | {escalation_mark} | {stat['duration']:.1f} | {stat['word_count']} | {stat['char_count']} |\n"
 
             orchestrator_data += """
@@ -692,18 +772,26 @@ async def search_crawl_and_clean_direct(
 
 **Total Articles Processed**: {len(cleaning_stats)}
 **Quality Threshold**: 50/100
-**Content Cleaning Model**: {cleaning_stats[0]['model_used'] if cleaning_stats else 'N/A'}
+**Content Cleaning Model**: {cleaning_stats[0]["model_used"] if cleaning_stats else "N/A"}
 
 | URL | Quality Score | Quality Level | Relevance | Words | Topics | Time (s) |
 |-----|---------------|---------------|-----------|-------|---------|-----------|
 """
 
             for stat in cleaning_stats:
-                quality_emoji = "🟢" if stat['quality_score'] >= 80 else "🟡" if stat['quality_score'] >= 60 else "🔴"
-                orchestrator_data += (f"| {stat['url'][:50]}... | {quality_emoji} {stat['quality_score']}/100 "
-                                     f"({stat['quality_level']}) | {stat['relevance_score']:.2f} | "
-                                     f"{stat['word_count']} | {len(stat['topics_detected'])} | "
-                                     f"{stat['processing_time']:.1f} |\n")
+                quality_emoji = (
+                    "🟢"
+                    if stat["quality_score"] >= 80
+                    else "🟡"
+                    if stat["quality_score"] >= 60
+                    else "🔴"
+                )
+                orchestrator_data += (
+                    f"| {stat['url'][:50]}... | {quality_emoji} {stat['quality_score']}/100 "
+                    f"({stat['quality_level']}) | {stat['relevance_score']:.2f} | "
+                    f"{stat['word_count']} | {len(stat['topics_detected'])} | "
+                    f"{stat['processing_time']:.1f} |\n"
+                )
 
             orchestrator_data += f"""
 
@@ -714,7 +802,9 @@ Total articles successfully crawled and AI-cleaned: {len(crawled_content_list)}
 """
 
             # Add all crawled content with full details
-            for i, (content, url) in enumerate(zip(crawled_content_list, successful_urls, strict=False), 1):
+            for i, (content, url) in enumerate(
+                zip(crawled_content_list, successful_urls, strict=False), 1
+            ):
                 # Find corresponding search result for metadata
                 title = f"Article {i}"
                 source = "Unknown"
@@ -753,7 +843,9 @@ Total articles successfully crawled and AI-cleaned: {len(crawled_content_list)}
 This is the complete raw data for orchestrator analysis and user response generation.
 """
 
-            logger.info(f"✅ Enhanced search+crawl+clean completed in {total_duration:.2f}s - Work product saved to {work_product_path}")
+            logger.info(
+                f"✅ Enhanced search+crawl+clean completed in {total_duration:.2f}s - Work product saved to {work_product_path}"
+            )
             return orchestrator_data
 
         else:
@@ -767,7 +859,8 @@ This is the complete raw data for orchestrator analysis and user response genera
                 urls=[],
                 query=query,
                 session_id=session_id,
-                workproduct_dir=workproduct_dir
+                workproduct_dir=workproduct_dir,
+                workproduct_prefix=workproduct_prefix,
             )
 
             failed_result = f"""{search_section}
@@ -780,7 +873,9 @@ This is the complete raw data for orchestrator analysis and user response genera
 **Work Product Saved**: {work_product_path}
 """
 
-            logger.warning(f"Crawling failed, returning search results only. Duration: {total_duration:.2f}s")
+            logger.warning(
+                f"Crawling failed, returning search results only. Duration: {total_duration:.2f}s"
+            )
             return failed_result
 
     except Exception as e:
@@ -794,7 +889,8 @@ async def news_search_and_crawl_direct(
     auto_crawl_top: int = 10,
     session_id: str = "default",
     anti_bot_level: int = 1,
-    workproduct_dir: str = None
+    workproduct_dir: str = None,
+    workproduct_prefix: str = "",
 ) -> str:
     """
     Specialized news search with content extraction using enhanced technology.
@@ -806,6 +902,7 @@ async def news_search_and_crawl_direct(
         session_id: Session identifier
         anti_bot_level: Progressive anti-bot level
         workproduct_dir: Directory for work products
+        workproduct_prefix: Prefix for workproduct naming (e.g., "editor research")
 
     Returns:
         Full detailed news content for orchestrator agent processing
@@ -822,15 +919,16 @@ async def news_search_and_crawl_direct(
         max_concurrent=15,  # Increased concurrency for more URLs
         session_id=session_id,
         anti_bot_level=anti_bot_level,
-        workproduct_dir=workproduct_dir
+        workproduct_dir=workproduct_dir,
+        workproduct_prefix=workproduct_prefix,
     )
 
 
 # Export commonly used functions
 __all__ = [
-    'search_crawl_and_clean_direct',
-    'news_search_and_crawl_direct',
-    'save_work_product',
-    'select_urls_for_crawling',
-    'SearchResult'
+    "search_crawl_and_clean_direct",
+    "news_search_and_crawl_direct",
+    "save_work_product",
+    "select_urls_for_crawling",
+    "SearchResult",
 ]

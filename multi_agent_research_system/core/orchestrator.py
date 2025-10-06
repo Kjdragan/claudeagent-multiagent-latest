@@ -1193,7 +1193,7 @@ class ResearchOrchestrator:
                         query_result["substantive_responses"] += 1
 
                 # Extract tool use information from AssistantMessage content blocks
-                tool_executions = self._extract_tool_executions_from_message(message, agent_name)
+                tool_executions = self._extract_tool_executions_from_message(message, agent_name, session_id)
                 if tool_executions:
                     message_info["tool_use"] = tool_executions[0]  # Primary tool for this message
                     query_result["tool_executions"].extend(tool_executions)
@@ -1383,12 +1383,13 @@ class ResearchOrchestrator:
 
         return validation_result
 
-    def _extract_tool_executions_from_message(self, message, agent_name: str) -> list:
+    def _extract_tool_executions_from_message(self, message, agent_name: str, session_id: str = None) -> list:
         """Extract tool executions with comprehensive error handling.
 
         Args:
             message: The message object to extract tool executions from
             agent_name: Name of the agent for logging
+            session_id: Optional session ID for tracking editorial search statistics
 
         Returns:
             List of tool execution dictionaries
@@ -1405,6 +1406,13 @@ class ResearchOrchestrator:
                             "input": block.input,
                             "timestamp": datetime.now().isoformat()
                         }
+
+                        # Check if this is an editorial search and update statistics
+                        if session_id and "search" in block.name.lower():
+                            workproduct_prefix = block.input.get("workproduct_prefix", "")
+                            if workproduct_prefix == "editor research":
+                                self._update_editorial_search_stats(session_id, block.name, block.input)
+
                         tool_executions.append(tool_info)
                         self.logger.info(f"{agent_name} executed tool: {block.name}")
 
@@ -1412,6 +1420,140 @@ class ResearchOrchestrator:
             self.logger.warning(f"Error extracting tools from {agent_name} message: {e}")
 
         return tool_executions
+
+    def _update_editorial_search_stats(self, session_id: str, tool_name: str, tool_input: dict[str, Any], tool_result: dict[str, Any] = None):
+        """Update editorial search statistics when an editorial search tool is executed.
+
+        Args:
+            session_id: The session ID
+            tool_name: Name of the search tool being executed
+            tool_input: Input parameters to the search tool
+            tool_result: Optional result from the tool execution containing scrape counts
+        """
+        try:
+            # Get session data
+            if session_id not in self.sessions:
+                self.logger.warning(f"Session {session_id} not found for editorial search stats update")
+                return
+
+            session_data = self.sessions[session_id]
+
+            # Initialize editorial search stats if not present
+            if "editorial_search_stats" not in session_data:
+                session_data["editorial_search_stats"] = {
+                    "search_attempts": 0,
+                    "successful_scrapes": 0,
+                    "urls_attempted": 0,
+                    "search_limit_reached": False
+                }
+
+            stats = session_data["editorial_search_stats"]
+
+            # Update search attempts
+            stats["search_attempts"] += 1
+
+            # Estimate URLs attempted (this is a rough estimate based on typical search behavior)
+            urls_count = tool_input.get("max_results", 10)  # Default to 10 if not specified
+            stats["urls_attempted"] += urls_count
+
+            # Extract successful scrapes from tool result if available
+            successful_scrapes = 0
+            if tool_result:
+                successful_scrapes = self._extract_successful_scrapes_from_result(tool_result)
+
+            stats["successful_scrapes"] += successful_scrapes
+
+            self.logger.info(f"Updated editorial search stats for session {session_id}: "
+                           f"+1 search attempt, +{urls_count} URLs attempted, +{successful_scrapes} successful scrapes. "
+                           f"Total: {stats['search_attempts']} attempts, {stats['urls_attempted']} URLs, {stats['successful_scrapes']} scrapes")
+
+        except Exception as e:
+            self.logger.error(f"Error updating editorial search stats: {e}")
+
+    def _extract_successful_scrapes_from_result(self, tool_result: dict[str, Any]) -> int:
+        """Extract successful scrape count from tool result.
+
+        Args:
+            tool_result: Result from tool execution
+
+        Returns:
+            Number of successful scrapes
+        """
+        try:
+            # Method 1: Check metadata from tool result
+            if isinstance(tool_result, dict):
+                # Direct metadata check
+                metadata = tool_result.get("metadata", {})
+                if "successful_scrapes" in metadata:
+                    return metadata["successful_scrapes"]
+
+                # Check if result contains content with scrape information
+                content = tool_result.get("content", [])
+                if isinstance(content, list):
+                    # Count non-empty content items as successful scrapes
+                    return len([item for item in content if item and isinstance(item, dict) and item.get("content", "").strip()])
+
+                # Check for text content that indicates successful scraping
+                text_content = tool_result.get("content", "")
+                if isinstance(text_content, str) and text_content.strip():
+                    # Look for patterns indicating successful content extraction
+                    import re
+                    # Look for "found X results" or similar patterns
+                    match = re.search(r'found\s+(\d+)\s+(?:results|sources|items)', text_content.lower())
+                    if match:
+                        return int(match.group(1))
+
+                    # If there's substantial content, count it as at least 1 successful scrape
+                    if len(text_content.strip()) > 100:
+                        return 1
+
+            return 0
+
+        except Exception as e:
+            self.logger.warning(f"Error extracting successful scrapes from tool result: {e}")
+            return 0
+
+    async def _update_editorial_successful_scrapes(self, session_id: str, review_result: dict[str, Any]):
+        """Update editorial successful scrapes count based on actual search results found.
+
+        Args:
+            session_id: The session ID
+            review_result: Results from editorial review containing search tool executions
+        """
+        try:
+            # Get session data
+            if session_id not in self.sessions:
+                return
+
+            session_data = self.sessions[session_id]
+            if "editorial_search_stats" not in session_data:
+                return
+
+            # Count successful scrapes from editorial search tool executions
+            tool_executions = review_result.get("tool_executions", [])
+            successful_scrapes = 0
+
+            for tool_exec in tool_executions:
+                if "search" in tool_exec.get("name", "").lower():
+                    # Look for workproduct files created by editorial searches
+                    workproduct_prefix = tool_exec.get("input", {}).get("workproduct_prefix", "")
+                    if workproduct_prefix == "editor research":
+                        # Count this as at least 1 successful scrape if the tool was executed
+                        successful_scrapes += 1
+
+                        # Try to extract more accurate scrape count from tool metadata
+                        metadata = tool_exec.get("metadata", {})
+                        if "successful_scrapes" in metadata:
+                            # Use the actual count if available
+                            successful_scrapes += metadata["successful_scrapes"] - 1  # Subtract 1 since we already added 1
+
+            # Update the session's editorial search stats
+            session_data["editorial_search_stats"]["successful_scrapes"] = successful_scrapes
+
+            self.logger.info(f"Updated editorial successful scrapes for session {session_id}: {successful_scrapes} successful scrapes found")
+
+        except Exception as e:
+            self.logger.error(f"Error updating editorial successful scrapes: {e}")
 
     def _extract_scrape_count(self, research_result: dict[str, Any]) -> int:
         """Extract actual scrape count from research results.
@@ -2655,7 +2797,7 @@ class ResearchOrchestrator:
                             self.logger.debug(f"{agent_name} content: {content_texts[0][:100]}...")
 
                     # Extract tool use information from AssistantMessage content blocks
-                    tool_executions = self._extract_tool_executions_from_message(message, agent_name)
+                    tool_executions = self._extract_tool_executions_from_message(message, agent_name, session_id)
                     if tool_executions:
                         message_info["tool_use"] = tool_executions[0]  # Primary tool for this message
                         query_result["tool_executions"].extend(tool_executions)
@@ -2752,11 +2894,17 @@ class ResearchOrchestrator:
                 3. REQUIRED PARAMETERS (use these exact values):
                    - query: "{clean_topic}" (the research topic)
                    - search_mode: "news" (MUST be either "web" or "news" - use "news" for current events)
-                   - anti_bot_level: 2 (MUST be integer 0-3, where 0=basic, 1=enhanced, 2=advanced, 3=stealth)
-                   - num_results: 15
-                   - auto_crawl_top: {min(10, remaining_budget)}
+                   - anti_bot_level: 2 (CRITICAL: MUST be pure INTEGER 2, NOT string "2". Type: int, Value: 2)
+                   - num_results: 15 (MUST be integer)
+                   - auto_crawl_top: {min(10, remaining_budget)} (MUST be integer)
                    - crawl_threshold: 0.3 (MUST be float between 0.0-1.0, relevance score threshold for crawling)
-                   - session_id: "{session_id}"
+                   - session_id: "{session_id}" (string)
+
+                ANTI_BOT_LEVEL PARAMETER CRITICAL NOTES:
+                - anti_bot_level MUST be a pure integer type (2), not a string ("2")
+                - Valid integer values: 0, 1, 2, 3
+                - 0=basic, 1=enhanced, 2=advanced, 3=stealth
+                - This parameter is strictly validated and will cause immediate failure if not integer
                 4. Use mcp__research_tools__save_research_findings to save your findings
                 5. Use mcp__research_tools__capture_search_results to structure results
 
@@ -3086,6 +3234,10 @@ class ResearchOrchestrator:
                 successful_scrapes=search_stats.get("successful_scrapes", 0),
                 search_queries=search_stats.get("search_attempts", 0)
             )
+
+        # Extract and update successful scrapes from editorial search results
+        if search_stats.get("search_attempts", 0) > 0:
+            await self._update_editorial_successful_scrapes(session_id, review_result)
 
         # Log editorial search statistics
         self.logger.info(f"📊 Editorial search stats: {search_stats.get('search_attempts', 0)} attempts, {search_stats.get('successful_scrapes', 0)} successful scrapes")
@@ -3417,10 +3569,13 @@ This session had limited research output available. The editorial agent has proc
 
         await self.save_session_state(session_id)
 
-        # Create final report copy in centralized location
+        # Create final report copy in centralized location and save to /final/ directory
         final_report = self.get_final_report(session_id)
         if "error" not in final_report:
             self.logger.info(f"✅ Final report available at: {final_report['report_file']}")
+
+            # Save final report to the /final/ directory with proper organization
+            await self._save_final_report_to_final_directory(session_id, final_report)
             self.logger.info(f"   Report location: {final_report['location']}")
             self.logger.info(f"   Report length: {final_report['report_length']} characters")
         else:
@@ -3555,6 +3710,107 @@ This session had limited research output available. The editorial agent has proc
                     self.logger.error(f"Error reading session report: {e}")
 
         return {"error": "No report found"}
+
+    async def _save_final_report_to_final_directory(self, session_id: str, final_report: dict[str, Any]):
+        """Save the final report to the /final/ directory with proper organization.
+
+        Args:
+            session_id: The session ID
+            final_report: Final report data from get_final_report
+        """
+        try:
+            import os
+            import shutil
+            from datetime import datetime
+
+            # Get session data for format configuration
+            session_data = self.active_sessions.get(session_id, {})
+            format_config = session_data.get("format_config", {})
+
+            # Create session directories
+            session_dir = f"KEVIN/sessions/{session_id}"
+            working_dir = os.path.join(session_dir, "working")
+            final_dir = os.path.join(session_dir, "final")
+
+            os.makedirs(final_dir, exist_ok=True)
+
+            # Get the current final report file
+            current_report_path = final_report.get("report_file")
+            if not current_report_path or not os.path.exists(current_report_path):
+                self.logger.warning(f"Final report file not found: {current_report_path}")
+                return
+
+            # Read the current report content
+            with open(current_report_path, 'r', encoding='utf-8') as f:
+                report_content = f.read()
+
+            # Create report data structure for the report agent
+            report_data = {
+                "report_data": {
+                    "title": session_data.get("topic", "Research Report"),
+                    "content": report_content,
+                    "generated_at": datetime.now().isoformat()
+                }
+            }
+
+            # Use the report agent to save the final report with proper organization
+            if hasattr(self, 'report_agent') or self.report_agent:
+                # Get or create the report agent
+                if not hasattr(self, 'report_agent'):
+                    from ..agents.report_agent import ReportAgent
+                    self.report_agent = ReportAgent()
+
+                # Save using the report agent's final report method
+                save_result = await self.report_agent.save_final_report(
+                    session_id, report_data, format_config
+                )
+
+                if save_result:
+                    self.logger.info(f"✅ Final report saved to /final/ directory: {save_result['final_file_path']}")
+
+                    # Update session data with final file information
+                    session_data["final_report_location"] = save_result["final_file_path"]
+                    session_data["final_report_filename"] = save_result["filename"]
+
+                    # Log the file organization
+                    self.logger.info(f"📁 Final report organization:")
+                    self.logger.info(f"   Final directory: {final_dir}")
+                    self.logger.info(f"   Final report: {save_result['filename']}")
+                    self.logger.info(f"   Working copy: {os.path.basename(save_result['working_file_path'])}")
+
+                    return save_result
+                else:
+                    self.logger.error("Failed to save final report using report agent")
+
+            # Fallback: manually copy the file to /final/ directory
+            self.logger.info("Using fallback method to save final report")
+
+            # Generate filename for final version
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            topic = session_data.get("topic", "research").replace(" ", "_")[:30]
+            format_type = format_config.get("format_type", "standard")
+
+            final_filename = f"FINAL_REPORT_{format_type}_{topic}_{timestamp}.md"
+            final_file_path = os.path.join(final_dir, final_filename)
+
+            # Copy the report to final directory
+            shutil.copy2(current_report_path, final_file_path)
+
+            self.logger.info(f"✅ Final report copied to /final/ directory: {final_file_path}")
+
+            # Update session data
+            session_data["final_report_location"] = final_file_path
+            session_data["final_report_filename"] = final_filename
+
+            return {
+                "final_file_path": final_file_path,
+                "filename": final_filename,
+                "method": "fallback_copy"
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error saving final report to /final/ directory: {e}")
+            return None
 
     async def get_session_status(self, session_id: str) -> dict[str, Any]:
         """Get current status of a research session."""

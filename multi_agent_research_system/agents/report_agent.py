@@ -11,6 +11,7 @@ from typing import Any, Optional
 from claude_agent_sdk import tool
 
 from ..core.base_agent import BaseAgent, Message
+from ..utils.query_intent_analyzer import get_query_intent_analyzer, QueryIntent
 
 
 class ReportAgent(BaseAgent):
@@ -21,6 +22,7 @@ class ReportAgent(BaseAgent):
         self.register_message_handler("research_completed", self.handle_research_completed)
         self.register_message_handler("report_feedback", self.handle_report_feedback)
         self.register_message_handler("revision_request", self.handle_revision_request)
+        self.query_analyzer = get_query_intent_analyzer()
 
     def get_system_prompt(self) -> str:
         """Get the system prompt for the Report Agent."""
@@ -253,33 +255,96 @@ Always prioritize accuracy, clarity, and logical organization."""
             "research_request": research_request
         }
 
+    def determine_report_format(self, original_query: str, research_data: dict) -> dict:
+        """
+        Determine the appropriate report format based on query intent analysis.
+
+        Args:
+            original_query: The user's original research query
+            research_data: The research data from the research agent
+
+        Returns:
+            Dict containing format configuration and reasoning
+        """
+        # Analyze query intent
+        intent_result = self.query_analyzer.analyze_query_intent(original_query)
+        detected_format = intent_result["format"]
+        confidence = intent_result["confidence"]
+
+        # Determine format configuration based on intent
+        if detected_format == QueryIntent.BRIEF:
+            format_config = {
+                "format_type": "brief",
+                "sections": ["executive_summary", "key_findings", "conclusions"],
+                "max_length": 2000,
+                "style": "concise",
+                "audience": "general"
+            }
+            filename_prefix = "BRIEF"
+        elif detected_format == QueryIntent.COMPREHENSIVE:
+            format_config = {
+                "format_type": "comprehensive",
+                "sections": ["executive_summary", "introduction", "findings", "detailed_analysis", "implications", "conclusions", "sources"],
+                "max_length": 10000,
+                "style": "detailed",
+                "audience": "professional"
+            }
+            filename_prefix = "COMPREHENSIVE_ANALYSIS"
+        else:  # DEFAULT
+            format_config = {
+                "format_type": "standard",
+                "sections": ["executive_summary", "introduction", "findings", "analysis", "conclusions"],
+                "max_length": 5000,
+                "style": "balanced",
+                "audience": "educated"
+            }
+            filename_prefix = "STANDARD_REPORT"
+
+        # Add intent analysis results to config
+        format_config.update({
+            "intent_analysis": intent_result,
+            "filename_prefix": filename_prefix,
+            "confidence": confidence
+        })
+
+        return format_config
+
     async def handle_research_completed(self, message: Message) -> Message | None:
         """Handle completed research from Research Agent."""
         payload = message.payload
         session_id = message.session_id
 
+        # Get the original query from the payload or session data
+        original_query = payload.get("original_query") or payload.get("query", "")
+
+        # Determine report format based on query intent
+        format_config = self.determine_report_format(original_query, payload)
+
         # Start report generation session
         await self.start_session(session_id, {
             "topic": payload.get("topic"),
-            "status": "generating_report"
+            "status": "generating_report",
+            "format_config": format_config
         })
 
-        # Generate initial report
+        # Generate initial report with intent-based format
         report_result = await self.create_report({
             "research_data": payload,
-            "report_format": "markdown",
-            "target_audience": "general",
-            "tone": "analytical",
-            "sections": ["executive_summary", "introduction", "findings", "analysis", "conclusions"]
+            "report_format": format_config["format_type"],
+            "target_audience": format_config["audience"],
+            "tone": format_config["style"],
+            "sections": format_config["sections"]
         })
 
-        # Save report to file system
-        await self.save_report(session_id, report_result)
+        # Save report to file system with format-specific naming
+        await self.save_report(session_id, report_result, format_config)
 
-        # Update session data
+        # Update session data with format information
         report_data = {
             "topic": payload.get("topic"),
+            "original_query": original_query,
             "report": report_result,
+            "format_config": format_config,
             "status": "draft_completed",
             "version": 1
         }
@@ -342,7 +407,8 @@ Always prioritize accuracy, clarity, and logical organization."""
             # Save updated report
             session_data = self.get_session_data(session_id)
             current_version = session_data.get("version", 1)
-            await self.save_report(session_id, updated_report, version=current_version + 1)
+            format_config = session_data.get("format_config")
+            await self.save_report(session_id, updated_report, format_config, version=current_version + 1)
 
             # Update session data
             self.update_session_data(session_id, {
@@ -402,7 +468,8 @@ Always prioritize accuracy, clarity, and logical organization."""
 
         # Save updated report
         current_version = session_data.get("version", 1)
-        await self.save_report(session_id, updated_report, version=current_version + 1)
+        format_config = session_data.get("format_config")
+        await self.save_report(session_id, updated_report, format_config, version=current_version + 1)
 
         # Update session data
         self.update_session_data(session_id, {
@@ -424,51 +491,263 @@ Always prioritize accuracy, clarity, and logical organization."""
             correlation_id=message.correlation_id
         )
 
-    async def save_report(self, session_id: str, report_data: dict[str, Any], version: int = 1):
-        """Save report to file system."""
+    async def save_report(self, session_id: str, report_data: dict[str, Any], format_config: dict[str, Any] = None, version: int = 1):
+        """Save report to file system with format-specific naming."""
         try:
             import os
+            from datetime import datetime
 
-            # Create session directory
-            session_dir = f"researchmaterials/sessions/{session_id}"
-            os.makedirs(session_dir, exist_ok=True)
+            # Create session directories
+            session_dir = f"KEVIN/sessions/{session_id}"
+            working_dir = os.path.join(session_dir, "working")
+            final_dir = os.path.join(session_dir, "final")
 
-            # Save report as markdown
-            report_file = f"{session_dir}/report_v{version}.md"
+            os.makedirs(working_dir, exist_ok=True)
+            os.makedirs(final_dir, exist_ok=True)
+
+            # Generate filename based on format configuration
+            if format_config:
+                filename_prefix = format_config.get("filename_prefix", "REPORT")
+                format_type = format_config.get("format_type", "standard")
+            else:
+                filename_prefix = "REPORT"
+                format_type = "standard"
+
+            # Create filename with timestamp and format info
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            topic = report_data.get("report_data", {}).get("title", "research").replace(" ", "_")[:30]
+
+            # Save as working draft first
+            filename = f"{filename_prefix}_{format_type}_{topic}_{timestamp}_DRAFT.md"
+            working_file = os.path.join(working_dir, filename)
 
             # Convert report data to markdown format
-            markdown_content = self.convert_to_markdown(report_data)
+            markdown_content = self.convert_to_markdown(report_data, format_config)
 
-            with open(report_file, 'w', encoding='utf-8') as f:
+            with open(working_file, 'w', encoding='utf-8') as f:
                 f.write(markdown_content)
 
-            print(f"Report saved to: {report_file}")
+            print(f"Report saved to: {working_file}")
+            print(f"Format: {format_type} (confidence: {format_config.get('confidence', 'N/A')})")
+
+            # Log intent analysis results
+            if format_config and "intent_analysis" in format_config:
+                intent = format_config["intent_analysis"]
+                print(f"Query intent: {intent['format']} - {intent['reasoning']}")
 
         except Exception as e:
             print(f"Error saving report: {e}")
 
-    def convert_to_markdown(self, report_data: dict[str, Any]) -> str:
-        """Convert report data to markdown format."""
-        # This would convert the structured report data to markdown
-        # For now, return a basic structure
+    async def save_final_report(self, session_id: str, report_data: dict[str, Any], format_config: dict[str, Any] = None, version: int = 1):
+        """Save final report to both working and final directories with proper naming."""
+        try:
+            import os
+            from datetime import datetime
+
+            # Create session directories
+            session_dir = f"KEVIN/sessions/{session_id}"
+            working_dir = os.path.join(session_dir, "working")
+            final_dir = os.path.join(session_dir, "final")
+
+            os.makedirs(working_dir, exist_ok=True)
+            os.makedirs(final_dir, exist_ok=True)
+
+            # Generate filename based on format configuration
+            if format_config:
+                filename_prefix = format_config.get("filename_prefix", "REPORT")
+                format_type = format_config.get("format_type", "standard")
+            else:
+                filename_prefix = "REPORT"
+                format_type = "standard"
+
+            # Create filename with timestamp and format info
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            topic = report_data.get("report_data", {}).get("title", "research").replace(" ", "_")[:30]
+
+            # Convert report data to markdown format
+            markdown_content = self.convert_to_markdown(report_data, format_config)
+
+            # Save final version to /final/ directory
+            final_filename = f"{filename_prefix}_{format_type}_{topic}_{timestamp}_FINAL.md"
+            final_file = os.path.join(final_dir, final_filename)
+
+            with open(final_file, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
+
+            print(f"✅ Final report saved to: {final_file}")
+            print(f"📁 Format: {format_type} (confidence: {format_config.get('confidence', 'N/A')})")
+
+            # Also save to working directory for backup
+            working_filename = f"{filename_prefix}_{format_type}_{topic}_{timestamp}_WORKING.md"
+            working_file = os.path.join(working_dir, working_filename)
+
+            with open(working_file, 'w', encoding='utf-8') as f:
+                f.write(markdown_content)
+
+            print(f"📝 Working copy saved to: {working_file}")
+
+            # Log intent analysis results
+            if format_config and "intent_analysis" in format_config:
+                intent = format_config["intent_analysis"]
+                print(f"🎯 Query intent: {intent['format']} - {intent['reasoning']}")
+
+            # Create a summary file in the final directory
+            await self._create_report_summary(session_id, final_dir, final_filename, format_config, report_data)
+
+            return {
+                "final_file_path": final_file,
+                "working_file_path": working_file,
+                "format_type": format_type,
+                "filename": final_filename
+            }
+
+        except Exception as e:
+            print(f"❌ Error saving final report: {e}")
+            return None
+
+    async def _create_report_summary(self, session_id: str, final_dir: str, filename: str, format_config: dict[str, Any], report_data: dict[str, Any]):
+        """Create a summary file with report metadata and information."""
+        try:
+            import os
+            import json
+            from datetime import datetime
+
+            summary_file = os.path.join(final_dir, f"REPORT_SUMMARY_{session_id[:8]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+
+            summary = {
+                "session_id": session_id,
+                "report_filename": filename,
+                "generated_at": datetime.now().isoformat(),
+                "format_config": format_config,
+                "report_metadata": {
+                    "title": report_data.get("report_data", {}).get("title", "Unknown"),
+                    "format": format_config.get("format_type", "standard"),
+                    "confidence": format_config.get("confidence", 0.0),
+                    "sections": format_config.get("sections", []),
+                    "audience": format_config.get("audience", "general"),
+                    "style": format_config.get("style", "balanced")
+                },
+                "file_organization": {
+                    "final_reports_directory": final_dir,
+                    "this_file": summary_file,
+                    "report_file": filename
+                }
+            }
+
+            # Add intent analysis if available
+            if format_config and "intent_analysis" in format_config:
+                summary["intent_analysis"] = format_config["intent_analysis"]
+
+            with open(summary_file, 'w', encoding='utf-8') as f:
+                json.dump(summary, f, indent=2, ensure_ascii=False)
+
+            print(f"📋 Report summary saved to: {summary_file}")
+
+        except Exception as e:
+            print(f"⚠️ Warning: Could not create report summary: {e}")
+
+    def convert_to_markdown(self, report_data: dict[str, Any], format_config: dict[str, Any] = None) -> str:
+        """Convert report data to markdown format with format-specific styling."""
+        # Get format information
+        if format_config:
+            format_type = format_config.get("format_type", "standard")
+            style = format_config.get("style", "balanced")
+            audience = format_config.get("audience", "educated")
+            sections = format_config.get("sections", ["executive_summary", "introduction", "findings", "analysis", "conclusions"])
+        else:
+            format_type = "standard"
+            style = "balanced"
+            audience = "educated"
+            sections = ["executive_summary", "introduction", "findings", "analysis", "conclusions"]
+
         title = report_data.get("report_data", {}).get("title", "Research Report")
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
+        # Start building markdown with format-specific header
         markdown = f"# {title}\n\n"
-        markdown += f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
-        # Add executive summary
-        markdown += "## Executive Summary\n\n"
-        markdown += "[Executive summary content would be generated here]\n\n"
+        # Add format information
+        if format_type != "standard":
+            markdown += f"**Report Format:** {format_type.title()}\n"
+            markdown += f"**Target Audience:** {audience.title()}\n"
+            markdown += f"**Style:** {style.title()}\n"
 
-        # Add sections
-        markdown += "## Main Findings\n\n"
-        markdown += "[Main findings would be formatted here]\n\n"
+        markdown += f"**Generated:** {timestamp}\n\n"
 
-        markdown += "## Analysis\n\n"
-        markdown += "[Analysis content would be formatted here]\n\n"
+        # Add intent analysis information if available
+        if format_config and "intent_analysis" in format_config:
+            intent = format_config["intent_analysis"]
+            markdown += f"**Query Intent Analysis:** {intent['format'].title()} Format\n"
+            markdown += f"**Confidence:** {intent['confidence']:.1%}\n"
+            markdown += f"**Reasoning:** {intent['reasoning']}\n\n"
 
-        markdown += "## Conclusions\n\n"
-        markdown += "[Conclusions would be formatted here]\n\n"
+        # Add sections based on format configuration
+        if "executive_summary" in sections:
+            markdown += "## Executive Summary\n\n"
+            if format_type == "brief":
+                markdown += "*Concise overview highlighting key findings and main takeaways.*\n\n"
+            elif format_type == "comprehensive":
+                markdown += "*Detailed summary covering all major findings, methodology, and implications.*\n\n"
+            else:
+                markdown += "*Balanced overview of the research findings and their significance.*\n\n"
+            markdown += "[Executive summary content would be generated here based on research data]\n\n"
+
+        if "introduction" in sections:
+            markdown += "## Introduction\n\n"
+            if format_type == "brief":
+                markdown += "*Brief context and background information.*\n\n"
+            elif format_type == "comprehensive":
+                markdown += "*Comprehensive background, context, and research scope.*\n\n"
+            else:
+                markdown += "*Background and context for the research topic.*\n\n"
+            markdown += "[Introduction content would be generated here]\n\n"
+
+        if "findings" in sections or "key_findings" in sections:
+            if format_type == "brief":
+                markdown += "## Key Findings\n\n"
+                markdown += "*Essential findings in bullet point format.*\n\n"
+            elif format_type == "comprehensive":
+                markdown += "## Detailed Findings\n\n"
+                markdown += "*Comprehensive presentation of all research findings with supporting evidence.*\n\n"
+            else:
+                markdown += "## Main Findings\n\n"
+                markdown += "*Key findings from the research analysis.*\n\n"
+            markdown += "[Findings content would be formatted here]\n\n"
+
+        if "detailed_analysis" in sections:
+            markdown += "## Detailed Analysis\n\n"
+            markdown += "*In-depth analysis and interpretation of findings.*\n\n"
+            markdown += "[Detailed analysis content would be formatted here]\n\n"
+
+        if "analysis" in sections:
+            markdown += "## Analysis\n\n"
+            if format_type == "brief":
+                markdown += "*Brief analysis of the key findings.*\n\n"
+            elif format_type == "comprehensive":
+                markdown += "*Comprehensive analysis with multiple perspectives and implications.*\n\n"
+            else:
+                markdown += "*Analysis of the research findings.*\n\n"
+            markdown += "[Analysis content would be formatted here]\n\n"
+
+        if "implications" in sections:
+            markdown += "## Implications\n\n"
+            markdown += "*Implications and significance of the findings.*\n\n"
+            markdown += "[Implications content would be formatted here]\n\n"
+
+        if "conclusions" in sections:
+            markdown += "## Conclusions\n\n"
+            if format_type == "brief":
+                markdown += "*Brief conclusion with main takeaways.*\n\n"
+            elif format_type == "comprehensive":
+                markdown += "*Comprehensive conclusions with recommendations and future research directions.*\n\n"
+            else:
+                markdown += "*Conclusions and final thoughts.*\n\n"
+            markdown += "[Conclusions would be formatted here]\n\n"
+
+        if "sources" in sections:
+            markdown += "## Sources\n\n"
+            markdown += "*Comprehensive list of sources and references.*\n\n"
+            markdown += "[Sources would be listed here]\n\n"
 
         return markdown
 

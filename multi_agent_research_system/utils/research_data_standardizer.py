@@ -700,7 +700,10 @@ def standardize_and_save_research_data(
     workproduct_files = []
     if os.path.exists(workproduct_dir):
         for file in os.listdir(workproduct_dir):
-            if file.startswith("search_workproduct_") and file.endswith(".md"):
+            # Support multiple naming patterns for workproduct files
+            if (file.startswith("search_workproduct_") or
+                file.startswith("enhanced-search-crawl-workproduct_") or
+                file.startswith("editor-search-workproduct_")) and file.endswith(".md"):
                 workproduct_files.append(os.path.join(workproduct_dir, file))
 
     if not workproduct_files:

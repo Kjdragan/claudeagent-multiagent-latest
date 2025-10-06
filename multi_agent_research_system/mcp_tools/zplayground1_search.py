@@ -20,6 +20,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Import Claude Agent SDK MCP functionality
 try:
     from claude_agent_sdk import create_sdk_mcp_server, tool
+
     CLAUDE_SDK_AVAILABLE = True
 except ImportError:
     logger = logging.getLogger(__name__)
@@ -55,60 +56,60 @@ def create_zplayground1_mcp_server():
         {
             "query": {
                 "type": "string",
-                "description": "Search query, topic, or news topic to research"
+                "description": "Search query, topic, or news topic to research",
             },
             "search_mode": {
                 "type": "string",
                 "enum": ["web", "news"],
                 "default": "web",
-                "description": "Search mode: 'web' for Google search, 'news' for news search"
+                "description": "Search mode: 'web' for Google search, 'news' for news search",
             },
             "num_results": {
                 "type": "integer",
                 "default": 15,
                 "minimum": 1,
                 "maximum": 50,
-                "description": "Number of search results to retrieve"
+                "description": "Number of search results to retrieve",
             },
             "auto_crawl_top": {
                 "type": "integer",
                 "default": 10,
                 "minimum": 0,
                 "maximum": 20,
-                "description": "Maximum number of URLs to crawl for content extraction"
+                "description": "Maximum number of URLs to crawl for content extraction",
             },
             "crawl_threshold": {
                 "type": "number",
                 "default": 0.3,
                 "minimum": 0.0,
                 "maximum": 1.0,
-                "description": "Minimum relevance score threshold for crawling (0.0-1.0)"
+                "description": "Minimum relevance score threshold for crawling (0.0-1.0)",
             },
             "anti_bot_level": {
                 "type": "integer",
                 "default": 1,
                 "minimum": 0,
                 "maximum": 3,
-                "description": "Progressive anti-bot level: 0=basic, 1=enhanced, 2=advanced, 3=stealth"
+                "description": "Progressive anti-bot level: 0=basic, 1=enhanced, 2=advanced, 3=stealth",
             },
             "max_concurrent": {
                 "type": "integer",
                 "default": 15,
                 "minimum": 1,
                 "maximum": 20,
-                "description": "Maximum concurrent crawling operations"
+                "description": "Maximum concurrent crawling operations",
             },
             "session_id": {
                 "type": "string",
                 "default": "default",
-                "description": "Session identifier for tracking and work products"
+                "description": "Session identifier for tracking and work products",
             },
             "workproduct_prefix": {
                 "type": "string",
                 "default": "",
-                "description": "Optional prefix for work product filenames (e.g., 'editor research' for editorial work)"
-            }
-        }
+                "description": "Optional prefix for work product filenames (e.g., 'editor research' for editorial work)",
+            },
+        },
     )
     async def zplayground1_search_scrape_clean(args: dict[str, Any]) -> dict[str, Any]:
         """
@@ -140,69 +141,98 @@ def create_zplayground1_mcp_server():
                 logger.error(f"FAIL-FAST: {error_msg}")
                 return {
                     "content": [{"type": "text", "text": error_msg}],
-                    "is_error": True
+                    "is_error": True,
                 }
 
             # Extract and validate parameters with detailed error reporting
             try:
                 search_mode = args.get("search_mode", "web")
                 if search_mode not in ["web", "news"]:
-                    raise ValueError(f"Invalid search_mode '{search_mode}'. Must be 'web' or 'news'")
+                    raise ValueError(
+                        f"Invalid search_mode '{search_mode}'. Must be 'web' or 'news'"
+                    )
 
                 num_results = int(args.get("num_results", 15))
                 if not (1 <= num_results <= 50):
-                    raise ValueError(f"Invalid num_results '{num_results}'. Must be between 1 and 50")
+                    raise ValueError(
+                        f"Invalid num_results '{num_results}'. Must be between 1 and 50"
+                    )
 
                 auto_crawl_top = int(args.get("auto_crawl_top", 10))
                 if not (0 <= auto_crawl_top <= 20):
-                    raise ValueError(f"Invalid auto_crawl_top '{auto_crawl_top}'. Must be between 0 and 20")
+                    raise ValueError(
+                        f"Invalid auto_crawl_top '{auto_crawl_top}'. Must be between 0 and 20"
+                    )
 
                 crawl_threshold = float(args.get("crawl_threshold", 0.3))
                 if not (0.0 <= crawl_threshold <= 1.0):
-                    raise ValueError(f"Invalid crawl_threshold '{crawl_threshold}'. Must be between 0.0 and 1.0")
+                    raise ValueError(
+                        f"Invalid crawl_threshold '{crawl_threshold}'. Must be between 0.0 and 1.0"
+                    )
 
-                # FAIL-FAST: Fix the parameter validation issue for anti_bot_level
+                # FAIL-FAST: Require integer anti_bot_level parameter
                 anti_bot_level_raw = args.get("anti_bot_level", 1)
-                logger.debug(f"Raw anti_bot_level parameter: {anti_bot_level_raw} (type: {type(anti_bot_level_raw)})")
+                logger.debug(
+                    f"Raw anti_bot_level parameter: {anti_bot_level_raw} (type: {type(anti_bot_level_raw)})"
+                )
 
-                # Handle string to integer conversion for anti_bot_level
-                if isinstance(anti_bot_level_raw, str):
-                    # Map common string values to integers
-                    level_mapping = {
-                        "basic": 0,
-                        "enhanced": 1,
-                        "advanced": 2,
-                        "stealth": 3,
-                        "low": 0,
-                        "medium": 1,
-                        "high": 2,
-                        "maximum": 3
-                    }
-                    anti_bot_level_str = anti_bot_level_raw.lower().strip()
-                    if anti_bot_level_str in level_mapping:
-                        anti_bot_level = level_mapping[anti_bot_level_str]
-                        logger.info(f"🔄 Converted anti_bot_level from string '{anti_bot_level_raw}' to integer {anti_bot_level}")
-                    else:
-                        error_msg = f"FAIL-FAST: Invalid anti_bot_level parameter '{anti_bot_level_raw}' (type: {type(anti_bot_level_raw)}). Must be an integer between 0 and 3, or one of: {list(level_mapping.keys())}"
-                        logger.error(f"❌ {error_msg}")
-                        logger.error(f"String to integer mapping failed - unknown string value")
-                        raise ValueError(error_msg)
-                else:
-                    try:
+                # Strict validation: anti_bot_level must be an integer, with smart conversion for numeric strings
+                if isinstance(anti_bot_level_raw, int):
+                    # Perfect: already an integer
+                    anti_bot_level = anti_bot_level_raw
+                elif isinstance(anti_bot_level_raw, str):
+                    # Try to convert numeric strings to integers
+                    if anti_bot_level_raw.isdigit() and len(anti_bot_level_raw) == 1:
                         anti_bot_level = int(anti_bot_level_raw)
-                    except (ValueError, TypeError) as e:
-                        error_msg = f"FAIL-FAST: Invalid anti_bot_level parameter '{anti_bot_level_raw}' (type: {type(anti_bot_level_raw)}). Must be an integer between 0 and 3!"
-                        logger.error(f"❌ {error_msg}")
-                        logger.error(f"This is the exact error that was causing the system to fail silently!")
-                        logger.error(f"Parameter validation error: {e}")
-                        raise ValueError(error_msg)
+                        logger.info(
+                            f"🔄 Converted numeric string '{anti_bot_level_raw}' to integer {anti_bot_level}"
+                        )
+                    else:
+                        # Try named string mapping
+                        level_mapping = {
+                            "basic": 0,
+                            "enhanced": 1,
+                            "advanced": 2,
+                            "stealth": 3,
+                            "low": 0,
+                            "medium": 1,
+                            "high": 2,
+                            "maximum": 3,
+                        }
+                        anti_bot_level_str = anti_bot_level_raw.lower().strip()
+                        if anti_bot_level_str in level_mapping:
+                            anti_bot_level = level_mapping[anti_bot_level_str]
+                            logger.info(
+                                f"🔄 Converted named string '{anti_bot_level_raw}' to integer {anti_bot_level}"
+                            )
+                        else:
+                            error_msg = f"FAIL-FAST PARAMETER ERROR: ❌ **CRITICAL PARAMETER VALIDATION ERROR**: Invalid anti_bot_level parameter '{anti_bot_level_raw}' (type: {type(anti_bot_level_raw)}). Must be an integer between 0 and 3, or one of: {list(level_mapping.keys())}"
+                            logger.error(f"❌ {error_msg}")
+                            logger.error(
+                                f"String to integer mapping failed - unknown string value"
+                            )
+                            # Provide mapping guidance for numeric strings
+                            if anti_bot_level_raw.isdigit():
+                                logger.error(
+                                    f"💡 For numeric strings, use single digits: '0', '1', '2', '3'"
+                                )
+                            raise ValueError(error_msg)
+                else:
+                    # Any other type is invalid
+                    error_msg = f"FAIL-FAST PARAMETER ERROR: ❌ **CRITICAL PARAMETER VALIDATION ERROR**: Invalid anti_bot_level parameter '{anti_bot_level_raw}' (type: {type(anti_bot_level_raw)}). Must be an integer between 0 and 3."
+                    logger.error(f"❌ {error_msg}")
+                    raise ValueError(error_msg)
 
                 if not (0 <= anti_bot_level <= 3):
-                    raise ValueError(f"Invalid anti_bot_level '{anti_bot_level}'. Must be between 0 and 3")
+                    raise ValueError(
+                        f"Invalid anti_bot_level '{anti_bot_level}'. Must be between 0 and 3"
+                    )
 
                 max_concurrent = int(args.get("max_concurrent", 15))
                 if not (1 <= max_concurrent <= 20):
-                    raise ValueError(f"Invalid max_concurrent '{max_concurrent}'. Must be between 1 and 20")
+                    raise ValueError(
+                        f"Invalid max_concurrent '{max_concurrent}'. Must be between 1 and 20"
+                    )
 
                 session_id = args.get("session_id", "default")
                 workproduct_prefix = args.get("workproduct_prefix", "")
@@ -210,17 +240,19 @@ def create_zplayground1_mcp_server():
             except (ValueError, TypeError) as param_error:
                 error_msg = f"❌ **CRITICAL PARAMETER VALIDATION ERROR**: {param_error}"
                 logger.error(f"FAIL-FAST PARAMETER ERROR: {error_msg}")
-                logger.error("This error would have been silently ignored before - now we fail fast!")
+                logger.error(
+                    "This error would have been silently ignored before - now we fail fast!"
+                )
                 return {
                     "content": [{"type": "text", "text": error_msg}],
                     "is_error": True,
-                    "error_details": str(param_error)
+                    "error_details": str(param_error),
                 }
 
             # Parameter validation is now handled above with FAIL-FAST approach
 
             # Set up work product directory using session-based structure
-            workproduct_dir = os.environ.get('KEVIN_WORKPRODUCTS_DIR')
+            workproduct_dir = os.environ.get("KEVIN_WORKPRODUCTS_DIR")
             if not workproduct_dir:
                 # Use session-based directory structure
                 base_session_dir = f"/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/sessions/{session_id}"
@@ -230,7 +262,9 @@ def create_zplayground1_mcp_server():
             # Ensure workproduct directory exists
             Path(workproduct_dir).mkdir(parents=True, exist_ok=True)
 
-            logger.info(f"🚀 zPlayground1 executing: query='{query}', search_mode='{search_mode}', anti_bot_level={anti_bot_level}")
+            logger.info(
+                f"🚀 zPlayground1 executing: query='{query}', search_mode='{search_mode}', anti_bot_level={anti_bot_level}"
+            )
 
             # Execute the exact zPlayground1 search and extract functionality
             if search_mode == "news":
@@ -241,7 +275,8 @@ def create_zplayground1_mcp_server():
                     auto_crawl_top=auto_crawl_top,
                     session_id=session_id,
                     anti_bot_level=anti_bot_level,
-                    workproduct_dir=workproduct_dir
+                    workproduct_dir=workproduct_dir,
+                    workproduct_prefix=workproduct_prefix,
                 )
             else:
                 # Use web search and crawl
@@ -254,7 +289,8 @@ def create_zplayground1_mcp_server():
                     max_concurrent=max_concurrent,
                     session_id=session_id,
                     anti_bot_level=anti_bot_level,
-                    workproduct_dir=workproduct_dir
+                    workproduct_dir=workproduct_dir,
+                    workproduct_prefix=workproduct_prefix,
                 )
 
             # Apply MCP compliance with multi-level content allocation
@@ -271,7 +307,7 @@ def create_zplayground1_mcp_server():
                 "workproduct_dir": workproduct_dir,
                 "implementation": "zPlayground1_exact",
                 "parallel_processing": True,
-                "ai_content_cleaning": True
+                "ai_content_cleaning": True,
             }
 
             # Context for content allocation
@@ -279,20 +315,22 @@ def create_zplayground1_mcp_server():
                 "query": query,
                 "query_terms": query.split(),
                 "session_id": session_id,
-                "source_count": len([line for line in result.split('\n') if 'URL:' in line]),
-                "processing_time": "N/A"  # Would be calculated in production
+                "source_count": len(
+                    [line for line in result.split("\n") if "URL:" in line]
+                ),
+                "processing_time": "N/A",  # Would be calculated in production
             }
 
             # Apply MCP compliance allocation
             allocation = mcp_manager.allocate_content(
-                raw_content=result,
-                metadata=base_metadata,
-                context=allocation_context
+                raw_content=result, metadata=base_metadata, context=allocation_context
             )
 
-            logger.info(f"MCP compliance applied: {allocation.token_usage['total']:,} tokens "
-                       f"({allocation.token_usage['utilization']:.1f}% utilization), "
-                       f"compression: {allocation.compression_applied}")
+            logger.info(
+                f"MCP compliance applied: {allocation.token_usage['total']:,} tokens "
+                f"({allocation.token_usage['utilization']:.1f}% utilization), "
+                f"compression: {allocation.compression_applied}"
+            )
 
             # Combine primary content with metadata
             final_content = f"""{allocation.primary_content}
@@ -310,8 +348,8 @@ def create_zplayground1_mcp_server():
                     "token_usage": allocation.token_usage,
                     "allocation_stats": allocation.allocation_stats,
                     "compression_applied": allocation.compression_applied,
-                    "priority_distribution": allocation.priority_distribution
-                }
+                    "priority_distribution": allocation.priority_distribution,
+                },
             }
 
         except Exception as e:
@@ -332,17 +370,19 @@ Please check:
             return {
                 "content": [{"type": "text", "text": error_msg}],
                 "is_error": True,
-                "error_details": str(e)
+                "error_details": str(e),
             }
 
     # Create the MCP server with this single comprehensive tool
     server = create_sdk_mcp_server(
         name="zplayground1_search_scrape_clean",
         version="1.0.0",
-        tools=[zplayground1_search_scrape_clean]
+        tools=[zplayground1_search_scrape_clean],
     )
 
-    logger.info("✅ zPlayground1 Search, Scrape & Clean MCP server created successfully")
+    logger.info(
+        "✅ zPlayground1 Search, Scrape & Clean MCP server created successfully"
+    )
     logger.info("📋 Single tool approach - no multiple MCP tool calls needed")
     logger.info("🔧 Exact zPlayground1 implementation with no fallbacks")
 
@@ -353,7 +393,4 @@ Please check:
 zplayground1_server = create_zplayground1_mcp_server()
 
 # Export server for integration
-__all__ = [
-    'zplayground1_server',
-    'create_zplayground1_mcp_server'
-]
+__all__ = ["zplayground1_server", "create_zplayground1_mcp_server"]
