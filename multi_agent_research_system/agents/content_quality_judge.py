@@ -83,7 +83,7 @@ class ContentQualityJudge:
     - Feedback loops for cleaning optimization
     """
 
-    def __init__(self, model_name: str = "gpt-4o-mini", api_key: str | None = None):
+    def __init__(self, model_name: str = "gpt-5-nano", api_key: str | None = None):
         """
         Initialize the content quality judge.
 
