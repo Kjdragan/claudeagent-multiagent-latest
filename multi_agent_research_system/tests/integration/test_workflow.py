@@ -394,3 +394,232 @@ class TestWorkflowIntegration:
         # Test tool metadata
         assert research_tool.call_count == 1
         assert research_tool.calls[0]["topic"] == "MCP Integration Test"
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_report_generation_workflow_transition(self, temp_dir, monkeypatch):
+        """Test the research to report generation workflow transition with bug fix."""
+        monkeypatch.chdir(temp_dir)
+
+        with patch('core.orchestrator.ClaudeSDKClient') as mock_client_class:
+            mock_client = MagicMock()
+            mock_client.connect = AsyncMock()
+            mock_client.query = AsyncMock()
+            mock_client_class.return_value = mock_client
+
+            orchestrator = ResearchOrchestrator()
+            await orchestrator.initialize()
+
+            # Create session with completed research stage
+            session_id = await orchestrator.start_research_session(
+                "Report Generation Workflow Test",
+                {"depth": "Standard Research", "audience": "Business", "format": "Standard Report"}
+            )
+
+            # Mock research completion
+            session_data = orchestrator.active_sessions[session_id]
+            session_data["status"] = "research_completed"
+            session_data["current_stage"] = "report_generation"
+            session_data["research_results"] = {
+                "success": True,
+                "data": {
+                    "research_count": 3,
+                    "files": ["research1.md", "research2.md", "research3.md"]
+                }
+            }
+            session_data["workflow_history"] = [
+                {"stage": "research", "completed_at": "2024-01-01T12:00:00"}
+            ]
+
+            # Mock the report scope determination
+            mock_report_config = {
+                "scope": "Standard Report",
+                "llm_confidence": 0.9,
+                "llm_reasoning": "Standard report appropriate for business audience",
+                "style_instructions": "Professional business tone",
+                "editing_rigor": "Standard",
+                "special_requirements": ""
+            }
+
+            with patch.object(orchestrator, '_determine_report_scope_with_llm_judge', return_value=mock_report_config):
+                with patch.object(orchestrator, 'execute_agent_query') as mock_query:
+                    # Mock successful report generation
+                    mock_query.return_value = {
+                        "success": True,
+                        "substantive_responses": 3,
+                        "tool_executions": ["get_session_data", "create_research_report", "Write"],
+                        "report_quality": "high"
+                    }
+
+                    with patch.object(orchestrator, 'save_session_state'):
+                        with patch.object(orchestrator, 'start_work_product', return_value=2):
+                            with patch.object(orchestrator, 'complete_work_product'):
+
+                                # Execute the report generation stage - this should not raise NameError
+                                await orchestrator.stage_generate_report(session_id)
+
+                                # Verify successful transition to editorial review stage
+                                session_data = orchestrator.active_sessions[session_id]
+                                assert session_data["current_stage"] == "editorial_review"
+                                assert "report_results" in session_data
+                                assert session_data["report_results"]["success"] is True
+
+                                # Verify workflow history was updated
+                                assert len(session_data["workflow_history"]) == 2
+                                assert session_data["workflow_history"][-1]["stage"] == "report_generation"
+
+            await orchestrator.cleanup()
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_workflow_with_topic_variable_bug_fix(self, temp_dir, monkeypatch):
+        """Integration test to verify the topic variable bug fix in complete workflow."""
+        monkeypatch.chdir(temp_dir)
+
+        with patch('core.orchestrator.ClaudeSDKClient') as mock_client_class:
+            mock_client = MagicMock()
+            mock_client.connect = AsyncMock()
+            mock_client.query = AsyncMock()
+            mock_client_class.return_value = mock_client
+
+            orchestrator = ResearchOrchestrator()
+            await orchestrator.initialize()
+
+            topic = "Bug Fix Verification Test - Complex Topic with Special Characters: AI & ML"
+            session_id = await orchestrator.start_research_session(
+                topic,
+                {"depth": "Comprehensive Analysis", "audience": "Technical", "format": "Detailed Report"}
+            )
+
+            # Mock research completion
+            session_data = orchestrator.active_sessions[session_id]
+            session_data["status"] = "research_completed"
+            session_data["current_stage"] = "report_generation"
+            session_data["research_results"] = {"success": True}
+
+            # Mock report scope determination
+            mock_report_config = {
+                "scope": "Comprehensive Analysis",
+                "llm_confidence": 0.95,
+                "llm_reasoning": "Comprehensive analysis needed for technical audience",
+                "style_instructions": "Technical documentation style",
+                "editing_rigor": "Rigorous",
+                "special_requirements": "Include technical specifications and implementation details"
+            }
+
+            captured_prompts = []
+
+            def capture_query_call(*args, **kwargs):
+                if len(args) > 1:
+                    captured_prompts.append(args[1])  # Capture the prompt
+                return {
+                    "success": True,
+                    "substantive_responses": 2,
+                    "tool_executions": ["get_session_data", "create_research_report"],
+                    "report_quality": "high"
+                }
+
+            with patch.object(orchestrator, '_determine_report_scope_with_llm_judge', return_value=mock_report_config):
+                with patch.object(orchestrator, 'execute_agent_query', side_effect=capture_query_call):
+                    with patch.object(orchestrator, 'save_session_state'):
+                        with patch.object(orchestrator, 'start_work_product', return_value=2):
+                            with patch.object(orchestrator, 'complete_work_product'):
+
+                                # Execute report generation - should handle complex topic correctly
+                                await orchestrator.stage_generate_report(session_id)
+
+                                # Verify the prompt was created without NameError
+                                assert len(captured_prompts) == 1
+                                report_prompt = captured_prompts[0]
+
+                                # Verify the complex topic is correctly embedded in the prompt
+                                assert topic in report_prompt
+                                assert f'"{topic}"' in report_prompt
+
+                                # Verify other prompt components are present
+                                assert "Comprehensive Analysis" in report_prompt
+                                assert "Technical documentation style" in report_prompt
+
+                                # Verify successful completion
+                                session_data = orchestrator.active_sessions[session_id]
+                                assert session_data["current_stage"] == "editorial_review"
+                                assert session_data["report_results"]["success"] is True
+
+            await orchestrator.cleanup()
+
+    @pytest.mark.integration
+    @pytest.mark.asyncio
+    async def test_workflow_error_recovery_and_logging(self, temp_dir, monkeypatch):
+        """Test workflow error recovery and enhanced logging."""
+        monkeypatch.chdir(temp_dir)
+
+        with patch('core.orchestrator.ClaudeSDKClient') as mock_client_class:
+            mock_client = MagicMock()
+            mock_client.connect = AsyncMock()
+            mock_client.query = AsyncMock()
+            mock_client_class.return_value = mock_client
+
+            orchestrator = ResearchOrchestrator()
+            await orchestrator.initialize()
+
+            topic = "Error Recovery Test Topic"
+            session_id = await orchestrator.start_research_session(topic, {"depth": "Standard Research"})
+
+            # Mock research completion
+            session_data = orchestrator.active_sessions[session_id]
+            session_data["status"] = "research_completed"
+            session_data["current_stage"] = "report_generation"
+            session_data["research_results"] = {"success": True}
+
+            # Mock report scope determination
+            mock_report_config = {
+                "scope": "Standard Report",
+                "llm_confidence": 0.8,
+                "llm_reasoning": "Standard report appropriate",
+                "style_instructions": "Standard style",
+                "editing_rigor": "Standard",
+                "special_requirements": ""
+            }
+
+            # Capture logged errors
+            logged_errors = []
+
+            def capture_log_error(msg):
+                logged_errors.append(str(msg))
+
+            original_error = orchestrator.logger.error
+            orchestrator.logger.error = capture_log_error
+
+            try:
+                with patch.object(orchestrator, '_determine_report_scope_with_llm_judge', return_value=mock_report_config):
+                    with patch.object(orchestrator, 'execute_agent_query') as mock_query:
+                        # Mock report generation failure
+                        mock_query.side_effect = Exception("Simulated report generation error")
+
+                        with patch.object(orchestrator, 'save_session_state'):
+                            with patch.object(orchestrator, 'start_work_product', return_value=2):
+
+                                # This should raise error after retries with enhanced logging
+                                with pytest.raises(RuntimeError, match="Report generation failed after 3 attempts"):
+                                    await orchestrator.stage_generate_report(session_id)
+
+                                # Verify enhanced error logging occurred
+                                assert len(logged_errors) >= 9  # 3 attempts × 3+ error messages each
+
+                                # Check for specific enhanced error messages
+                                error_text = " ".join(logged_errors)
+                                assert "Error type: Exception" in error_text
+                                assert "Error details: Simulated report generation error" in error_text
+                                assert "Session data available: True" in error_text
+                                assert f"Topic in session: {topic}" in error_text
+                                assert "Report config:" in error_text
+                                assert "All 3 report generation attempts exhausted" in error_text
+
+                                # Verify retry behavior
+                                assert mock_query.call_count == 3
+
+            finally:
+                # Restore original logger
+                orchestrator.logger.error = original_error
+
+            await orchestrator.cleanup()

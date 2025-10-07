@@ -3076,7 +3076,7 @@ class ResearchOrchestrator:
                 5. **GENERIC CONTENT PROHIBITED**: Do not use generic statements when specific data is available from research
 
                 **REPORT GENERATION PROCESS**:
-                1. Create a {report_config['scope']} report on "{topic}"
+                1. Create a {report_config['scope']} report on "{session_data['topic']}"
                 2. Incorporate ALL key findings from the research data you have read
                 3. Organize content logically with clear sections
                 4. Adjust the depth and length to match the {report_config['scope']} scope
@@ -3118,8 +3118,15 @@ class ResearchOrchestrator:
 
             except Exception as e:
                 self.logger.error(f"Session {session_id}: Report generation attempt {attempt + 1} failed: {e}")
+                self.logger.error(f"Session {session_id}: Error type: {type(e).__name__}")
+                self.logger.error(f"Session {session_id}: Error details: {str(e)}")
+                self.logger.error(f"Session {session_id}: Session data available: {bool(session_data)}")
+                self.logger.error(f"Session {session_id}: Topic in session: {session_data.get('topic', 'NOT_FOUND')}")
+                self.logger.error(f"Session {session_id}: Report config: {report_config if 'report_config' in locals() else 'NOT_CREATED'}")
+
                 if attempt == max_attempts - 1:
-                    raise
+                    self.logger.error(f"Session {session_id}: All {max_attempts} report generation attempts exhausted")
+                    raise RuntimeError(f"Report generation failed after {max_attempts} attempts. Last error: {e}")
                 await asyncio.sleep(2)  # Brief delay before retry
 
         if not report_successful:

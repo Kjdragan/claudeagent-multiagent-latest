@@ -369,3 +369,139 @@ class TestResearchOrchestrator:
 
         for tool in expected_tools:
             assert tool in str(tools_arg), f"Missing tool: {tool}"
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_stage_generate_report_bug_fix(self):
+        """Test that the topic variable bug is fixed in stage_generate_report."""
+        orchestrator = ResearchOrchestrator()
+
+        # Create a test session with research data
+        session_id = "test-session-789"
+        topic = "Test Research Topic"
+
+        session_data = {
+            "session_id": session_id,
+            "topic": topic,
+            "user_requirements": {
+                "depth": "Standard Research",
+                "audience": "Business",
+                "format": "Standard Report"
+            },
+            "status": "research_completed",
+            "current_stage": "report_generation",
+            "research_results": {
+                "success": True,
+                "data": {
+                    "research_count": 2,
+                    "files": ["test_file1.md", "test_file2.md"]
+                }
+            },
+            "workflow_history": [
+                {"stage": "research", "completed_at": "2024-01-01T12:00:00"}
+            ]
+        }
+
+        orchestrator.active_sessions[session_id] = session_data
+
+        # Mock the report scope determination
+        mock_report_config = {
+            "scope": "Standard Report",
+            "llm_confidence": 0.9,
+            "llm_reasoning": "Standard report appropriate for business audience",
+            "style_instructions": "Professional business tone",
+            "editing_rigor": "Standard",
+            "special_requirements": ""
+        }
+
+        with patch.object(orchestrator, '_determine_report_scope_with_llm_judge', return_value=mock_report_config):
+            with patch.object(orchestrator, 'execute_agent_query') as mock_query:
+                # Mock successful report generation
+                mock_query.return_value = {
+                    "success": True,
+                    "substantive_responses": 2,
+                    "tool_executions": ["create_research_report", "Write"],
+                    "report_quality": "high"
+                }
+
+                with patch.object(orchestrator, 'save_session_state') as mock_save:
+                    with patch.object(orchestrator, 'start_work_product', return_value=2):
+                        with patch.object(orchestrator, 'complete_work_product'):
+                            with patch.object(orchestrator, 'update_session_status') as mock_status:
+
+                                # This should not raise a NameError anymore
+                                await orchestrator.stage_generate_report(session_id)
+
+                                # Verify the method completed successfully
+                                mock_query.assert_called_once()
+
+                                # Verify the report prompt was created correctly with the topic
+                                call_args = mock_query.call_args
+                                report_prompt = call_args[0][1]  # Second argument is the prompt
+
+                                # Check that the topic is correctly referenced in the prompt
+                                assert topic in report_prompt
+                                assert f'"{topic}"' in report_prompt
+
+                                # Verify no NameError was raised by checking method completion
+                                assert session_data["current_stage"] == "editorial_review"
+                                assert "report_results" in session_data
+
+    @pytest.mark.unit
+    @pytest.mark.asyncio
+    async def test_stage_generate_report_error_handling(self):
+        """Test error handling in stage_generate_report method."""
+        orchestrator = ResearchOrchestrator()
+
+        session_id = "test-session-error"
+        topic = "Error Test Topic"
+
+        session_data = {
+            "session_id": session_id,
+            "topic": topic,
+            "user_requirements": {"depth": "Standard Research"},
+            "status": "research_completed",
+            "current_stage": "report_generation",
+            "research_results": {"success": True},
+            "workflow_history": []
+        }
+
+        orchestrator.active_sessions[session_id] = session_data
+
+        # Mock report scope determination
+        mock_report_config = {
+            "scope": "Standard Report",
+            "llm_confidence": 0.9,
+            "llm_reasoning": "Test reasoning",
+            "style_instructions": "Test style",
+            "editing_rigor": "Standard",
+            "special_requirements": ""
+        }
+
+        with patch.object(orchestrator, '_determine_report_scope_with_llm_judge', return_value=mock_report_config):
+            with patch.object(orchestrator, 'execute_agent_query') as mock_query:
+                # Mock report generation failure
+                mock_query.side_effect = Exception("Test error")
+
+                with patch.object(orchestrator, 'save_session_state'):
+                    with patch.object(orchestrator, 'start_work_product', return_value=2):
+
+                        # This should raise an error after retries
+                        with pytest.raises(RuntimeError, match="Report generation failed after 3 attempts"):
+                            await orchestrator.stage_generate_report(session_id)
+
+                        # Verify error logging occurred (should have been called 3 times)
+                        assert mock_query.call_count == 3
+
+    @pytest.mark.unit
+    def test_stage_generate_report_method_exists(self):
+        """Test that stage_generate_report method exists and is async."""
+        orchestrator = ResearchOrchestrator()
+
+        # Test method exists
+        assert hasattr(orchestrator, 'stage_generate_report')
+
+        # Test method is async
+        import inspect
+        method = getattr(orchestrator, 'stage_generate_report')
+        assert inspect.iscoroutinefunction(method)
