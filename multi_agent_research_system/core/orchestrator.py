@@ -2012,6 +2012,16 @@ class ResearchOrchestrator:
                                     session_path=str(session_path),
                                     kevin_dir=str(kevin_dir))
 
+        # Start terminal output logging to session's working directory
+        try:
+            from utils.terminal_output_logger import start_session_output_logging
+            working_dir = session_path / "working"
+            start_session_output_logging(session_id, working_dir)
+            self.logger.info(f"✅ Terminal output logging started for session {session_id}")
+        except Exception as e:
+            self.logger.warning(f"Failed to start terminal output logging: {e}")
+            # Non-critical failure - continue with session
+
         # Parse CLI input to extract clean topic and parameters
         from .cli_parser import parse_cli_input
         parsed_request = parse_cli_input(topic)
@@ -4677,6 +4687,14 @@ This session had limited research output available. The editorial agent has proc
     async def cleanup(self):
         """Cleanup all agent clients and resources."""
         self.logger.info("Starting orchestrator cleanup")
+
+        # Stop terminal output logging for all active sessions
+        try:
+            from utils.terminal_output_logger import cleanup_all_loggers
+            cleanup_all_loggers()
+            self.logger.info("✅ Terminal output logging stopped for all sessions")
+        except Exception as e:
+            self.logger.warning(f"Failed to cleanup terminal output loggers: {e}")
 
         # Shutdown hook integration manager
         if hasattr(self, 'hook_integration_manager') and self.hook_integration_manager:
