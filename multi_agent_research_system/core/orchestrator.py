@@ -653,74 +653,10 @@ class ResearchOrchestrator:
 
         return debug_callback
 
-    def _get_simplified_hooks(self) -> dict:
-        """Get simplified hooks configuration to avoid JavaScript parsing errors.
-
-        Based on finally2.md analysis, the most valuable logging outputs are:
-        1. session_state.json - Complete session narrative and success assessment
-        2. orchestrator.jsonl - Workflow progression and root cause analysis
-        3. agent_summary.json - Performance metrics and error patterns
-
-        The hook system was causing 262 JavaScript parsing errors per session
-        with limited additional value over our core logging system.
-        """
-        try:
-            from claude_agent_sdk.types import HookEvent, HookMatcher
-
-            # Only enable essential hooks that provide high value without causing parsing issues
-            essential_hooks = {
-                HookEvent.PreToolUse: [
-                    HookMatcher(
-                        matcher="serp_search|mcp__research_tools",
-                        hooks=[self._create_essential_tool_hook()]
-                    )
-                ],
-                HookEvent.PostToolUse: [
-                    HookMatcher(
-                        matcher="serp_search|mcp__research_tools",
-                        hooks=[self._create_essential_completion_hook()]
-                    )
-                ]
-            }
-
-            self.logger.info("🔧 Using simplified hooks configuration (4 essential hooks vs 262 error-prone hooks)")
-            return essential_hooks
-
-        except Exception as e:
-            self.logger.warning(f"⚠️  Hook system unavailable, using basic logging: {e}")
-            return {}
-
-    def _create_essential_tool_hook(self):
-        """Create essential tool usage hook without complex parsing."""
-        async def essential_tool_hook(input_data, tool_use_id, context):
-            return {
-                "decision": "continue",  # Always allow tools to continue
-                "systemMessage": f"Tool executed: {tool_use_id}",
-                "hookSpecificOutput": {
-                    "tool_use_id": tool_use_id,
-                    "timestamp": str(uuid.uuid4()),
-                    "simplified": True
-                }
-            }
-        return essential_tool_hook
-
-    def _create_essential_completion_hook(self):
-        """Create essential tool completion hook without complex parsing."""
-        async def essential_completion_hook(input_data, tool_use_id, context):
-            return {
-                "decision": "continue",  # Always allow continuation
-                "systemMessage": f"Tool completed: {tool_use_id}",
-                "hookSpecificOutput": {
-                    "tool_use_id": tool_use_id,
-                    "completed": True,
-                    "simplified": True
-                }
-            }
-        return essential_completion_hook
-
-    # Note: Tool execution monitoring is now handled by the comprehensive HookIntegrationManager
-    # The old _debug_pre_tool_use and _debug_post_tool_use methods have been removed
-    # as they are superseded by the integrated hook system with proper SDK pattern compliance
+    # Hooks disabled - eliminated overhead and debug noise while preserving core logging functionality
+    # Previous hook system (_get_simplified_hooks, _create_essential_tool_hook, _create_essential_completion_hook)
+    # was removed as it provided minimal value while generating 250+ "Found 0 hook matchers" debug messages
+    # and causing 59 unnecessary hook checks per session.
 
     def _initialize_agent_loggers(self):
         """Initialize agent-specific loggers for each agent type."""
@@ -951,10 +887,10 @@ class ResearchOrchestrator:
                 # Debugging features
                 stderr=self._create_debug_callback("multi_agent"),
                 extra_args={"debug-to-stderr": None},
-                # Simplified logging approach - disable problematic hooks due to JavaScript parsing errors
+                # Hooks disabled - eliminated overhead and debug noise while preserving core logging functionality
                 # Increase buffer size to handle large JSON outputs (DeepWiki recommendation)
                 max_buffer_size=4096000,  # 4MB buffer
-                hooks=self._get_simplified_hooks() if HookMatcher else {}
+                hooks={}
             )
 
             # Create and connect SINGLE client for all agents (CORRECT PATTERN)
@@ -3331,7 +3267,7 @@ Please complete your editorial review with both the original research context an
 
                         # Use final review result as the editorial result
                         review_result = final_review_result
-                        self.logger.info(f"✅ Editor integrated gap research into final review")
+                        self.logger.info("✅ Editor integrated gap research into final review")
 
                         # Update search stats to reflect gap research
                         session_data["editorial_search_stats"]["gap_research_executed"] = True
@@ -3481,7 +3417,7 @@ Execute the gap-filling search now using these proven parameters."""
 
         try:
             # Execute gap research using coordinated research agent
-            self.logger.info(f"🔍 Querying research_agent for gap-filling research")
+            self.logger.info("🔍 Querying research_agent for gap-filling research")
 
             gap_research_result = await self.execute_agent_query(
                 agent_name="research_agent",
@@ -4160,7 +4096,7 @@ This session had limited research output available. The editorial agent has proc
                 return
 
             # Read the current report content
-            with open(current_report_path, 'r', encoding='utf-8') as f:
+            with open(current_report_path, encoding='utf-8') as f:
                 report_content = f.read()
 
             # Create report data structure for the report agent
@@ -4192,7 +4128,7 @@ This session had limited research output available. The editorial agent has proc
                     session_data["final_report_filename"] = save_result["filename"]
 
                     # Log the file organization
-                    self.logger.info(f"📁 Final report organization:")
+                    self.logger.info("📁 Final report organization:")
                     self.logger.info(f"   Final directory: {final_dir}")
                     self.logger.info(f"   Final report: {save_result['filename']}")
                     self.logger.info(f"   Working copy: {os.path.basename(save_result['working_file_path'])}")
@@ -5248,7 +5184,6 @@ Status: Recovery Completed
             session_id: The session ID
         """
         try:
-            import os
             import shutil
             from datetime import datetime
 
