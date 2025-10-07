@@ -1,399 +1,890 @@
 # Agents Directory - Multi-Agent Research System
 
-This directory contains specialized AI agent implementations that work together to perform comprehensive research tasks.
+This directory contains specialized AI agent implementations that work together to perform comprehensive research tasks through orchestrated workflows with advanced quality management and progressive enhancement capabilities.
 
 ## Directory Purpose
 
-The agents directory provides specialized AI agents, each with distinct responsibilities and capabilities, that collaborate through the multi-agent research system to deliver high-quality research outputs. Each agent is designed to excel at specific aspects of the research workflow.
+The agents directory provides a comprehensive suite of specialized AI agents, each with distinct responsibilities and capabilities, that collaborate through the multi-agent research system to deliver high-quality research outputs. These agents implement sophisticated patterns including decoupled editorial processing, progressive enhancement, quality-gated workflows, and intelligent gap research coordination.
 
 ## Key Components
 
 ### Core Research Agents
-- **`research_agent.py`** - Expert research agent for web research, source validation, and information synthesis
-- **`report_agent.py`** - Report generation agent for content structuring and formatting
-- **`decoupled_editorial_agent.py`** - Editorial review agent for content enhancement and quality improvement
-- **`content_cleaner_agent.py`** - Content processing agent for cleaning and standardization
-- **`content_quality_judge.py`** - Quality assessment agent for content evaluation and scoring
+- **`research_agent.py`** - Expert research agent for web research, source validation, and information synthesis using Claude Agent SDK patterns (14KB)
+- **`report_agent.py`** - Report generation agent for content structuring, formatting, and audience-aware content creation (31KB)
+- **`decoupled_editorial_agent.py`** - Advanced editorial review agent with decoupled architecture, progressive enhancement, and gap research coordination (28KB)
+- **`content_cleaner_agent.py`** - AI-powered content processing agent with GPT-5-nano integration and quality assessment (29KB)
+- **`content_quality_judge.py`** - Comprehensive quality assessment agent with judge scoring and feedback loops (25KB)
 
-## Agent Capabilities
+## Agent Architecture & Implementation Patterns
+
+### Base Agent Pattern
+All agents inherit from the common `BaseAgent` class, providing standardized interfaces and shared capabilities:
+
+```python
+class BaseAgent:
+    """Base agent class with common functionality, standardized interfaces, and shared capabilities."""
+
+    def __init__(self, agent_id: str, agent_type: str):
+        self.agent_id = agent_id
+        self.agent_type = agent_type
+        self.message_handlers = {}
+        self.logger = get_logger(agent_id)
+
+    def register_message_handler(self, message_type: str, handler: callable):
+        """Register handler for specific message types."""
+
+    async def send_message(self, recipient: str, message_type: str, payload: dict):
+        """Send message to another agent with proper routing."""
+```
+
+### Claude Agent SDK Integration
+Agents leverage the Claude Agent SDK for tool management and MCP integration:
+
+```python
+from claude_agent_sdk import tool, BaseAgent, Message
+
+class ResearchAgent(BaseAgent):
+    @tool("web_research", "Conduct comprehensive web research on a topic", {
+        "topic": str,
+        "research_depth": str,
+        "focus_areas": list[str],
+        "max_sources": int
+    })
+    async def web_research(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Conduct comprehensive web research using SERP API integration."""
+```
+
+### Message-Based Communication
+Agents use structured message passing for coordination:
+
+```python
+@dataclass
+class Message:
+    """Message structure for inter-agent communication."""
+    sender: str
+    recipient: str
+    message_type: str
+    payload: dict[str, Any]
+    session_id: str
+    correlation_id: str
+    timestamp: str
+```
+
+## Agent Types & Specializations
 
 ### Research Agent (`research_agent.py`)
-**Purpose**: Conduct comprehensive web research and source discovery
 
-**Core Responsibilities**:
-- Execute web searches using multiple search strategies
-- Validate source credibility and authority
-- Extract and synthesize information from diverse sources
-- Identify key facts, statistics, and expert opinions
-- Organize research findings in structured formats
+**Purpose**: Conduct comprehensive web research and source discovery using Claude Agent SDK patterns
 
-**Key Features**:
-- Multi-source research coordination
-- Intelligent search strategy selection
-- Source credibility assessment
-- Content quality filtering
-- Research data standardization
+**Core Capabilities**:
+- Execute web searches using SERP API integration with multiple search strategies
+- Analyze and validate source credibility and authority using structured evaluation
+- Synthesize information from diverse sources with confidence scoring
+- Identify key facts, statistics, and expert opinions with attribution
+- Organize research findings in structured, JSON-compatible formats
+
+**Advanced Features**:
+- Multi-source research coordination with intelligent query generation
+- Source credibility assessment using authority, accuracy, objectivity criteria
+- Research data standardization with confidence levels and context
+- Integration with orchestrator for gap research coordination
+- Structured research output with metadata for downstream processing
+
+**Key Tools**:
+- `web_research`: Conduct comprehensive web research with depth control
+- `source_analysis`: Analyze and validate research sources
+- `information_synthesis`: Synthesize research findings into coherent insights
+
+**Implementation Pattern**:
+```python
+class ResearchAgent(BaseAgent):
+    def __init__(self):
+        super().__init__("research_agent", "research")
+        self.register_message_handler("research_request", self.handle_research_request)
+        self.register_message_handler("additional_research", self.handle_additional_research)
+
+    def get_system_prompt(self) -> str:
+        return """You are a Research Agent, an expert in conducting comprehensive, high-quality research...
+
+        CRITICAL INSTRUCTION: You MUST execute the SERP API search tool to conduct actual research...
+        """
+```
 
 ### Report Agent (`report_agent.py`)
-**Purpose**: Generate well-structured, comprehensive research reports
 
-**Core Responsibilities**:
-- Synthesize research findings into coherent reports
-- Structure content logically with appropriate headings
-- Ensure consistency and clarity throughout reports
-- Adapt report style to target audience requirements
-- Integrate citations and references appropriately
+**Purpose**: Generate well-structured, audience-aware research reports with intelligent content organization
 
-**Key Features**:
+**Core Capabilities**:
+- Transform research findings into structured, readable reports with proper formatting
+- Ensure logical flow and narrative coherence with hierarchical organization
+- Maintain proper citation and source attribution with informal citation style
+- Adapt tone and style for target audiences (General, Academic, Business, Technical, Policy)
+- Organize information in clear, hierarchical structure with executive summaries
+
+**Advanced Features**:
+- Query intent analysis for audience-aware content adaptation
 - Multiple report format support (academic, business, technical)
-- Audience-aware content adaptation
-- Logical content organization
-- Consistency checking and improvement
-- Style and tone adjustment
+- Intelligent content organization with logical sectioning
+- Integration with quality framework for consistency checking
+- Structured report generation with metadata and timestamps
 
-### Editorial Agent (`decoupled_editorial_agent.py`)
-**Purpose**: Enhance report quality through editorial review and gap analysis
+**Key Tools**:
+- `create_report`: Generate structured reports from research data
+- `update_report`: Update reports based on feedback or new information
+- `request_more_research`: Request additional research for information gaps
 
-**Core Responsibilities**:
-- Analyze reports for quality and completeness
-- Identify information gaps and areas for improvement
-- Enhance content with specific facts and data from research
-- Ensure proper integration of research findings
-- Conduct targeted additional research when needed
+**Query Intent Integration**:
+```python
+from ..utils.query_intent_analyzer import get_query_intent_analyzer, QueryIntent
 
-**Key Features**:
-- Quality-focused enhancement approach
-- Research data integration
-- Gap identification and filling
-- Style and length optimization
-- Fact verification and enhancement
+class ReportAgent(BaseAgent):
+    def __init__(self):
+        super().__init__("report_agent", "report_generation")
+        self.query_analyzer = get_query_intent_analyzer()
+
+    async def adapt_content_for_audience(self, content: str, intent: QueryIntent) -> str:
+        """Adapt content based on analyzed query intent and audience requirements."""
+```
+
+### Decoupled Editorial Agent (`decoupled_editorial_agent.py`)
+
+**Purpose**: Advanced editorial enhancement with decoupled architecture, progressive enhancement, and gap research coordination
+
+**Core Capabilities**:
+- Process any available content regardless of research success (decoupled architecture)
+- Progressive enhancement through multiple refinement stages with quality-driven improvement
+- Gap research coordination with intelligent control handoff mechanisms
+- Content quality assessment with comprehensive multi-dimensional evaluation
+- Style and formatting optimization with consistency checking
+
+**Advanced Features**:
+- **Decoupled Architecture**: Works independently of research stage completion
+- **Progressive Enhancement Pipeline**: Multi-stage content improvement with adaptive selection
+- **Gap Research Coordination**: Intelligent handoff for targeted additional research
+- **Quality Framework Integration**: Comprehensive assessment with actionable feedback
+- **Multiple Enhancement Agents**: Content enhancer, style editor, and quality optimizer
+
+**Sub-Agent Architecture**:
+```python
+class DecoupledEditorialAgent:
+    def __init__(self, workspace_dir: str = None):
+        # Quality framework components
+        self.quality_framework = EditorialQualityFramework()
+        self.progressive_enhancement_pipeline = ProgressiveEnhancementPipeline()
+        self.content_enhancer = ContentEnhancerAgent()
+        self.style_editor = StyleEditorAgent()
+
+    async def process_available_content(self, session_id: str, content_sources: list[str]) -> EditorialResult:
+        """Process any available content regardless of research success."""
+```
+
+**Progressive Enhancement Stages**:
+1. Content aggregation and quality assessment
+2. Quality-driven enhancement selection
+3. Multi-stage progressive enhancement application
+4. Style and formatting optimization
+5. Final quality validation and output generation
 
 ### Content Cleaner Agent (`content_cleaner_agent.py`)
-**Purpose**: Process and clean raw content for quality and consistency
 
-**Core Responsibilities**:
-- Clean and standardize content from various sources
-- Remove formatting inconsistencies and artifacts
-- Extract relevant information from raw text
-- Standardize content structure and presentation
-- Filter out low-quality or irrelevant content
+**Purpose**: AI-powered content processing with GPT-5-nano integration and intelligent quality assessment
 
-**Key Features**:
-- Multi-format content processing
-- Intelligent content extraction
-- Quality-based filtering
-- Standardization and normalization
-- Artifact removal and cleanup
+**Core Capabilities**:
+- AI-powered content cleaning using GPT-5-nano via Pydantic AI integration
+- Search query relevance filtering with intelligent content matching
+- Content quality scoring (0-100) with multi-dimensional assessment
+- Structured output with clean content and comprehensive metadata
+- Performance optimization for batch processing with async operations
+
+**Advanced Features**:
+- **GPT-5-nano Integration**: Advanced AI processing with Pydantic AI framework
+- **Quality Scoring**: Comprehensive 0-100 scoring with detailed assessment
+- **Search Relevance Filtering**: Intelligent content filtering based on query relevance
+- **Structured Processing**: Clean, standardized output with metadata
+- **Fallback Processing**: Graceful degradation when AI services unavailable
+
+**AI Integration Pattern**:
+```python
+try:
+    from pydantic_ai import Agent
+    from pydantic_ai.models.openai import OpenAIModel
+    PYDAI_AVAILABLE = True
+except ImportError:
+    logging.warning("Pydantic AI not available - using fallback content cleaning")
+    PYDAI_AVAILABLE = False
+
+class ContentCleanerAgent:
+    def __init__(self, model_name: str = "gpt-5-nano", api_key: str | None = None):
+        if PYDAI_AVAILABLE:
+            self.ai_agent = Agent(
+                'openai:gpt-5-nano',
+                system_prompt="You are an expert content cleaner and quality assessor..."
+            )
+```
 
 ### Content Quality Judge (`content_quality_judge.py`)
-**Purpose**: Evaluate content quality and provide improvement recommendations
 
-**Core Responsibilities**:
-- Assess content quality across multiple dimensions
-- Provide numerical quality scores and assessments
-- Identify specific areas needing improvement
-- Recommend enhancement strategies
-- Validate content against quality standards
+**Purpose**: Comprehensive quality assessment with judge scoring, detailed feedback, and improvement recommendations
 
-**Key Features**:
-- Multi-dimensional quality assessment
-- Numerical scoring systems
-- Detailed improvement recommendations
-- Quality threshold validation
-- Benchmark comparisons
+**Core Capabilities**:
+- Judge assessment scoring (0-100) with multi-dimensional quality evaluation
+- Content quality criteria evaluation across relevance, completeness, accuracy, clarity, depth
+- Feedback generation for cleaning optimization with actionable recommendations
+- Performance tracking and analytics with trend analysis
+- Structured quality assessment reports with detailed evidence
+
+**Quality Assessment Criteria**:
+- **Relevance**: Content relevance to search query and topic
+- **Completeness**: Information completeness and coverage depth
+- **Accuracy**: Factual accuracy indicators and source verification
+- **Clarity**: Readability, organization, and coherence
+- **Depth**: Information depth and analytical sophistication
+- **Organization**: Structure and logical organization
+- **Source Credibility**: Source authority and reliability
+
+**Assessment Pattern**:
+```python
+class QualityCriterion(Enum):
+    RELEVANCE = "relevance"
+    COMPLETENESS = "completeness"
+    ACCURACY = "accuracy"
+    CLARITY = "clarity"
+    DEPTH = "depth"
+    ORGANIZATION = "organization"
+    SOURCE_CREDIBILITY = "source_credibility"
+
+@dataclass
+class QualityAssessment:
+    overall_score: int  # 0-100
+    criteria_scores: dict[str, int]
+    strengths: list[str]
+    weaknesses: list[str]
+    recommendations: list[str]
+    detailed_feedback: dict[str, Any]
+```
 
 ## Agent Workflow Integration
 
-### Research Pipeline
+### Research Pipeline Architecture
 ```
-User Query → Research Agent → Content Cleaner → Quality Judge → Report Agent → Editorial Agent → Final Output
+User Query → Research Agent → Content Cleaner → Quality Judge → Report Agent → Editorial Agent → Progressive Enhancement → Final Output
 ```
 
-### Agent Interactions
-1. **Research Agent** discovers and processes source material
-2. **Content Cleaner** standardizes and cleans the research data
-3. **Quality Judge** evaluates content quality and identifies issues
-4. **Report Agent** creates structured reports from research findings
-5. **Editorial Agent** enhances reports with additional research and quality improvements
-
-### Quality Loop
+### Quality-Gated Workflow
 ```
-Content Creation → Quality Assessment → Enhancement → Re-assessment → Final Output
+Research Stage → Quality Assessment → Enhancement Gate → Report Generation → Quality Gate → Editorial Review → Gap Research (if needed) → Final Enhancement → Output
+```
+
+### Gap Research Control Handoff
+```
+Editorial Review → Gap Identification → Control Handoff → Gap Research → Results Integration → Enhanced Editorial Review → Final Output
+```
+
+### Progressive Enhancement Flow
+```
+Content Input → Quality Assessment → Enhancement Selection → Multi-Stage Enhancement → Quality Re-assessment → Final Enhancement → Enhanced Output
+```
+
+## Agent Coordination Patterns
+
+### Message-Based Communication
+```python
+# Agent communication pattern
+class AgentOrchestrator:
+    def __init__(self):
+        self.agents = {
+            "research": ResearchAgent(),
+            "report": ReportAgent(),
+            "editorial": DecoupledEditorialAgent(),
+            "quality": ContentQualityJudge()
+        }
+
+    async def coordinate_research_to_report(self, session_id: str, research_results: dict):
+        """Coordinate handoff from research agent to report agent."""
+
+        message = Message(
+            sender="orchestrator",
+            recipient="report_agent",
+            message_type="research_completed",
+            payload={
+                "session_id": session_id,
+                "research_data": research_results,
+                "quality_requirements": self.get_quality_requirements()
+            }
+        )
+
+        await self.agents["report"].handle_message(message)
+```
+
+### Quality-Driven Agent Selection
+```python
+# Quality-based agent coordination
+class QualityDrivenCoordinator:
+    async def route_to_next_agent(self, current_stage: str, output: dict, quality_score: int):
+        """Route to next agent based on quality assessment."""
+
+        if quality_score >= self.high_quality_threshold:
+            # Proceed to next stage
+            return await self.proceed_to_next_stage(current_stage, output)
+        elif quality_score >= self.minimum_threshold:
+            # Apply enhancement first
+            enhanced_output = await self.apply_enhancement(output, quality_score)
+            return await self.proceed_to_next_stage(current_stage, enhanced_output)
+        else:
+            # Rerun current stage with modified approach
+            return await self.rerun_stage(current_stage, output, quality_score)
+```
+
+### Gap Research Coordination
+```python
+# Gap research coordination pattern
+class GapResearchCoordinator:
+    async def coordinate_gap_research(self, session_id: str, gap_requests: list[str]):
+        """Coordinate gap research between editorial and research agents."""
+
+        for gap_request in gap_requests:
+            # Execute targeted research
+            gap_result = await self.research_agent.conduct_targeted_research(
+                topic=gap_request,
+                session_id=session_id,
+                context="gap_filling"
+            )
+
+            # Integrate results back to editorial agent
+            await self.editorial_agent.integrate_gap_research(
+                session_id=session_id,
+                gap_results=gap_result
+            )
 ```
 
 ## Development Guidelines
 
 ### Agent Design Patterns
-```python
-# Standard agent implementation pattern
-class BaseAgent:
-    def __init__(self, config: dict):
-        self.config = config
-        self.tools = self._load_tools()
-        self.quality_criteria = self._load_quality_criteria()
 
-    async def execute(self, input_data: dict) -> dict:
+#### Standard Agent Implementation
+```python
+class StandardAgent(BaseAgent):
+    def __init__(self, agent_id: str, agent_type: str):
+        super().__init__(agent_id, agent_type)
+        self.tools = self._register_tools()
+        self.quality_criteria = self._load_quality_criteria()
+        self.message_handlers = self._register_message_handlers()
+
+    async def execute(self, input_data: dict, session_id: str) -> dict:
         try:
             # Pre-processing
             processed_input = await self._preprocess(input_data)
 
-            # Core processing
-            results = await self._process(processed_input)
+            # Core processing with quality gates
+            results = await self._process_with_quality_gates(processed_input, session_id)
 
             # Post-processing and quality validation
-            validated_results = await self._validate_quality(results)
+            validated_results = await self._validate_quality(results, session_id)
 
             return validated_results
 
         except Exception as e:
-            return await self._handle_error(e, input_data)
+            return await self._handle_error(e, input_data, session_id)
 ```
+
+#### Tool Registration Pattern
+```python
+# Claude Agent SDK tool registration
+@tool("tool_name", "Tool description", {
+    "param1": str,
+    "param2": list[str],
+    "param3": int
+})
+async def tool_function(self, args: dict[str, Any]) -> dict[str, Any]:
+    """Tool implementation with proper input validation and output formatting."""
+
+    # Validate inputs
+    validated_args = self._validate_tool_args(args)
+
+    # Execute core functionality
+    result = await self._execute_tool_logic(validated_args)
+
+    # Format output
+    formatted_result = self._format_tool_output(result)
+
+    return formatted_result
+```
+
+#### Quality Integration Pattern
+```python
+# Quality-aware agent processing
+class QualityAwareAgent(BaseAgent):
+    async def process_with_quality_assessment(self, input_data: dict) -> dict:
+        """Process input with comprehensive quality assessment."""
+
+        # Initial processing
+        initial_result = await self._process_input(input_data)
+
+        # Quality assessment
+        quality_assessment = await self.quality_framework.assess(
+            content=initial_result["content"],
+            context=input_data.get("context", {})
+        )
+
+        # Quality-driven enhancement
+        if quality_assessment.overall_score < self.quality_threshold:
+            enhanced_result = await self._enhance_content(
+                initial_result, quality_assessment
+            )
+            return enhanced_result
+
+        return initial_result
+```
+
+### Agent Configuration Patterns
+
+#### Configuration Management
+```python
+# Agent configuration with environment awareness
+class AgentConfiguration:
+    def __init__(self, agent_type: str):
+        self.agent_type = agent_type
+        self.config = self._load_agent_config()
+        self.quality_thresholds = self._load_quality_thresholds()
+        self.tool_settings = self._load_tool_settings()
+
+    def _load_agent_config(self) -> dict:
+        """Load agent-specific configuration."""
+        base_config = {
+            "timeout": 300,
+            "retry_attempts": 3,
+            "max_concurrent_requests": 5
+        }
+
+        agent_specific = AGENT_CONFIGS.get(self.agent_type, {})
+        return {**base_config, **agent_specific}
+```
+
+#### Quality Configuration
+```python
+# Quality criteria configuration
+QUALITY_CONFIG = {
+    "research_agent": {
+        "criteria": ["source_credibility", "information_completeness", "factual_accuracy"],
+        "thresholds": {"source_credibility": 0.8, "information_completeness": 0.7, "factual_accuracy": 0.9},
+        "weights": {"source_credibility": 0.3, "information_completeness": 0.4, "factual_accuracy": 0.3}
+    },
+    "report_agent": {
+        "criteria": ["structure_clarity", "content_coherence", "audience_adaptation"],
+        "thresholds": {"structure_clarity": 0.8, "content_coherence": 0.7, "audience_adaptation": 0.8},
+        "weights": {"structure_clarity": 0.3, "content_coherence": 0.4, "audience_adaptation": 0.3}
+    }
+}
+```
+
+### Error Handling & Recovery
+
+#### Resilient Agent Pattern
+```python
+class ResilientAgent(BaseAgent):
+    async def execute_with_recovery(self, input_data: dict, session_id: str) -> dict:
+        """Execute with comprehensive error recovery."""
+
+        for attempt in range(self.max_retry_attempts):
+            try:
+                result = await self.execute(input_data, session_id)
+                await self._create_checkpoint(session_id, result)
+                return result
+
+            except RecoverableError as e:
+                self.logger.warning(f"Recoverable error in attempt {attempt + 1}: {e}")
+                if attempt < self.max_retry_attempts - 1:
+                    await self._recover_from_error(e, input_data, session_id)
+                    continue
+                else:
+                    return await self._execute_fallback_strategy(input_data, session_id)
+
+            except CriticalError as e:
+                self.logger.error(f"Critical error in {self.agent_id}: {e}")
+                return await self._handle_critical_error(e, input_data, session_id)
+```
+
+#### Checkpointing Pattern
+```python
+class CheckpointingAgent(BaseAgent):
+    async def _create_checkpoint(self, session_id: str, state: dict):
+        """Create checkpoint for recovery."""
+
+        checkpoint_data = {
+            "session_id": session_id,
+            "agent_id": self.agent_id,
+            "timestamp": datetime.now().isoformat(),
+            "state": state,
+            "agent_version": self.get_version()
+        }
+
+        checkpoint_file = self._get_checkpoint_path(session_id)
+        await self._save_checkpoint(checkpoint_file, checkpoint_data)
+
+    async def _recover_from_checkpoint(self, session_id: str) -> dict:
+        """Recover agent state from checkpoint."""
+
+        checkpoint_file = self._get_checkpoint_path(session_id)
+        if await self._checkpoint_exists(checkpoint_file):
+            return await self._load_checkpoint(checkpoint_file)
+
+        return None
+```
+
+## Integration with Orchestrator System
+
+### MCP Tool Integration
+```python
+# Agent tools exposed through MCP
+class AgentMCPIntegration:
+    def __init__(self, orchestrator):
+        self.orchestrator = orchestrator
+        self.agent_tools = self._register_agent_tools()
+
+    def _register_agent_tools(self):
+        """Register agent capabilities as MCP tools."""
+
+        return {
+            "research_agent_web_research": self._web_research_tool,
+            "report_agent_create_report": self._create_report_tool,
+            "editorial_agent_enhance_content": self._enhance_content_tool,
+            "quality_judge_assess": self._assess_quality_tool
+        }
+
+    async def _web_research_tool(self, topic: str, depth: str, max_sources: int) -> dict:
+        """MCP tool for web research."""
+
+        session_id = self._get_current_session_id()
+        research_agent = self.orchestrator.get_agent("research_agent")
+
+        result = await research_agent.web_research({
+            "topic": topic,
+            "research_depth": depth,
+            "max_sources": max_sources
+        })
+
+        return result
+```
+
+### Session Management Integration
+```python
+# Agent session integration
+class AgentSessionManager:
+    def __init__(self, orchestrator):
+        self.orchestrator = orchestrator
+        self.active_sessions = {}
+
+    async def initialize_agent_session(self, session_id: str, agent_type: str, config: dict):
+        """Initialize agent for specific session."""
+
+        agent = self.orchestrator.get_agent(agent_type)
+        session_config = self._prepare_session_config(config)
+
+        await agent.initialize_session(session_id, session_config)
+        self.active_sessions[session_id] = {
+            "agent_type": agent_type,
+            "agent": agent,
+            "config": session_config,
+            "start_time": datetime.now()
+        }
+
+    async def cleanup_agent_session(self, session_id: str):
+        """Clean up agent session resources."""
+
+        if session_id in self.active_sessions:
+            session_data = self.active_sessions[session_id]
+            await session_data["agent"].cleanup_session(session_id)
+            del self.active_sessions[session_id]
+```
+
+## Performance & Scalability
+
+### Async Processing Patterns
+```python
+# Concurrent agent processing
+class ConcurrentAgentProcessor:
+    async def process_agents_concurrently(self, agents_data: list[dict]) -> list[dict]:
+        """Process multiple agent tasks concurrently."""
+
+        tasks = []
+        for agent_data in agents_data:
+            task = self._process_single_agent(agent_data)
+            tasks.append(task)
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        return self._process_results(results)
+
+    async def _process_single_agent(self, agent_data: dict) -> dict:
+        """Process single agent task with proper error handling."""
+
+        try:
+            agent = self._get_agent(agent_data["agent_type"])
+            result = await agent.execute(agent_data["input"], agent_data["session_id"])
+            return {"success": True, "result": result}
+
+        except Exception as e:
+            return {"success": False, "error": str(e), "agent_data": agent_data}
+```
+
+### Resource Management
+```python
+# Agent resource management
+class AgentResourceManager:
+    def __init__(self, max_concurrent_agents: int = 10):
+        self.max_concurrent_agents = max_concurrent_agents
+        self.active_agents = {}
+        self.agent_pool = asyncio.Semaphore(max_concurrent_agents)
+
+    async def acquire_agent_slot(self, agent_type: str) -> str:
+        """Acquire slot for agent execution."""
+
+        await self.agent_pool.acquire()
+        slot_id = str(uuid.uuid4())
+
+        self.active_agents[slot_id] = {
+            "agent_type": agent_type,
+            "start_time": datetime.now(),
+            "status": "active"
+        }
+
+        return slot_id
+
+    async def release_agent_slot(self, slot_id: str):
+        """Release agent slot."""
+
+        if slot_id in self.active_agents:
+            del self.active_agents[slot_id]
+            self.agent_pool.release()
+```
+
+## Testing & Debugging
+
+### Agent Testing Framework
+```python
+# Comprehensive agent testing
+class AgentTestFramework:
+    def __init__(self):
+        self.test_agents = {}
+        self.mock_data = self._load_mock_data()
+        self.test_results = []
+
+    async def test_agent_functionality(self, agent_type: str, test_cases: list[dict]) -> dict:
+        """Test agent functionality with comprehensive test cases."""
+
+        agent = self._create_test_agent(agent_type)
+        results = {
+            "agent_type": agent_type,
+            "total_tests": len(test_cases),
+            "passed_tests": 0,
+            "failed_tests": 0,
+            "test_details": []
+        }
+
+        for test_case in test_cases:
+            try:
+                result = await agent.execute(test_case["input"], test_case["session_id"])
+
+                if self._validate_result(result, test_case["expected"]):
+                    results["passed_tests"] += 1
+                    status = "passed"
+                else:
+                    results["failed_tests"] += 1
+                    status = "failed"
+
+                results["test_details"].append({
+                    "test_name": test_case["name"],
+                    "status": status,
+                    "result": result,
+                    "expected": test_case["expected"]
+                })
+
+            except Exception as e:
+                results["failed_tests"] += 1
+                results["test_details"].append({
+                    "test_name": test_case["name"],
+                    "status": "error",
+                    "error": str(e)
+                })
+
+        return results
+```
+
+### Agent Debugging Tools
+```python
+# Agent debugging utilities
+class AgentDebugger:
+    def __init__(self):
+        self.debug_sessions = {}
+        self.agent_traces = {}
+
+    async def start_agent_debugging(self, session_id: str, agent_type: str):
+        """Start debugging session for specific agent."""
+
+        debug_session = {
+            "session_id": session_id,
+            "agent_type": agent_type,
+            "start_time": datetime.now(),
+            "traces": [],
+            "messages": [],
+            "quality_assessments": []
+        }
+
+        self.debug_sessions[session_id] = debug_session
+        return debug_session
+
+    def log_agent_trace(self, session_id: str, trace_data: dict):
+        """Log execution trace for debugging."""
+
+        if session_id in self.debug_sessions:
+            trace = {
+                "timestamp": datetime.now().isoformat(),
+                "data": trace_data
+            }
+            self.debug_sessions[session_id]["traces"].append(trace)
+
+    def get_debug_summary(self, session_id: str) -> dict:
+        """Get comprehensive debug summary."""
+
+        if session_id not in self.debug_sessions:
+            return None
+
+        session = self.debug_sessions[session_id]
+
+        return {
+            "session_id": session_id,
+            "agent_type": session["agent_type"],
+            "duration": (datetime.now() - session["start_time"]).total_seconds(),
+            "total_traces": len(session["traces"]),
+            "total_messages": len(session["messages"]),
+            "quality_trend": self._analyze_quality_trend(session["quality_assessments"])
+        }
+```
+
+## Configuration & Customization
 
 ### Agent Configuration
 ```python
-# Example: Agent configuration
+# Comprehensive agent configuration
 AGENT_CONFIG = {
     "research_agent": {
         "max_sources": 20,
         "search_depth": "comprehensive",
         "quality_threshold": 0.7,
-        "retry_attempts": 3
+        "retry_attempts": 3,
+        "timeout": 300,
+        "tools": ["web_research", "source_analysis", "information_synthesis"]
     },
     "report_agent": {
         "default_format": "standard_report",
         "audience_adaptation": True,
         "citation_style": "informal",
-        "max_length": 50000
+        "max_length": 50000,
+        "quality_threshold": 0.75,
+        "tools": ["create_report", "update_report", "request_more_research"]
     },
     "editorial_agent": {
         "enhancement_focus": "data_integration",
         "gap_filling_enabled": True,
         "quality_improvement": True,
-        "style_consistency": True
+        "style_consistency": True,
+        "progressive_enhancement": True,
+        "tools": ["enhance_content", "coordinate_gap_research", "apply_progressive_enhancement"]
+    },
+    "content_cleaner_agent": {
+        "ai_model": "gpt-5-nano",
+        "quality_scoring": True,
+        "search_filtering": True,
+        "batch_processing": True,
+        "fallback_enabled": True
+    },
+    "content_quality_judge": {
+        "ai_model": "gpt-5-nano",
+        "comprehensive_assessment": True,
+        "detailed_feedback": True,
+        "performance_tracking": True,
+        "criteria_weights": {
+            "relevance": 0.2,
+            "completeness": 0.15,
+            "accuracy": 0.2,
+            "clarity": 0.15,
+            "depth": 0.15,
+            "organization": 0.1,
+            "source_credibility": 0.05
+        }
     }
 }
 ```
 
 ### Quality Standards
 ```python
-# Example: Quality criteria for agents
-QUALITY_CRITERIA = {
-    "completeness": {
-        "threshold": 0.8,
-        "factors": ["information_coverage", "source_diversity", "topic_depth"]
-    },
-    "accuracy": {
-        "threshold": 0.9,
-        "factors": ["factual_correctness", "source_credibility", "citation_quality"]
-    },
-    "clarity": {
-        "threshold": 0.8,
-        "factors": ["readability", "organization", "coherence"]
+# Quality criteria and thresholds
+QUALITY_STANDARDS = {
+    "excellence_threshold": 90,
+    "good_threshold": 75,
+    "acceptable_threshold": 60,
+    "minimum_threshold": 40,
+
+    "criteria_definitions": {
+        "content_completeness": {
+            "description": "Thoroughness of topic coverage and information depth",
+            "weight": 0.2,
+            "measurement": "Information coverage analysis"
+        },
+        "source_credibility": {
+            "description": "Quality and reliability of information sources",
+            "weight": 0.15,
+            "measurement": "Source authority and accuracy assessment"
+        },
+        "analytical_depth": {
+            "description": "Depth of analysis and critical thinking",
+            "weight": 0.2,
+            "measurement": "Analytical sophistication evaluation"
+        },
+        "data_integration": {
+            "description": "Effective integration of research data and findings",
+            "weight": 0.25,
+            "measurement": "Research data incorporation analysis"
+        },
+        "clarity_coherence": {
+            "description": "Readability, organization, and logical flow",
+            "weight": 0.1,
+            "measurement": "Text clarity and structure assessment"
+        },
+        "temporal_relevance": {
+            "description": "Currency and timeliness of information",
+            "weight": 0.1,
+            "measurement": "Information recency evaluation"
+        }
     }
 }
 ```
 
-## Testing & Debugging
+## Best Practices & Guidelines
 
-### Agent Testing Strategies
-1. **Unit Testing**: Test individual agent functions in isolation
-2. **Integration Testing**: Test agent interactions and workflow integration
-3. **Quality Testing**: Verify agent outputs meet quality standards
-4. **Performance Testing**: Ensure agents perform within acceptable time limits
+### Agent Development Best Practices
 
-### Debugging Agent Behavior
-1. **Verbose Logging**: Enable detailed logging for agent operations
-2. **Step-by-Step Tracing**: Monitor agent decision-making processes
-3. **Output Inspection**: Examine intermediate and final outputs
-4. **Quality Metrics**: Track quality scores and improvement over time
+1. **Quality-First Design**: Build quality assessment and enhancement into every agent
+2. **Error Resilience**: Implement comprehensive error handling and recovery mechanisms
+3. **Async-First Architecture**: Use async/await patterns for all operations
+4. **Message-Based Communication**: Use structured messages for agent coordination
+5. **Resource Management**: Monitor and manage agent resource usage effectively
+6. **Configuration Management**: Use flexible configuration for behavior control
+7. **Testing Integration**: Build comprehensive testing into agent development
 
-### Common Agent Issues
-- **Poor Quality Output**: Adjust prompts and quality criteria
-- **Slow Performance**: Optimize algorithms and reduce unnecessary processing
-- **Integration Failures**: Verify agent communication and data exchange
-- **Tool Usage Issues**: Ensure agents have access to required tools
+### Integration Guidelines
 
-## Usage Examples
+1. **Orchestrator Compatibility**: Ensure agents work seamlessly with the core orchestrator
+2. **MCP Compliance**: Follow MCP standards for tool integration and exposure
+3. **Session Management**: Implement proper session lifecycle management
+4. **Quality Framework Integration**: Use the standardized quality assessment framework
+5. **Progressive Enhancement**: Support progressive enhancement capabilities where applicable
 
-### Research Agent Usage
-```python
-from agents.research_agent import ResearchAgent
+### Performance Optimization
 
-research_agent = ResearchAgent(config={
-    "max_sources": 15,
-    "search_strategy": "adaptive",
-    "quality_threshold": 0.7
-})
+1. **Concurrent Processing**: Use async patterns for concurrent operations
+2. **Intelligent Caching**: Cache frequently accessed data and computations
+3. **Resource Pooling**: Implement agent pooling for efficient resource utilization
+4. **Quality vs. Speed Balance**: Provide configurable trade-offs between quality and performance
 
-results = await research_agent.execute({
-    "query": "artificial intelligence in healthcare",
-    "depth": "comprehensive",
-    "requirements": {
-        "academic_sources": True,
-        "recent_data": True,
-        "expert_opinions": True
-    }
-})
-
-print(f"Found {len(results['sources'])} sources")
-print(f"Research quality score: {results['quality_score']}")
-```
-
-### Report Agent Usage
-```python
-from agents.report_agent import ReportAgent
-
-report_agent = ReportAgent(config={
-    "format": "academic_paper",
-    "audience": "technical",
-    "length": "detailed"
-})
-
-report = await report_agent.execute({
-    "research_data": research_results,
-    "topic": "AI in Healthcare",
-    "requirements": {
-        "include_abstract": True,
-        "citation_style": "APA",
-        "sections": ["introduction", "analysis", "conclusion"]
-    }
-})
-
-print(f"Report generated: {len(report['content'])} characters")
-print(f"Report quality: {report['quality_assessment']}")
-```
-
-### Editorial Agent Usage
-```python
-from agents.decoupled_editorial_agent import DecoupledEditorialAgent
-
-editorial_agent = DecoupledEditorialAgent(config={
-    "enhancement_focus": "data_integration",
-    "gap_filling": True,
-    "quality_improvement": True
-})
-
-enhanced_report = await editorial_agent.execute({
-    "original_report": report,
-    "research_data": research_results,
-    "quality_requirements": {
-        "min_quality_score": 0.8,
-        "required_sections": ["executive_summary", "detailed_analysis"],
-        "data_integration": True
-    }
-})
-
-print(f"Enhancements made: {enhanced_report['enhancement_count']}")
-print(f"New quality score: {enhanced_report['quality_score']}")
-```
-
-### Quality Judge Usage
-```python
-from agents.content_quality_judge import ContentQualityJudge
-
-quality_judge = ContentQualityJudge()
-
-assessment = await quality_judge.execute({
-    "content": report_content,
-    "content_type": "research_report",
-    "requirements": {
-        "min_quality": 0.7,
-        "critical_factors": ["accuracy", "completeness", "clarity"]
-    }
-})
-
-print(f"Overall quality: {assessment['overall_score']}")
-print(f"Critical issues: {assessment['critical_issues']}")
-print(f"Recommendations: {assessment['recommendations']}")
-```
-
-## Performance Considerations
-
-### Agent Optimization
-1. **Async Operations**: Use async/await patterns for concurrent processing
-2. **Resource Management**: Monitor and manage memory and CPU usage
-3. **Caching**: Cache frequently accessed data and computations
-4. **Batch Processing**: Process multiple items together when possible
-
-### Quality vs. Speed Trade-offs
-- **High Quality Mode**: More thorough processing, longer execution time
-- **Balanced Mode**: Good quality with reasonable performance
-- **Fast Mode**: Quick processing with basic quality assurance
-
-### Scaling Recommendations
-- Implement agent pooling for concurrent execution
-- Use distributed processing for large-scale operations
-- Monitor agent performance and optimize bottlenecks
-- Implement graceful degradation under high load
-
-## Integration Patterns
-
-### Agent Communication
-```python
-# Example: Agent communication pattern
-class AgentOrchestrator:
-    def __init__(self):
-        self.agents = {
-            "research": ResearchAgent(),
-            "report": ReportAgent(),
-            "editorial": EditorialAgent()
-        }
-
-    async def process_request(self, request: dict):
-        # Research phase
-        research_results = await self.agents["research"].execute(request)
-
-        # Report generation phase
-        report_request = {
-            "research_data": research_results,
-            "topic": request["topic"],
-            "requirements": request.get("report_requirements", {})
-        }
-        report = await self.agents["report"].execute(report_request)
-
-        # Editorial enhancement phase
-        editorial_request = {
-            "original_report": report,
-            "research_data": research_results,
-            "quality_requirements": request.get("quality_requirements", {})
-        }
-        final_report = await self.agents["editorial"].execute(editorial_request)
-
-        return final_report
-```
-
-### Quality Feedback Loop
-```python
-# Example: Quality feedback integration
-class QualityAwareAgent(BaseAgent):
-    async def execute_with_quality_check(self, input_data: dict):
-        result = await self.execute(input_data)
-
-        # Quality assessment
-        quality_assessment = await self.assess_quality(result)
-
-        # Quality improvement loop
-        while quality_assessment['overall_score'] < self.min_quality_threshold:
-            result = await self.improve_quality(result, quality_assessment)
-            quality_assessment = await self.assess_quality(result)
-
-        return result
-```
-
-### Error Recovery in Agents
-```python
-# Example: Agent error recovery
-class ResilientAgent(BaseAgent):
-    async def execute_with_recovery(self, input_data: dict):
-        for attempt in range(self.max_retry_attempts):
-            try:
-                return await self.execute(input_data)
-            except Exception as e:
-                if attempt == self.max_retry_attempts - 1:
-                    # Final attempt with fallback strategy
-                    return await self.fallback_execution(input_data)
-                else:
-                    # Wait and retry with modified approach
-                    await asyncio.sleep(self.retry_delay * (2 ** attempt))
-                    input_data = self.modify_request_for_retry(input_data, e)
-```
+This comprehensive agents directory provides a sophisticated, quality-first multi-agent system with advanced coordination patterns, progressive enhancement capabilities, and intelligent error recovery mechanisms, enabling reliable and scalable research workflows with enterprise-grade quality assurance.

@@ -1,329 +1,499 @@
-# Claude Agent SDK Python - Development Guide
+# Multi-Agent Research System - Comprehensive Guide
 
 ## Overview
 
-The Claude Agent SDK for Python provides a comprehensive interface for building AI agents that interact with Claude Code. This is a modern async-first Python library that supports both simple one-shot queries and complex interactive sessions with custom tools and hooks.
+The Multi-Agent Research System is a sophisticated AI-powered research automation platform that delivers comprehensive, high-quality research outputs through coordinated multi-agent workflows. This production-ready MVP system combines advanced orchestration, quality management, and intelligent research automation to provide reliable, scalable research with built-in quality assurance.
 
-## High-Level Architecture
+**Key Capabilities:**
+- **Multi-Agent Coordination**: Specialized agents working in sophisticated workflows
+- **Quality-Gated Processes**: Progressive enhancement with comprehensive quality assessment
+- **Advanced Research Automation**: Anti-bot detection, AI content cleaning, intelligent search
+- **MCP Integration**: Full Claude Agent SDK integration with intelligent token management
+- **Enterprise-Grade Features**: Comprehensive error recovery, logging, and monitoring
 
-### Core Components
+## System Architecture
 
-The SDK follows a layered architecture:
+### High-Level Component Structure
 
-1. **Public API Layer** (`src/claude_agent_sdk/`)
-   - `query.py` - Simple one-shot query function for stateless interactions
-   - `client.py` - ClaudeSDKClient for interactive, stateful conversations
-   - `types.py` - Comprehensive type definitions and data structures
-   - `__init__.py` - Main exports and MCP server creation utilities
+```
+multi_agent_research_system/
+├── core/           # Orchestration, quality management, error recovery
+├── agents/         # Specialized AI agents (research, report, editorial, quality)
+├── tools/          # High-level research tools and search interfaces
+├── utils/          # Web crawling, content processing, anti-bot detection
+├── config/         # Agent definitions and system configuration
+├── mcp_tools/      # Claude SDK integration with intelligent token management
+└── agent_logging/  # Comprehensive monitoring and debugging infrastructure
+```
 
-2. **Internal Implementation** (`src/claude_agent_sdk/_internal/`)
-   - `client.py` - InternalClient that handles query processing logic
-   - `query.py` - Query class managing the control protocol and message flow
-   - `message_parser.py` - Message parsing and type conversion
-   - `transport/` - Transport layer for CLI communication
+### Core Directory Functions
 
-3. **Transport Layer** (`src/claude_agent_sdk/_internal/transport/`)
-   - `subprocess_cli.py` - Subprocess management for Claude Code CLI
-   - `__init__.py` - Transport interface definition
+**🎯 core/** - *System Orchestration & Quality Management*
+- Advanced orchestrator with gap research coordination
+- Quality framework with progressive enhancement
+- Error recovery and resilience patterns
+- Session lifecycle management
 
-### Key Architectural Patterns
+**🤖 agents/** - *Specialized AI Agents*
+- **Research Agent**: Multi-source data collection and analysis
+- **Report Agent**: Structured report generation and formatting
+- **Editorial Agent**: Quality assessment and gap identification
+- **Content Cleaner**: AI-powered content enhancement
+- **Quality Judge**: Final quality validation and approval
 
-- **Async-First Design**: All operations are async using anyio for compatibility with asyncio and trio
-- **Transport Abstraction**: Clean separation between protocol logic and communication transport
-- **Type Safety**: Comprehensive type hints with mypy enforcement
-- **Message-Based Protocol**: JSON-based message protocol with structured parsing
-- **MCP Integration**: Built-in support for both external and in-process MCP servers
+**🔧 tools/** - *High-Level Research Interfaces*
+- **Intelligent Research Tool**: Complete z-playground1 methodology implementation
+- **Advanced Scraping Tool**: Multi-stage extraction with AI cleaning (35-40s savings per URL)
+- **SERP Search Tool**: High-performance Google search (10x improvement over MCP search)
 
-## Development Workflow
+**⚙️ utils/** - *Web Crawling & Content Processing*
+- **AI-Powered Content Pipeline**: Raw HTML → AI cleaning → agent consumption
+- **4-Level Anti-Bot System**: Basic → Enhanced → Advanced → Stealth escalation
+- **Intelligent Search Strategy**: AI-driven search engine selection
+- **Media Optimization**: 3-4x performance improvement for media-rich content
+
+**📋 config/** - *System Configuration & Agent Definitions*
+- **Agent Definition Architecture**: Claude Agent SDK integration patterns
+- **Enhanced Search Configuration**: Anti-bot levels and target-based scraping
+- **Settings Management**: Environment variable overrides and validation
+- **Quality Framework Configuration**: Customizable quality thresholds
+
+**🔌 mcp_tools/** - *Claude SDK Integration*
+- **Multi-Server Architecture**: Enhanced search and zplayground1 servers
+- **Adaptive Content Chunking**: Intelligent token management
+- **Progressive Anti-Bot Detection**: 4-level escalation system
+- **Session-Based Workproduct Management**: Environment-aware path detection
+
+**📊 agent_logging/** - *Monitoring & Debugging Infrastructure*
+- **Session-Based Correlation**: Cross-agent tracking with unique session IDs
+- **Structured Data Collection**: Detailed metrics for each agent type
+- **Hook System Integration**: Tool usage, agent communication, workflow monitoring
+- **Export and Analysis**: Built-in data export with session summaries
+
+## Quick Start Guide
 
 ### Prerequisites
 
-- Python 3.10+
-- Node.js (for Claude Code CLI)
-- Claude Code installed globally: `npm install -g @anthropic-ai/claude-code`
+1. **Python 3.10+** with required dependencies
+2. **API Keys** for external services:
+   ```bash
+   export ANTHROPIC_API_KEY="your-anthropic-key"
+   export OPENAI_API_KEY="your-openai-key"
+   export SERP_API_KEY="your-serp-key"
+   ```
+3. **Node.js** for Claude Code CLI (optional for MCP integration)
+
+### Basic Usage
+
+```python
+from multi_agent_research_system.core.orchestrator import ResearchOrchestrator
+
+# Initialize the orchestrator
+orchestrator = ResearchOrchestrator()
+
+# Run a comprehensive research query
+result = await orchestrator.run_research(
+    query="Latest developments in quantum computing",
+    max_sources=10,
+    quality_threshold=0.8
+)
+
+# Access the results
+print(f"Status: {result.status}")
+print(f"Report: {result.final_report_path}")
+print(f"Quality Score: {result.quality_score}")
+```
+
+### Expected Results
+
+Research outputs are organized in the `KEVIN/` directory:
+```
+KEVIN/
+├── sessions/
+│   └── {session_id}/
+│       ├── working/
+│       │   ├── RESEARCH_*.md
+│       │   ├── REPORT_*.md
+│       │   ├── EDITORIAL_*.md
+│       │   └── FINAL_*.md
+│       └── complete/
+│           └── FINAL_ENHANCED_*.md
+```
+
+## Core Features & Capabilities
+
+### Multi-Agent Workflows
+
+The system implements a sophisticated 4-stage workflow:
+
+1. **Research Stage**: Multi-source data collection using intelligent search strategies
+2. **Report Stage**: Structured report generation with professional formatting
+3. **Editorial Stage**: Quality assessment and gap identification with progressive enhancement
+4. **Quality Enhancement**: AI-powered content improvement and final validation
+
+### Quality Management System
+
+**Progressive Enhancement Pipeline:**
+- **Quality Assessment**: Comprehensive quality scoring across multiple dimensions
+- **Gap Research**: Intelligent identification of content gaps and missing information
+- **Content Enhancement**: AI-powered improvement of clarity, depth, and accuracy
+- **Final Validation**: Quality judge approval for production-ready outputs
+
+**Quality Framework Features:**
+- Configurable quality thresholds and standards
+- Multi-dimensional quality assessment (accuracy, completeness, clarity)
+- Progressive enhancement with measurable improvement tracking
+- Error recovery and fallback mechanisms
+
+### Advanced Research Capabilities
+
+**Intelligent Search & Discovery:**
+- AI-driven search engine selection based on query analysis
+- Progressive anti-bot detection with 4-level escalation
+- SERP integration with automatic content extraction
+- Relevance filtering with domain authority scoring
+
+**AI-Powered Content Processing:**
+- GPT-5-nano content cleaning with cleanliness assessment
+- Media optimization for 3-4x performance improvement
+- Intelligent content chunking and token management
+- Automatic source attribution and citation management
+
+### MCP Integration
+
+**Claude Agent SDK Integration:**
+- Multi-server architecture with specialized tool servers
+- Intelligent token management and content allocation
+- Adaptive content chunking for optimal performance
+- Comprehensive error handling and fail-fast validation
+
+## Development Guidelines
+
+### System Design Principles
+
+1. **Quality-First Architecture**: Every component includes quality assessment and enhancement
+2. **Resilience & Recovery**: Comprehensive error handling and recovery mechanisms
+3. **Scalability**: Async-first design with resource management
+4. **Observability**: Extensive logging and monitoring capabilities
+
+### Extension Patterns
+
+**Adding New Agents:**
+```python
+from multi_agent_research_system.agents.base_agent import BaseAgent
+
+class CustomAgent(BaseAgent):
+    agent_type = "custom"
+
+    async def process_task(self, task_data):
+        # Custom agent implementation
+        return await self.execute_with_quality_check(task_data)
+```
+
+**Adding New Tools:**
+```python
+from claude_agent_sdk import tool
+
+@tool("custom_tool", "Custom tool description", {"param": str})
+async def custom_tool(args):
+    # Tool implementation with MCP compliance
+    return {"content": [{"type": "text", "text": "Result"}]}
+```
+
+### Testing Approach
+
+- **Unit Tests**: Individual component testing with mocked dependencies
+- **Integration Tests**: End-to-end workflow testing
+- **Quality Tests**: Quality framework validation and enhancement testing
+- **Performance Tests**: Load testing and optimization validation
+
+## Configuration & Customization
 
 ### Environment Setup
 
 ```bash
-# Clone and setup
-git clone <repository>
-cd claude-agent-sdk-python
+# Required API keys
+export ANTHROPIC_API_KEY="your-anthropic-key"
+export OPENAI_API_KEY="your-openai-key"
+export SERP_API_KEY="your-serp-key"
 
-# Install in development mode with dev dependencies
-pip install -e ".[dev]"
-
-# Verify installation
-python -c "import claude_agent_sdk; print(claude_agent_sdk.__version__)"
+# Optional configuration
+export LOGFIRE_TOKEN="your-logfire-token"  # For enhanced monitoring
+export RESEARCH_QUALITY_THRESHOLD="0.8"    # Default quality threshold
+export MAX_SEARCH_RESULTS="10"              # Default search result limit
 ```
 
-### Code Quality Tools
+### Agent Configuration
 
-The project uses modern Python tooling configured in `pyproject.toml`:
-
-```bash
-# Lint and auto-fix issues
-python -m ruff check src/ tests/ --fix
-
-# Format code
-python -m ruff format src/ tests/
-
-# Type checking (strict mode)
-python -m mypy src/
-
-# Run all tests
-python -m pytest tests/
-
-# Run tests with coverage
-python -m pytest tests/ --cov=src/claude_agent_sdk
-
-# Run specific test file
-python -m pytest tests/test_client.py
-
-# Run with verbose output
-python -m pytest tests/ -v
-```
-
-### Testing Strategy
-
-- **Unit Tests**: `tests/test_*.py` - Test individual components in isolation
-- **Integration Tests**: `tests/integration/` - Test end-to-end workflows
-- **Type Checking**: Enforced with mypy in strict mode
-- **Code Coverage**: Configured with pytest-cov
-
-## Build and Distribution
-
-### Building the Package
-
-```bash
-# Build wheel and source distribution
-python -m build
-
-# Build wheel only
-python -m build --wheel
-
-# Build source distribution only
-python -m build --sdist
-```
-
-### Version Management
-
-- Version is defined in `src/claude_agent_sdk/_version.py`
-- Build system uses hatchling (configured in `pyproject.toml`)
-- Package name: `kev-claude-agent-sdk` (custom name in pyproject.toml)
-
-## Core Usage Patterns
-
-### 1. Simple Queries (One-Shot)
+Customize agent behavior through the configuration system:
 
 ```python
-import anyio
-from claude_agent_sdk import query
+from multi_agent_research_system.config.settings import SettingsManager
 
-async def main():
-    async for message in query(prompt="What is 2 + 2?"):
-        print(message)
+settings = SettingsManager()
 
-anyio.run(main)
+# Configure quality thresholds
+settings.quality_threshold = 0.9
+settings.enhancement_iterations = 3
+
+# Configure search behavior
+settings.max_search_results = 15
+settings.anti_bot_level = "advanced"
 ```
 
-### 2. Interactive Sessions
+### Quality Framework Settings
+
+Adjust quality assessment criteria:
 
 ```python
-from claude_agent_sdk import ClaudeSDKClient, ClaudeAgentOptions
-
-async def main():
-    options = ClaudeAgentOptions(
-        system_prompt="You are a helpful Python developer",
-        permission_mode="acceptEdits"
-    )
-
-    async with ClaudeSDKClient(options=options) as client:
-        await client.query("Create a hello.py file")
-        async for response in client.receive_response():
-            print(response)
-
-anyio.run(main)
+# Quality dimensions weighting
+quality_weights = {
+    "accuracy": 0.3,
+    "completeness": 0.25,
+    "clarity": 0.2,
+    "depth": 0.15,
+    "source_quality": 0.1
+}
 ```
 
-### 3. Custom Tools (SDK MCP Servers)
+## Usage Examples & Integration
+
+### Basic Research Query
 
 ```python
-from claude_agent_sdk import tool, create_sdk_mcp_server, ClaudeSDKClient
+# Simple research query
+result = await orchestrator.run_research(
+    query="Impact of AI on healthcare",
+    max_sources=5
+)
+```
 
-@tool("calculate", "Perform calculations", {"expression": str})
-async def calculate(args):
-    try:
-        result = eval(args["expression"])  # Safe eval in production
-        return {"content": [{"type": "text", "text": f"Result: {result}"}]}
-    except Exception as e:
-        return {"content": [{"type": "text", "text": f"Error: {e}"}], "is_error": True}
+### Advanced Research with Custom Quality
 
-# Create SDK MCP server
-calc_server = create_sdk_mcp_server("calculator", tools=[calculate])
+```python
+# High-quality research with custom requirements
+result = await orchestrator.run_research(
+    query="Quantum computing breakthroughs 2024",
+    max_sources=20,
+    quality_threshold=0.9,
+    enhancement_iterations=5,
+    require_peer_reviewed=True
+)
+```
 
-# Use with Claude
+### Programmatic Integration
+
+```python
+from multi_agent_research_system import ResearchSystem
+
+# Initialize system with custom configuration
+system = ResearchSystem(
+    quality_threshold=0.85,
+    max_concurrent_agents=3,
+    enable_gap_research=True
+)
+
+# Process multiple research queries
+queries = [
+    "Renewable energy trends",
+    "Space exploration developments",
+    "Biotechnology innovations"
+]
+
+results = await system.process_batch(queries)
+```
+
+### MCP Tool Usage
+
+```python
+from claude_agent_sdk import ClaudeSDKClient
+from multi_agent_research_system.mcp_tools.servers import create_research_server
+
+# Create MCP server with research tools
+research_server = create_research_server()
+
+# Use with Claude SDK
 options = ClaudeAgentOptions(
-    mcp_servers={"calc": calc_server},
-    allowed_tools=["mcp__calc__calculate"]
+    mcp_servers={"research": research_server},
+    allowed_tools=["mcp__research__comprehensive_search"]
 )
 
 async with ClaudeSDKClient(options=options) as client:
-    await client.query("Calculate 2 + 2 * 3")
-    # ... handle response
+    await client.query("Research the latest AI developments")
+    # Claude can now use the research tools directly
 ```
 
-### 4. Hooks for Permission Control
+## System Requirements & Dependencies
 
-```python
-from claude_agent_sdk import ClaudeSDKClient, HookMatcher, ClaudeAgentOptions
+### Prerequisites
 
-async def block_dangerous_commands(input_data, tool_use_id, context):
-    if input_data.get("tool_name") == "Bash":
-        command = input_data["tool_input"].get("command", "")
-        if "rm -rf" in command:
-            return {
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": "Dangerous command blocked"
-                }
-            }
-    return {}
+- **Python 3.10+** with async support
+- **Node.js 16+** for Claude Code CLI (optional)
+- **8GB+ RAM** recommended for optimal performance
+- **Stable internet connection** for external API access
 
-options = ClaudeAgentOptions(
-    hooks={
-        "PreToolUse": [
-            HookMatcher(matcher="Bash", hooks=[block_dangerous_commands])
-        ]
-    }
-)
-```
-
-## Internal Architecture Deep Dive
-
-### Message Flow
-
-1. **Query Initiation**: User calls `query()` or `ClaudeSDKClient.query()`
-2. **Transport Creation**: SubprocessCLITransport spawns Claude Code CLI process
-3. **Protocol Handshake**: SDK and CLI establish JSON-based communication protocol
-4. **Message Exchange**: Messages flow through Query class for processing
-5. **Response Parsing**: Raw JSON responses parsed into typed Message objects
-6. **Tool Execution**: MCP servers handle tool invocations (external or in-process)
-
-### Transport Layer
-
-The transport layer handles communication with the Claude Code CLI:
-
-- **Subprocess Management**: Spawns and monitors CLI process
-- **Stream Handling**: Manages stdin/stdout/stderr streams asynchronously
-- **Buffer Management**: Implements bounded buffering to prevent memory issues
-- **Error Handling**: Comprehensive error detection and reporting
-
-### Control Protocol
-
-The SDK uses a control protocol for advanced features:
-
-- **Streaming Mode**: Enables bidirectional communication
-- **Permission Control**: Dynamic permission management during sessions
-- **Session Management**: Support for multiple concurrent sessions
-- **Interrupt Handling**: Ability to interrupt long-running operations
-
-### Type System
-
-Comprehensive type system defined in `types.py`:
-
-- **Message Types**: UserMessage, AssistantMessage, SystemMessage, ResultMessage
-- **Content Blocks**: TextBlock, ToolUseBlock, ToolResultBlock, ThinkingBlock
-- **Configuration**: ClaudeAgentOptions with extensive customization
-- **Permission System**: Fine-grained permission control types
-- **Hook System**: Types for implementing custom hooks
-
-## Development Guidelines
-
-### Code Style
-
-- Follow PEP 8 with ruff formatting (88-character line length)
-- Use type hints everywhere (enforced by mypy strict mode)
-- Prefer async/await over callback patterns
-- Use dataclasses for structured data
-- Document all public APIs with comprehensive docstrings
-
-### Testing Guidelines
-
-- Write tests for all public APIs
-- Use pytest-asyncio for async test support
-- Mock external dependencies (CLI process) in unit tests
-- Test error conditions and edge cases
-- Maintain high code coverage (>90%)
-
-### Adding New Features
-
-1. **Types First**: Define types in `types.py`
-2. **Internal Implementation**: Add logic in `_internal/`
-3. **Public API**: Expose through main module
-4. **Tests**: Comprehensive unit and integration tests
-5. **Documentation**: Update docstrings and examples
-
-## Debugging and Troubleshooting
-
-### Common Issues
-
-1. **CLI Not Found**: Ensure Claude Code is installed and in PATH
-2. **Permission Issues**: Check file permissions and working directory
-3. **Process Errors**: Examine stderr output from CLI process
-4. **JSON Parsing**: Verify message format matches expected protocol
-
-### Debug Mode
-
-Enable verbose logging:
-
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-
-# SDK will emit detailed debug information
-```
-
-### Common Debug Commands
+### Required Dependencies
 
 ```bash
-# Check CLI installation
-claude --version
+# Core dependencies
+pip install claude-agent-sdk
+pip install pydantic-ai
+pip install crawl4ai
+pip install logfire
 
-# Test basic connectivity
-python -c "
-import asyncio
-from claude_agent_sdk import query
-async for msg in query(prompt='test'):
-    print(msg)
-"
-
-# Run with specific Python path
-CLAUDE_CODE_ENTRYPOINT=sdk-py python your_script.py
+# Development dependencies
+pip install pytest pytest-asyncio
+pip install ruff mypy
+pip install pre-commit
 ```
 
-## Examples and Reference Implementations
+### External Services
 
-See the `examples/` directory for comprehensive examples:
+- **Anthropic Claude API**: For AI agent interactions
+- **OpenAI API**: For content cleaning and enhancement
+- **SERP API**: For high-performance search capabilities
+- **Logfire**: For enhanced monitoring (optional)
 
-- `quick_start.py` - Basic usage examples
-- `streaming_mode.py` - Interactive session examples
-- `mcp_calculator.py` - Custom tools implementation
-- `hooks.py` - Permission control examples
-- `agents.py` - Agent definition examples
+## Monitoring & Debugging
+
+### Logging System
+
+The system provides comprehensive logging infrastructure:
+
+```python
+from multi_agent_research_system.agent_logging.logger import AgentLogger
+
+# Initialize logger for your component
+logger = AgentLogger("custom_component")
+
+# Log structured data
+await logger.log_info("Component started", {
+    "session_id": session_id,
+    "configuration": config,
+    "performance_metrics": metrics
+})
+```
+
+### Performance Monitoring
+
+Key metrics to monitor:
+- **Agent Execution Time**: Track performance of each agent
+- **Quality Improvement Scores**: Monitor enhancement effectiveness
+- **Error Recovery Rates**: Track system resilience
+- **Resource Utilization**: Monitor memory and processing usage
+
+### Debug Tools
+
+```bash
+# Enable debug logging
+export LOG_LEVEL=DEBUG
+
+# Run with trace output
+python -m logfire install
+
+# Monitor active sessions
+python -m multi_agent_research_system.tools.session_monitor
+```
+
+### Common Issues & Solutions
+
+**Issue: Slow research processing**
+- Solution: Adjust `max_concurrent_agents` and `batch_size` settings
+- Check anti-bot level configuration
+- Verify API key quotas and rate limits
+
+**Issue: Low quality scores**
+- Solution: Increase `quality_threshold` gradually
+- Enable additional enhancement iterations
+- Check source quality settings
+
+**Issue: Memory usage high**
+- Solution: Reduce `max_concurrent_agents`
+- Enable content chunking optimization
+- Monitor session cleanup processes
+
+## Best Practices & Guidelines
+
+### Research Query Design
+
+- **Specificity**: Use clear, specific queries for better results
+- **Scope**: Balance breadth and depth for optimal coverage
+- **Keywords**: Include relevant technical terms and industry jargon
+- **Timeframes**: Specify date ranges for time-sensitive research
+
+### Quality Optimization
+
+- **Threshold Settings**: Start with moderate thresholds (0.7-0.8) and adjust based on results
+- **Enhancement Iterations**: Use 2-3 iterations for balance of quality and speed
+- **Source Diversity**: Enable multiple search strategies for comprehensive coverage
+- **Validation**: Always review final outputs for critical applications
+
+### Resource Management
+
+- **Concurrent Agents**: Limit to 2-3 agents for optimal performance
+- **Session Cleanup**: Regular cleanup of old research sessions
+- **API Quotas**: Monitor external API usage and implement rate limiting
+- **Storage**: Manage KEVIN directory size with archival policies
+
+### Security Considerations
+
+- **API Key Management**: Store API keys securely using environment variables
+- **Data Privacy**: Review data handling policies for sensitive research
+- **Access Control**: Implement appropriate access controls for research outputs
+- **Audit Trails**: Use logging system for compliance and audit requirements
+
+## Directory Navigation
+
+This root documentation provides an overview of the entire system. For detailed information about specific components, refer to the individual directory documentation:
+
+- **[core/CLAUDE.md](multi_agent_research_system/core/CLAUDE.md)** - Advanced orchestrator and quality management
+- **[agents/CLAUDE.md](multi_agent_research_system/agents/CLAUDE.md)** - Specialized AI agents and workflows
+- **[tools/CLAUDE.md](multi_agent_research_system/tools/CLAUDE.md)** - High-level research tools and interfaces
+- **[utils/CLAUDE.md](multi_agent_research_system/utils/CLAUDE.md)** - Web crawling and content processing utilities
+- **[config/CLAUDE.md](multi_agent_research_system/config/CLAUDE.md)** - System configuration and agent definitions
+- **[mcp_tools/CLAUDE.md](multi_agent_research_system/mcp_tools/CLAUDE.md)** - Claude SDK integration and MCP tools
+- **[agent_logging/CLAUDE.md](multi_agent_research_system/agent_logging/CLAUDE.md)** - Monitoring and debugging infrastructure
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make changes with full test coverage
-4. Run code quality checks
-5. Submit a pull request with description
+### Development Setup
+
+1. **Clone the repository** and install in development mode:
+   ```bash
+   git clone <repository>
+   cd multi-agent-research-system
+   pip install -e ".[dev]"
+   ```
+
+2. **Set up pre-commit hooks**:
+   ```bash
+   pre-commit install
+   ```
+
+3. **Configure environment variables** for development
+4. **Run tests** to verify setup:
+   ```bash
+   pytest tests/
+   ```
+
+### Code Quality Standards
+
+- **Code Formatting**: Use ruff for consistent formatting
+- **Type Checking**: Enforce type hints with mypy
+- **Testing**: Maintain >90% code coverage
+- **Documentation**: Update documentation for all changes
 
 ### Pre-commit Checklist
 
 - [ ] Code passes `ruff check` and `ruff format`
-- [ ] Code passes `mypy src/` with no errors
+- [ ] Code passes `mypy multi_agent_research_system/` with no errors
 - [ ] All tests pass: `pytest tests/`
-- [ ] Documentation updated
-- [ ] Examples tested (if applicable)
+- [ ] Documentation updated for affected components
+- [ ] Integration tests pass for workflow changes
+- [ ] Performance impact assessed and documented
+
+---
+
+**System Status**: Production-ready MVP with enterprise-grade features
+**Documentation Version**: Current implementation reflecting actual system state
+**Last Updated**: Comprehensive documentation revamp capturing current MVP capabilities

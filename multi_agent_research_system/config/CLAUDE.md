@@ -1,378 +1,711 @@
 # Config Directory - Multi-Agent Research System
 
-This directory contains system configuration, agent definitions, and settings that control the behavior of the multi-agent research system.
+This directory contains comprehensive configuration management, agent definitions, and system settings that control the behavior, coordination, and quality standards of the multi-agent research system.
 
 ## Directory Purpose
 
-The config directory provides centralized configuration management for the entire multi-agent research system, including agent definitions, behavior settings, and system parameters. This configuration enables flexible system behavior without code changes.
+The config directory provides centralized configuration management for the entire multi-agent research system, including sophisticated agent definitions with Claude Agent SDK integration, enhanced search configuration, environment variable management, and quality framework settings. This configuration enables flexible system behavior without code changes while maintaining enterprise-grade consistency and control.
 
 ## Key Components
 
-### Agent Configuration
-- **`agents.py`** - Comprehensive agent definitions, prompts, and tool configurations (26KB)
-- **`settings.py`** - System settings, environment variables, and global configuration
+### Agent Configuration System
+- **`agents.py`** - Comprehensive agent definitions using Claude Agent SDK AgentDefinition pattern with detailed prompts, tool configurations, and behavioral guidelines (513 lines)
+- **`settings.py`** - Enhanced search configuration, crawling parameters, anti-bot settings, and environment-aware path management (214 lines)
+- **`__init__.py`** - Clean module exports and public API definitions for configuration access (16 lines)
 
-## Configuration Architecture
+### Configuration Architecture
 
-### Agent Definition Structure
+The config directory implements a sophisticated configuration management system with:
+
+- **Environment-Aware Configuration**: Automatic path detection and environment-based overrides
+- **SDK Integration**: Full Claude Agent SDK compatibility with AgentDefinition patterns
+- **Quality Framework Integration**: Configuration-driven quality assessment and enhancement
+- **Multi-Environment Support**: Development, testing, and production configuration profiles
+
+## Agent Definition Architecture
+
+### Claude Agent SDK Integration
+
+The system uses the Claude Agent SDK's AgentDefinition pattern for sophisticated agent configuration:
+
 ```python
 def get_research_agent_definition() -> AgentDefinition:
     """Define the Research Agent using SDK AgentDefinition pattern."""
     return AgentDefinition(
-        description="Expert Research Agent specializing in comprehensive web research...",
-        prompt="""You are a Research Agent, an expert in conducting comprehensive, high-quality research...""",
-        tools=["conduct_research", "analyze_sources", "save_research_findings"],
+        description="Expert Research Agent specializing in comprehensive web research, source validation, and information synthesis",
+        prompt="""You are a Research Agent, an expert in conducting comprehensive, high-quality research...
+
+MANDATORY RESEARCH PROCESS:
+1. IMMEDIATELY execute: conduct_research with the research topic
+2. Set num_results to 15 for comprehensive coverage
+3. Set auto_crawl_top to 8 for detailed content extraction
+4. Set crawl_threshold to 0.3 for relevance filtering
+5. Save research findings using save_report
+6. Create structured search results using create_research_report""",
+        tools=[
+            "conduct_research",
+            "analyze_sources",
+            "generate_report",
+            "save_report",
+            "get_session_data",
+            "create_research_report",
+            "Read", "Write", "Edit", "Bash"
+        ],
         model="sonnet"
     )
 ```
 
-### Settings Management
+### Specialized Agent Definitions
+
+#### 1. Research Agent
+- **Purpose**: Comprehensive web research, source validation, and information synthesis
+- **Key Features**:
+  - Mandatory research execution with SERP API integration
+  - Configurable search parameters (results, crawling, thresholds)
+  - Multi-tool workflow coordination
+  - Session-based data management
+  - Quality-focused research standards
+
+#### 2. Report Agent
+- **Purpose**: Transform research findings into structured, comprehensive reports
+- **Key Features**:
+  - Two-step report creation process (create_research_report → Write)
+  - Absolute path handling for file operations
+  - Stage-based work product labeling ("1-" prefix)
+  - Executive summary and detailed analysis generation
+  - Minimum content requirements (1000+ words)
+
+#### 3. Editorial Agent
+- **Purpose**: Report quality assessment, gap identification, and content enhancement
+- **Key Features**:
+  - Gap research control handoff architecture
+  - Research request workflow (not direct search access)
+  - Quality enhancement criteria integration
+  - Budget-aware search limitations
+  - Data-first enhancement approach
+
+#### 4. UI Coordinator Agent
+- **Purpose**: Workflow management, user interaction, and agent coordination
+- **Key Features**:
+  - Multi-agent workflow orchestration
+  - Session state management
+  - User feedback handling
+  - Progress tracking and status updates
+
+### Agent Tool Configuration
+
+Each agent definition includes comprehensive tool access patterns:
+
 ```python
-# Environment-based configuration
-class Settings:
-    ANTHROPIC_API_KEY: str = os.getenv('ANTHROPIC_API_KEY')
-    SERPER_API_KEY: str = os.getenv('SERPER_API_KEY')
-    DEFAULT_RESEARCH_DEPTH: str = "Standard Research"
-    MAX_CONCURRENT_AGENTS: int = 5
-    QUALITY_THRESHOLD: float = 0.7
-```
-
-## Agent Definitions
-
-### Available Agents
-1. **Research Agent** - Web research, source validation, information synthesis
-2. **Report Agent** - Report generation, content structuring, formatting
-3. **Editorial Agent** - Content enhancement, quality improvement, gap analysis
-4. **Content Cleaner Agent** - Content cleaning, standardization, quality assessment
-5. **Content Quality Judge** - Quality evaluation, scoring, recommendation
-
-### Agent Configuration Patterns
-Each agent definition includes:
-- **Description**: Clear purpose and capabilities
-- **Prompt**: Detailed behavior instructions and guidelines
-- **Tools**: Available MCP tools and utilities
-- **Quality Criteria**: Specific quality standards and evaluation metrics
-- **Workflow Integration**: How the agent fits into the overall system
-
-### Tool Configuration
-```python
-# Example: Agent tool configuration
+# Research Agent Tools
 RESEARCH_AGENT_TOOLS = [
-    "conduct_research",
-    "analyze_sources",
-    "save_research_findings",
-    "get_session_data",
-    "create_research_report"
+    "conduct_research",        # Primary research tool
+    "analyze_sources",        # Source credibility validation
+    "generate_report",        # Report transformation
+    "save_report",           # Report persistence
+    "get_session_data",      # Session data access
+    "create_research_report", # Structured report creation
+    "Read", "Write", "Edit", "Bash"  # File operations
 ]
 
+# Editorial Agent Tools (Note: No direct search access)
 EDITORIAL_AGENT_TOOLS = [
-    "get_session_data",
-    "revise_report",
-    "identify_research_gaps",
-    "conduct_research",
-    "analyze_sources",
-    "create_research_report"
+    "analyze_sources",        # Source analysis
+    "generate_report",        # Content generation
+    "revise_report",         # Report improvement
+    "review_report",         # Quality assessment
+    "identify_research_gaps", # Gap identification
+    "get_session_data",      # Session access
+    "create_research_report", # Review formatting
+    "Read", "Write", "Edit", "Bash"  # File operations
+    # Note: mcp__research_tools__request_gap_research added via MCP server
 ]
 ```
 
-## Development Guidelines
+## Enhanced Search Configuration
 
-### Configuration Management
-1. **Environment Variables**: Use environment variables for sensitive configuration
-2. **Default Values**: Provide sensible defaults for all configuration options
-3. **Validation**: Validate configuration values at startup
-4. **Documentation**: Document all configuration options and their effects
+### EnhancedSearchConfig Class
 
-### Agent Definition Standards
+The `settings.py` module provides sophisticated search configuration with environment-aware management:
+
 ```python
-# Example: Standard agent definition structure
-def get_agent_definition() -> AgentDefinition:
-    return AgentDefinition(
-        description="Clear, concise description of agent purpose",
-        prompt="""
-        Detailed behavior instructions including:
-        - Core responsibilities and priorities
-        - Quality criteria and success metrics
-        - Tool usage guidelines and workflows
-        - Error handling and fallback strategies
-        - Integration patterns with other agents
-        """,
-        tools=["tool1", "tool2", "tool3"],
-        model="sonnet"
-    )
-```
+@dataclass
+class EnhancedSearchConfig:
+    """Configuration for enhanced search functionality."""
 
-### Settings Patterns
-```python
-# Example: Settings configuration
-class Settings:
-    # API Configuration
-    ANTHROPIC_BASE_URL: str = os.getenv('ANTHROPIC_BASE_URL', 'https://api.anthropic.com')
-    ANTHROPIC_API_KEY: str = os.getenv('ANTHROPIC_API_KEY')
+    # Search Settings
+    default_num_results: int = 15
+    default_auto_crawl_top: int = 10
+    default_crawl_threshold: float = 0.3  # Fixed for better success rates
+    default_anti_bot_level: int = 1
+    default_max_concurrent: int = 15
 
-    # Research Configuration
-    DEFAULT_RESEARCH_DEPTH: str = "Standard Research"
-    MAX_SEARCH_RESULTS: int = 20
-    CONTENT_QUALITY_THRESHOLD: float = 0.7
-
-    # Agent Configuration
-    MAX_CONCURRENT_AGENTS: int = 5
-    AGENT_TIMEOUT: int = 300  # 5 minutes
-
-    # Output Configuration
-    DEFAULT_OUTPUT_FORMAT: str = "markdown"
-    MAX_CONTENT_LENGTH: int = 50000
-
-    @classmethod
-    def validate(cls):
-        """Validate configuration settings"""
-        if not cls.ANTHROPIC_API_KEY:
-            raise ValueError("ANTHROPIC_API_KEY is required")
-        # Additional validation logic
-```
-
-## Configuration Sections
-
-### Research Configuration
-```python
-RESEARCH_CONFIG = {
-    "depths": {
-        "Quick Overview": {
-            "max_sources": 5,
-            "content_length": "short",
-            "analysis_depth": "basic"
-        },
-        "Standard Research": {
-            "max_sources": 15,
-            "content_length": "medium",
-            "analysis_depth": "detailed"
-        },
-        "Comprehensive Analysis": {
-            "max_sources": 30,
-            "content_length": "long",
-            "analysis_depth": "thorough"
-        }
-    },
-    "audiences": {
-        "General Public": {"language_level": "simple", "technical_depth": "low"},
-        "Academic": {"language_level": "formal", "technical_depth": "high"},
-        "Business": {"language_level": "professional", "technical_depth": "medium"},
-        "Technical": {"language_level": "technical", "technical_depth": "high"},
-        "Policy Makers": {"language_level": "formal", "technical_depth": "medium"}
+    # Anti-Bot Levels (0-3)
+    anti_bot_levels = {
+        0: "basic",      # 6/10 sites success
+        1: "enhanced",   # 8/10 sites success
+        2: "advanced",   # 9/10 sites success
+        3: "stealth"     # 9.5/10 sites success
     }
-}
 ```
 
-### Quality Configuration
+### Target-Based Scraping Configuration
+
 ```python
-QUALITY_CONFIG = {
-    "thresholds": {
-        "content_completeness": 0.8,
-        "source_credibility": 0.7,
-        "analytical_depth": 0.6,
-        "clarity_coherence": 0.8,
-        "factual_accuracy": 0.9
-    },
-    "enhancement": {
-        "enabled": True,
-        "max_cycles": 3,
-        "improvement_threshold": 0.1,
-        "gap_filling_enabled": True
-    }
-}
+# Target-based scraping settings
+target_successful_scrapes: int = 15  # Target number of successful scrapes
+url_deduplication_enabled: bool = True  # Prevent duplicate URL crawling
+progressive_retry_enabled: bool = True  # Retry failed URLs with higher anti-bot levels
+
+# Retry logic settings
+max_retry_attempts: int = 3
+progressive_timeout_multiplier: float = 1.5
+
+# Token management
+max_response_tokens: int = 20000
+content_summary_threshold: int = 20000
 ```
 
-### Agent Behavior Configuration
+### Environment-Aware Path Management
+
+The configuration system implements intelligent path detection for different deployment environments:
+
 ```python
-AGENT_BEHAVIOR = {
-    "research_agent": {
-        "search_strategy": "adaptive",
-        "source_validation": "strict",
-        "content_extraction": "comprehensive",
-        "max_retry_attempts": 3
-    },
-    "report_agent": {
-        "structure": "standard_report",
-        "citation_style": "informal",
-        "length_adaptation": True,
-        "quality_threshold": 0.7
-    },
-    "editorial_agent": {
-        "enhancement_focus": "data_integration",
-        "gap_filling_strategy": "targeted",
-        "style_consistency": True,
-        "length_optimization": True
-    }
-}
+def _get_default_workproduct_dir(self) -> str:
+    """Environment-aware path detection for KEVIN directory."""
+    current_repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if "claudeagent-multiagent-latest" in current_repo:
+        return f"{current_repo}/KEVIN/work_products"
+    else:
+        return "/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN/work_products"
+
+def ensure_workproduct_directory(self, custom_dir: str = None, session_id: str = None, category: str = "research") -> Path:
+    """Ensure workproduct directory exists with session-based organization."""
+    if custom_dir:
+        workproduct_dir = Path(custom_dir)
+    elif session_id:
+        # Session-based directory structure: KEVIN/sessions/{session_id}/{category}
+        base_sessions_dir = Path(f"{self._get_base_repo_dir()}/KEVIN/sessions")
+        session_dir = base_sessions_dir / session_id
+        workproduct_dir = session_dir / category
+    else:
+        workproduct_dir = Path(self.default_workproduct_dir)
+
+    workproduct_dir.mkdir(parents=True, exist_ok=True)
+    return workproduct_dir
 ```
 
-## Testing & Debugging
+## Settings Management System
 
-### Configuration Testing
-1. **Validation Testing**: Test configuration validation logic
-2. **Default Value Testing**: Verify defaults work correctly
-3. **Environment Variable Testing**: Test environment variable loading
-4. **Agent Configuration Testing**: Test agent definitions load correctly
+### SettingsManager Class
 
-### Debugging Configuration Issues
-1. **Configuration Logging**: Log configuration values at startup
-2. **Validation Errors**: Provide clear error messages for configuration issues
-3. **Environment Monitoring**: Monitor environment variable changes
-4. **Agent Behavior**: Monitor agent behavior changes due to configuration
+The `SettingsManager` provides comprehensive configuration management with environment variable overrides:
 
-### Common Configuration Issues
-- **Missing Environment Variables**: Provide clear setup instructions
-- **Invalid Values**: Implement comprehensive validation with helpful error messages
-- **Agent Definition Errors**: Validate agent definitions before use
-- **Configuration Conflicts**: Detect and resolve conflicting settings
-
-## Usage Examples
-
-### Basic Configuration Usage
 ```python
-from config.settings import Settings
-from config.agents import get_research_agent_definition
+class SettingsManager:
+    """Manages configuration settings for the research system."""
 
-# Load configuration
-settings = Settings()
-settings.validate()
+    def __init__(self):
+        self._enhanced_search_config = EnhancedSearchConfig()
+        self._load_environment_overrides()
 
-# Get agent definition
-research_agent = get_research_agent_definition()
-print(f"Research agent: {research_agent.description}")
+    def _load_environment_overrides(self):
+        """Load configuration overrides from environment variables."""
+        # Enhanced search settings
+        if os.getenv('ENHANCED_SEARCH_NUM_RESULTS'):
+            self._enhanced_search_config.default_num_results = int(os.getenv('ENHANCED_SEARCH_NUM_RESULTS'))
+
+        if os.getenv('ENHANCED_SEARCH_ANTI_BOT_LEVEL'):
+            level = int(os.getenv('ENHANCED_SEARCH_ANTI_BOT_LEVEL'))
+            if 0 <= level <= 3:
+                self._enhanced_search_config.default_anti_bot_level = level
 ```
 
-### Custom Configuration
-```python
-# Custom settings for specific deployment
-class CustomSettings(Settings):
-    CUSTOM_RESEARCH_DEPTH = "Comprehensive Analysis"
-    CUSTOM_MAX_SOURCES = 50
-    CUSTOM_QUALITY_THRESHOLD = 0.9
+### Environment Variable Configuration
 
-# Custom agent configuration
-def get_custom_research_agent() -> AgentDefinition:
-    base_agent = get_research_agent_definition()
-    base_agent.prompt += "\n\nAdditional custom instructions..."
-    return base_agent
-```
+The system supports comprehensive environment-based configuration:
 
-### Environment-Based Configuration
-```python
-# .env file
+```bash
+# Enhanced Search Configuration
+ENHANCED_SEARCH_NUM_RESULTS=15
+ENHANCED_SEARCH_AUTO_CRAWL_TOP=10
+ENHANCED_SEARCH_CRAWL_THRESHOLD=0.3
+ENHANCED_SEARCH_ANTI_BOT_LEVEL=1
+ENHANCED_SEARCH_MAX_CONCURRENT=15
+
+# Path Configuration
+KEVIN_WORKPRODUCTS_DIR=/custom/path/to/workproducts
+
+# API Configuration
 ANTHROPIC_API_KEY=your_api_key_here
 SERPER_API_KEY=your_serp_key_here
-DEFAULT_RESEARCH_DEPTH=Standard Research
-MAX_CONCURRENT_AGENTS=10
-QUALITY_THRESHOLD=0.8
-
-# Loading in code
-from dotenv import load_dotenv
-load_dotenv()
-
-settings = Settings()
-print(f"Research depth: {settings.DEFAULT_RESEARCH_DEPTH}")
 ```
 
-### Runtime Configuration Updates
+### Content Cleaning Configuration
+
 ```python
-# Dynamic configuration updates
-class ConfigurationManager:
-    def __init__(self):
-        self.settings = Settings()
-        self.agent_configs = {}
+# Content cleaning settings
+default_cleanliness_threshold: float = 0.7
+min_content_length_for_cleaning: int = 500
+min_cleaned_content_length: int = 200
 
-    def update_quality_threshold(self, new_threshold: float):
-        self.settings.QUALITY_THRESHOLD = new_threshold
-        self._notify_agents_of_config_change()
-
-    def update_agent_prompt(self, agent_name: str, additional_instructions: str):
-        if agent_name in self.agent_configs:
-            self.agent_configs[agent_name].prompt += f"\n\n{additional_instructions}"
+# Crawl settings
+default_crawl_timeout: int = 30000
+max_concurrent_crawls: int = 15
+crawl_retry_attempts: int = 2
 ```
 
-## Best Practices
-
-### Configuration Management
-1. **Separation of Concerns**: Keep different types of configuration separate
-2. **Environment Awareness**: Use different configurations for different environments
-3. **Security**: Never commit sensitive configuration values to version control
-4. **Documentation**: Document all configuration options and their effects
-
-### Agent Configuration
-1. **Clear Instructions**: Provide clear, specific instructions in agent prompts
-2. **Tool Alignment**: Ensure agent tools match their described capabilities
-3. **Quality Standards**: Define clear quality criteria for each agent
-4. **Integration Patterns**: Document how agents should work together
-
-### Performance Configuration
-1. **Resource Limits**: Set appropriate resource limits for agents
-2. **Timeout Configuration**: Configure reasonable timeouts for operations
-3. **Concurrency Settings**: Optimize concurrency for your deployment environment
-4. **Caching Configuration**: Configure caching appropriately for your use case
-
-## Integration Patterns
-
-### Configuration Loading
-```python
-# Example: Configuration loading pattern
-class ConfigManager:
-    def __init__(self):
-        self.settings = self._load_settings()
-        self.agent_definitions = self._load_agent_definitions()
-
-    def _load_settings(self) -> Settings:
-        settings = Settings()
-        settings.validate()
-        return settings
-
-    def _load_agent_definitions(self) -> dict:
-        return {
-            "research": get_research_agent_definition(),
-            "report": get_report_agent_definition(),
-            "editorial": get_editorial_agent_definition()
-        }
-```
+## Configuration Integration Patterns
 
 ### Agent Factory Pattern
+
+The config system supports sophisticated agent creation with configuration:
+
 ```python
-# Example: Agent factory with configuration
-class AgentFactory:
-    def __init__(self, config_manager: ConfigManager):
-        self.config = config_manager
+# Example: Agent creation with configuration
+from config.agents import get_all_agent_definitions
+from config.settings import get_settings
+
+class ConfigurableAgentFactory:
+    def __init__(self):
+        self.settings = get_settings()
+        self.agent_definitions = get_all_agent_definitions()
 
     def create_agent(self, agent_type: str, **kwargs):
-        if agent_type not in self.config.agent_definitions:
+        """Create agent with configuration-based customization."""
+        if agent_type not in self.agent_definitions:
             raise ValueError(f"Unknown agent type: {agent_type}")
 
-        definition = self.config.agent_definitions[agent_type]
+        definition = self.agent_definitions[agent_type]
+
+        # Apply configuration-based modifications
+        if self.settings.enhanced_search.default_num_results != 15:
+            definition.prompt = self._update_search_params(definition.prompt)
+
         return ClaudeAgent(
             definition=definition,
-            settings=self.config.settings,
+            settings=self.settings,
             **kwargs
         )
 ```
 
 ### Configuration Validation
+
+The system provides comprehensive configuration validation:
+
 ```python
-# Example: Comprehensive configuration validation
-def validate_configuration(settings: Settings, agent_definitions: dict) -> list[str]:
-    errors = []
+def validate_anti_bot_level(self, level: int) -> int:
+    """Validate and clamp anti-bot level to valid range."""
+    return max(0, min(3, level))
 
-    # Validate settings
-    if not settings.ANTHROPIC_API_KEY:
-        errors.append("ANTHROPIC_API_KEY is required")
+def validate_crawl_threshold(self, threshold: float) -> float:
+    """Validate and clamp crawl threshold to valid range."""
+    return max(0.0, min(1.0, threshold))
 
-    if settings.QUALITY_THRESHOLD < 0 or settings.QUALITY_THRESHOLD > 1:
-        errors.append("QUALITY_THRESHOLD must be between 0 and 1")
-
-    # Validate agent definitions
-    for name, definition in agent_definitions.items():
-        if not definition.description:
-            errors.append(f"Agent {name} missing description")
-
-        if not definition.tools:
-            errors.append(f"Agent {name} has no tools configured")
-
-    return errors
+def get_debug_info(self) -> dict[str, Any]:
+    """Get debug information about current configuration."""
+    return {
+        "enhanced_search_config": {
+            "default_num_results": self._enhanced_search_config.default_num_results,
+            "default_crawl_threshold": self._enhanced_search_config.default_crawl_threshold,
+            "workproduct_dir": self._enhanced_search_config.default_workproduct_dir,
+        },
+        "environment_variables": {
+            "SERPER_API_KEY": "SET" if os.getenv('SERPER_API_KEY') else "NOT_SET",
+            "ANTHROPIC_API_KEY": "SET" if os.getenv('ANTHROPIC_API_KEY') else "NOT_SET",
+            "KEVIN_WORKPRODUCTS_DIR": os.getenv('KEVIN_WORKPRODUCTS_DIR', 'NOT_SET')
+        }
+    }
 ```
+
+## Quality Framework Integration
+
+### Agent Quality Configuration
+
+Each agent definition includes quality-focused behavioral guidelines:
+
+```python
+# Research Agent Quality Standards
+RESEARCH_STANDARDS = """
+- Prioritize authoritative sources (academic papers, reputable news, official reports)
+- Cross-reference information across multiple sources
+- Distinguish between facts and opinions
+- Note source dates and potential biases
+- Gather sufficient depth to support comprehensive reporting
+"""
+
+# Editorial Agent Quality Enhancement Criteria
+EDITORIAL_QUALITY_CRITERIA = [
+    "Data Specificity": "Does the report include specific facts, figures, statistics?",
+    "Fact Expansion": "Are general statements expanded with specific data?",
+    "Information Integration": "Are research findings thoroughly integrated?",
+    "Fact-Based Enhancement": "Are claims supported with specific data?",
+    "Rich Content": "Does the report leverage scraped research data effectively?",
+    "Comprehensive Coverage": "Does it include relevant facts and data points?",
+    "Style Consistency": "Is the report consistent with user's requested style?",
+    "Appropriate Length": "Does length match data volume and requirements?"
+]
+```
+
+### Configuration-Driven Quality Gates
+
+The config system supports configurable quality thresholds:
+
+```python
+# Quality configuration (can be extended in settings.py)
+QUALITY_THRESHOLDS = {
+    "content_completeness": 0.8,
+    "source_credibility": 0.7,
+    "analytical_depth": 0.6,
+    "clarity_coherence": 0.8,
+    "factual_accuracy": 0.9,
+    "data_integration": 0.8
+}
+
+ENHANCEMENT_CONFIG = {
+    "enabled": True,
+    "max_cycles": 3,
+    "improvement_threshold": 0.1,
+    "gap_filling_enabled": True
+}
+```
+
+## Usage Examples
+
+### Basic Configuration Usage
+
+```python
+from config.settings import get_settings, get_enhanced_search_config
+from config.agents import get_research_agent_definition, get_all_agent_definitions
+
+# Load configuration
+settings = get_settings()
+search_config = get_enhanced_search_config()
+
+# Get agent definition
+research_agent = get_research_agent_definition()
+print(f"Research agent: {research_agent.description}")
+print(f"Available tools: {research_agent.tools}")
+
+# Get all agent definitions
+all_agents = get_all_agent_definitions()
+for name, definition in all_agents.items():
+    print(f"{name}: {definition.description}")
+```
+
+### Custom Configuration with Environment Variables
+
+```python
+# Set environment variables
+os.environ['ENHANCED_SEARCH_NUM_RESULTS'] = '20'
+os.environ['ENHANCED_SEARCH_ANTI_BOT_LEVEL'] = '2'
+os.environ['KEVIN_WORKPRODUCTS_DIR'] = '/custom/workproducts'
+
+# Load updated configuration
+settings = get_settings()
+print(f"Search results: {settings.enhanced_search.default_num_results}")
+print(f"Anti-bot level: {settings.enhanced_search.default_anti_bot_level}")
+print(f"Workproduct dir: {settings.enhanced_search.default_workproduct_dir}")
+```
+
+### Session-Based Configuration
+
+```python
+# Configure session-based workproduct directories
+settings = get_settings()
+session_id = "research_session_123"
+
+# Ensure session directory structure
+research_dir = settings.ensure_workproduct_directory(
+    session_id=session_id,
+    category="research"
+)
+working_dir = settings.ensure_workproduct_directory(
+    session_id=session_id,
+    category="working"
+)
+
+print(f"Research directory: {research_dir}")
+print(f"Working directory: {working_dir}")
+```
+
+### Configuration Debugging
+
+```python
+# Get debug information
+settings = get_settings()
+debug_info = settings.get_debug_info()
+
+print("Configuration Debug Info:")
+print(json.dumps(debug_info, indent=2))
+
+# Validate configuration
+anti_bot_level = 5  # Invalid level
+validated_level = settings.validate_anti_bot_level(anti_bot_level)
+print(f"Validated anti-bot level: {validated_level}")  # Will be 3
+```
+
+### Dynamic Configuration Updates
+
+```python
+# Create custom configuration
+class CustomResearchConfig:
+    def __init__(self, base_config):
+        self.base_config = base_config
+
+    def get_custom_search_params(self, topic_complexity: str) -> dict:
+        """Get search parameters based on topic complexity."""
+        base_params = self.base_config.get_default_search_params()
+
+        if topic_complexity == "simple":
+            base_params["num_results"] = 10
+            base_params["auto_crawl_top"] = 5
+        elif topic_complexity == "complex":
+            base_params["num_results"] = 25
+            base_params["auto_crawl_top"] = 15
+            base_params["anti_bot_level"] = 2
+
+        return base_params
+
+# Usage
+custom_config = CustomResearchConfig(settings)
+simple_params = custom_config.get_custom_search_params("simple")
+complex_params = custom_config.get_custom_search_params("complex")
+```
+
+## Integration with System Components
+
+### Core Orchestrator Integration
+
+The config system integrates seamlessly with the core orchestrator:
+
+```python
+# In core/orchestrator.py
+from config.agents import get_all_agent_definitions
+from config.settings import get_settings
+
+class ResearchOrchestrator:
+    def __init__(self, debug_mode: bool = False):
+        self.settings = get_settings()
+        self.agent_definitions = get_all_agent_definitions()
+
+    async def initialize_agent(self, agent_type: str):
+        """Initialize agent with configuration."""
+        if agent_type in self.agent_definitions:
+            definition = self.agent_definitions[agent_type]
+            # Create agent with SDK using definition
+            return await self._create_sdk_agent(definition)
+        else:
+            raise ValueError(f"Unknown agent type: {agent_type}")
+```
+
+### MCP Tool Integration
+
+Configuration supports MCP tool registration and management:
+
+```python
+# MCP tools use configuration for parameters
+def get_session_data_tool(data_type: str = "all") -> dict:
+    """MCP tool using configuration for session management."""
+    session_id = get_current_session_id()
+    session_data = get_session_data(session_id)
+
+    if data_type == "research":
+        return {"research_data": session_data.get("research_results")}
+    elif data_type == "report":
+        return {"report_data": session_data.get("report_results")}
+    else:
+        return session_data
+```
+
+### Quality Framework Integration
+
+Configuration drives quality assessment and enhancement:
+
+```python
+# Quality framework uses configuration thresholds
+from config.settings import get_settings
+
+class QualityFramework:
+    def __init__(self):
+        self.settings = get_settings()
+        self.quality_thresholds = QUALITY_THRESHOLDS
+
+    async def assess_content(self, content: str, context: dict) -> QualityAssessment:
+        """Assess content using configuration-driven criteria."""
+        assessment = QualityAssessment()
+
+        for criterion, threshold in self.quality_thresholds.items():
+            result = await self._assess_criterion(criterion, content, context)
+            assessment.add_criterion_result(criterion, result, threshold)
+
+        return assessment
+```
+
+## Testing & Validation
+
+### Configuration Testing
+
+```python
+# Test configuration loading and validation
+def test_configuration_loading():
+    """Test configuration system initialization."""
+    settings = get_settings()
+
+    # Test enhanced search config
+    assert settings.enhanced_search.default_num_results > 0
+    assert 0 <= settings.enhanced_search.default_crawl_threshold <= 1
+    assert 0 <= settings.enhanced_search.default_anti_bot_level <= 3
+
+    # Test path management
+    workproduct_dir = settings.ensure_workproduct_directory()
+    assert workproduct_dir.exists()
+
+    # Test environment overrides
+    os.environ['ENHANCED_SEARCH_NUM_RESULTS'] = '25'
+    new_settings = get_settings()  # Should load new instance
+    assert new_settings.enhanced_search.default_num_results == 25
+
+def test_agent_definitions():
+    """Test agent definition loading and validation."""
+    agents = get_all_agent_definitions()
+
+    # Test all required agents are present
+    required_agents = ["research_agent", "report_agent", "editor_agent", "ui_coordinator"]
+    for agent_name in required_agents:
+        assert agent_name in agents
+        definition = agents[agent_name]
+        assert definition.description
+        assert definition.prompt
+        assert definition.tools
+        assert definition.model
+```
+
+### Environment Variable Testing
+
+```python
+# Test environment variable configuration
+def test_environment_configuration():
+    """Test environment variable overrides."""
+    # Set test environment variables
+    test_vars = {
+        'ENHANCED_SEARCH_NUM_RESULTS': '20',
+        'ENHANCED_SEARCH_ANTI_BOT_LEVEL': '2',
+        'ENHANCED_SEARCH_CRAWL_THRESHOLD': '0.5'
+    }
+
+    with temp_env_vars(test_vars):
+        settings = SettingsManager()
+
+        assert settings.enhanced_search.default_num_results == 20
+        assert settings.enhanced_search.default_anti_bot_level == 2
+        assert settings.enhanced_search.default_crawl_threshold == 0.5
+```
+
+## Best Practices
+
+### Configuration Management
+
+1. **Environment First**: Always use environment variables for deployment-specific configuration
+2. **Default Values**: Provide sensible defaults for all configuration options
+3. **Validation**: Validate configuration values at startup and during runtime
+4. **Documentation**: Document all configuration options with examples and effects
+5. **Type Safety**: Use proper type hints and validation for configuration values
+
+### Agent Definition Standards
+
+1. **Clear Instructions**: Provide specific, actionable instructions in agent prompts
+2. **Tool Alignment**: Ensure agent tools match described capabilities and requirements
+3. **Quality Focus**: Define clear quality criteria and success metrics for each agent
+4. **Error Handling**: Include error handling and fallback strategies in agent prompts
+5. **Integration Patterns**: Document how agents should coordinate and hand off control
+
+### Performance Configuration
+
+1. **Resource Limits**: Set appropriate resource limits and timeouts
+2. **Concurrency Control**: Configure concurrent operations based on system capacity
+3. **Caching Strategy**: Configure caching for frequently accessed data
+4. **Quality vs. Speed**: Balance quality requirements with performance constraints
+
+### Security Configuration
+
+1. **API Key Management**: Never commit API keys or sensitive configuration
+2. **Path Validation**: Validate file paths and directory access
+3. **Input Sanitization**: Validate configuration inputs and prevent injection
+4. **Access Control**: Configure appropriate access controls for file operations
+
+## Troubleshooting
+
+### Common Configuration Issues
+
+1. **Missing Environment Variables**
+   ```python
+   # Check environment variable status
+   debug_info = settings.get_debug_info()
+   missing_vars = [k for k, v in debug_info["environment_variables"].items() if v == "NOT_SET"]
+   print(f"Missing environment variables: {missing_vars}")
+   ```
+
+2. **Invalid Configuration Values**
+   ```python
+   # Validate anti-bot level
+   level = 5  # Invalid
+   validated = settings.validate_anti_bot_level(level)
+   print(f"Validated level: {validated}")  # Will be clamped to 3
+   ```
+
+3. **Path Issues**
+   ```python
+   # Test directory creation
+   try:
+       work_dir = settings.ensure_workproduct_directory()
+       print(f"Work directory: {work_dir}")
+       print(f"Directory exists: {work_dir.exists()}")
+   except Exception as e:
+       print(f"Path creation failed: {e}")
+   ```
+
+4. **Agent Definition Issues**
+   ```python
+   # Test agent loading
+   try:
+       agents = get_all_agent_definitions()
+       for name, definition in agents.items():
+           print(f"{name}: {len(definition.tools)} tools")
+   except Exception as e:
+       print(f"Agent loading failed: {e}")
+   ```
+
+### Debug Mode Configuration
+
+```python
+# Enable comprehensive debugging
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
+# Load configuration with debug info
+settings = get_settings()
+debug_info = settings.get_debug_info()
+print("Configuration Debug Info:")
+print(json.dumps(debug_info, indent=2))
+```
+
+## Future Development
+
+### Planned Configuration Enhancements
+
+1. **Configuration Profiles**: Support for multiple configuration profiles (dev, test, prod)
+2. **Dynamic Configuration**: Runtime configuration updates without restart
+3. **Configuration Templates**: Reusable configuration templates for different use cases
+4. **Advanced Validation**: More sophisticated configuration validation and error reporting
+5. **Configuration Migration**: Automated configuration migration between versions
+
+### Extension Points
+
+1. **Custom Agent Definitions**: Framework for defining custom agents with configuration
+2. **Plugin Configuration**: Configuration system for plugins and extensions
+3. **Quality Criteria**: Configurable quality assessment criteria and thresholds
+4. **Search Strategies**: Configurable search strategies and parameters
+5. **Output Formats**: Configurable output formats and templates
+
+This comprehensive configuration system provides enterprise-grade flexibility and control while maintaining simplicity and usability for different deployment scenarios and use cases.
