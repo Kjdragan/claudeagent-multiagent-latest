@@ -2855,7 +2855,7 @@ class ResearchOrchestrator:
                    - anti_bot_level: 2 (CRITICAL: MUST be pure INTEGER 2, NOT string "2". Type: int, Value: 2)
                    - num_results: 15 (MUST be integer)
                    - auto_crawl_top: {min(10, remaining_budget)} (MUST be integer)
-                   - crawl_threshold: 0.3 (MUST be float between 0.0-1.0, relevance score threshold for crawling)
+                   - crawl_threshold: 0.25 (MUST be float between 0.0-1.0, relevance score threshold for crawling - lowered to ensure sufficient sources)
                    - session_id: "{session_id}" (string)
 
                 ANTI_BOT_LEVEL PARAMETER CRITICAL NOTES:
@@ -2903,10 +2903,65 @@ class ResearchOrchestrator:
 
                 self.logger.info(f"Attempt {attempt + 1} scraped {attempt_scrapes} URLs, cumulative: {cumulative_scrapes}/{search_budget.primary_successful_scrapes_limit}")
 
-                # Simple validation: if we got any research activity, proceed to report generation
+                # Check if minimum source requirement is met (8 successful scrapes)
+                minimum_required_sources = 8
+                if cumulative_scrapes < minimum_required_sources and cumulative_scrapes < search_budget.primary_successful_scrapes_limit:
+                    # Insufficient sources - execute supplementary search with lower threshold
+                    sources_needed = minimum_required_sources - cumulative_scrapes
+                    budget_remaining = search_budget.primary_successful_scrapes_limit - cumulative_scrapes
+
+                    if budget_remaining >= 2:  # Only retry if we have budget for meaningful results
+                        self.logger.warning(f"⚠️ Insufficient sources ({cumulative_scrapes}/{minimum_required_sources}) - executing supplementary search")
+                        self.logger.info(f"   Target: {sources_needed} additional sources, Budget available: {budget_remaining}")
+
+                        # Execute supplementary search with lower threshold (0.20) and increased results
+                        supplementary_prompt = f"""Execute a supplementary search to meet minimum source requirements.
+
+CRITICAL: You obtained {cumulative_scrapes} sources but need {minimum_required_sources} minimum.
+
+Execute mcp__zplayground1_search__zplayground1_search_scrape_clean with:
+- query: "{clean_topic}"
+- search_mode: "web" (broaden search type for more results)
+- anti_bot_level: 2 (integer)
+- num_results: 20 (increased from 15)
+- auto_crawl_top: {min(budget_remaining, 10)} (integer)
+- crawl_threshold: 0.20 (lowered to include more candidates)
+- session_id: "{session_id}"
+
+This is a supplementary search to meet minimum quality standards.
+Execute immediately without explanation.
+
+Session ID: {session_id}
+"""
+
+                        try:
+                            supplementary_result = await self.execute_agent_query(
+                                "research_agent", supplementary_prompt, session_id, timeout_seconds=180
+                            )
+
+                            supplementary_scrapes = self._extract_scrape_count(supplementary_result)
+                            cumulative_scrapes += supplementary_scrapes
+
+                            search_budget.record_primary_research(
+                                urls_processed=supplementary_scrapes,
+                                successful_scrapes=supplementary_scrapes,
+                                search_queries=1
+                            )
+
+                            self.logger.info(f"✅ Supplementary search added {supplementary_scrapes} sources, total: {cumulative_scrapes}")
+                        except Exception as e:
+                            self.logger.error(f"❌ Supplementary search failed: {e}")
+                            self.logger.warning(f"Continuing with {cumulative_scrapes} sources despite failure")
+                    else:
+                        self.logger.warning(f"⚠️ Insufficient budget ({budget_remaining}) for supplementary search")
+
+                # Validation: if we got any research activity, proceed to report generation
                 if research_result.get("success", False) and research_result.get("substantive_responses", 0) > 0:
                     research_successful = True
-                    self.logger.info(f"✅ Research completed - proceeding to report generation on attempt {attempt + 1}")
+                    if cumulative_scrapes >= minimum_required_sources:
+                        self.logger.info(f"✅ Research completed with {cumulative_scrapes} sources (minimum {minimum_required_sources} met)")
+                    else:
+                        self.logger.warning(f"⚠️ Research completed with {cumulative_scrapes} sources (below minimum {minimum_required_sources})")
                     self.logger.info(f"Research found: {research_result.get('substantive_responses', 0)} responses, {len(research_result.get('tool_executions', []))} tools")
                     break
                 else:

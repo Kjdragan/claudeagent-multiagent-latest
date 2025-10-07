@@ -22,6 +22,8 @@ from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode, CrawlerRunConfig
 from crawl4ai.content_filter_strategy import PruningContentFilter
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 
+from .performance_timers import async_timed
+
 logger = logging.getLogger(__name__)
 
 
@@ -88,6 +90,7 @@ class AntiBotEscalationManager:
         self.base_delay = 1.0  # Base delay in seconds
         self.max_delay = 30.0  # Maximum delay in seconds
 
+    @async_timed(metadata={"category": "scraping", "stage": "anti_bot"})
     async def crawl_with_escalation(
         self,
         url: str,

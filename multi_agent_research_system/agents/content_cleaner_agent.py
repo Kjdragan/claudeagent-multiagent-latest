@@ -39,6 +39,16 @@ except ImportError:
     PYDAI_AVAILABLE = False
     BaseModel = None
 
+# Performance timer imports
+try:
+    from ..utils.performance_timers import async_timed
+except ImportError:
+    # Fallback no-op decorator if performance_timers not available
+    def async_timed(metadata=None):
+        def decorator(func):
+            return func
+        return decorator
+
 logger = logging.getLogger(__name__)
 
 
@@ -146,6 +156,7 @@ class ContentCleanerAgent:
             'quality_distribution': {}
         }
 
+    @async_timed(metadata={"category": "cleaning", "stage": "ai_processing"})
     async def clean_content(
         self,
         raw_content: str,
