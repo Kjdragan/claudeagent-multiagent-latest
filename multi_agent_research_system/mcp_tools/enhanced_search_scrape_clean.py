@@ -385,7 +385,14 @@ def create_enhanced_search_mcp_server():
             workproduct_dir = os.environ.get("KEVIN_WORKPRODUCTS_DIR")
             if not workproduct_dir:
                 # Use session-based directory structure
-                base_session_dir = f"/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/sessions/{session_id}"
+                # Use environment-aware path detection
+                current_repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                if "claudeagent-multiagent-latest" in current_repo:
+                    # Running from claudeagent-multiagent-latest
+                    base_session_dir = f"{current_repo}/KEVIN/sessions/{session_id}"
+                else:
+                    # Fallback to new repository structure
+                    base_session_dir = f"/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN/sessions/{session_id}"
                 research_dir = f"{base_session_dir}/research"
                 workproduct_dir = research_dir
 
@@ -555,7 +562,14 @@ def create_enhanced_search_mcp_server():
             workproduct_dir = os.environ.get("KEVIN_WORKPRODUCTS_DIR")
             if not workproduct_dir:
                 # Use session-based directory structure
-                base_session_dir = f"/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/sessions/{session_id}"
+                # Use environment-aware path detection
+                current_repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                if "claudeagent-multiagent-latest" in current_repo:
+                    # Running from claudeagent-multiagent-latest
+                    base_session_dir = f"{current_repo}/KEVIN/sessions/{session_id}"
+                else:
+                    # Fallback to new repository structure
+                    base_session_dir = f"/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN/sessions/{session_id}"
                 research_dir = f"{base_session_dir}/research"
                 workproduct_dir = research_dir
 
@@ -715,7 +729,14 @@ def create_enhanced_search_mcp_server():
             workproduct_dir = os.environ.get("KEVIN_WORKPRODUCTS_DIR")
             if not workproduct_dir:
                 # Use session-based directory structure
-                base_session_dir = f"/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/sessions/{session_id}"
+                # Use environment-aware path detection
+                current_repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                if "claudeagent-multiagent-latest" in current_repo:
+                    # Running from claudeagent-multiagent-latest
+                    base_session_dir = f"{current_repo}/KEVIN/sessions/{session_id}"
+                else:
+                    # Fallback to new repository structure
+                    base_session_dir = f"/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN/sessions/{session_id}"
                 research_dir = f"{base_session_dir}/research"
                 workproduct_dir = research_dir
 

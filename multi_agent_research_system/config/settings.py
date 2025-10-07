@@ -43,8 +43,17 @@ class EnhancedSearchConfig:
     max_response_tokens: int = 20000
     content_summary_threshold: int = 20000
 
-    # Work product directories
-    default_workproduct_dir: str = "/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/work_products"
+    # Work product directories - use environment-aware path detection
+    def _get_default_workproduct_dir(self) -> str:
+        current_repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        if "claudeagent-multiagent-latest" in current_repo:
+            return f"{current_repo}/KEVIN/work_products"
+        else:
+            return "/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN/work_products"
+
+    @property
+    def default_workproduct_dir(self) -> str:
+        return self._get_default_workproduct_dir()
     kevin_workproducts_dir: str | None = None
 
     # Content cleaning settings
@@ -131,7 +140,12 @@ class SettingsManager:
             workproduct_dir = Path(custom_dir)
         elif session_id:
             # Use session-based directory structure
-            base_sessions_dir = Path("/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/sessions")
+            # Use environment-aware path detection for sessions directory
+            current_repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            if "claudeagent-multiagent-latest" in current_repo:
+                base_sessions_dir = Path(f"{current_repo}/KEVIN/sessions")
+            else:
+                base_sessions_dir = Path("/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN/sessions")
             session_dir = base_sessions_dir / session_id
             workproduct_dir = session_dir / category
         elif self._enhanced_search_config.kevin_workproducts_dir:

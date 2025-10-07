@@ -586,6 +586,40 @@ async def get_session_data(args: dict[str, Any]) -> dict[str, Any]:
                 result["data"]["final_files"] = final_data
                 result["data"]["final_count"] = len(final_data)
 
+        # Enhanced validation for research data quality
+        if data_type in ["all", "research"]:
+            research_count = result["data"].get("research_count", 0)
+            if research_count == 0:
+                if _logger:
+                    _logger.warning(f"⚠️  WARNING: No research work products found for session {session_id}")
+
+                result["warnings"] = result.get("warnings", [])
+                result["warnings"].append({
+                    "type": "missing_research_data",
+                    "message": f"No research work products found in session {session_id}",
+                    "expected_location": str(session_path / "research"),
+                    "suggestion": "Ensure research stage completed successfully and work products were saved"
+                })
+            else:
+                # Validate research content quality
+                total_research_size = sum([
+                    rf.get("size", 0) for rf in result["data"].get("research_files", [])
+                ])
+
+                if total_research_size < 1000:  # Less than 1KB of research content
+                    if _logger:
+                        _logger.warning(f"⚠️  WARNING: Research work products appear to be very small for session {session_id}")
+
+                    result["warnings"] = result.get("warnings", [])
+                    result["warnings"].append({
+                        "type": "insufficient_research_content",
+                        "message": f"Research work products appear to contain minimal content ({total_research_size} bytes total)",
+                        "suggestion": "Verify that research content extraction completed successfully"
+                    })
+                else:
+                    if _logger:
+                        _logger.info(f"✅ Found {research_count} research work products with substantial content ({total_research_size} bytes)")
+
         if _logger:
             _logger.info(f"Successfully retrieved session data for {session_id}: {data_type}")
 

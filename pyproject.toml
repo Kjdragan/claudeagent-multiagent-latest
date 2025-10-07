@@ -28,10 +28,8 @@ dependencies = [
     "anyio>=4.0.0",
     "typing_extensions>=4.0.0; python_version<'3.11'",
     "mcp>=0.1.0",
-    "ruff>=0.13.2",
     "httpx>=0.28.1",
     "psutil>=7.1.0",
-    "streamlit>=1.28.0",
     "crawl4ai>=0.7.4",
     "playwright>=1.55.0",
     "pydantic-ai>=1.0.2",
@@ -119,10 +117,8 @@ ignore = [
 [tool.ruff.lint.isort]
 known-first-party = ["claude_agent_sdk"]
 
-[tool.uv.workspace]
-members = [
-    "claude-agents-sdk",
-]
+[tool.uv]
+package = true
 
 [dependency-groups]
 dev = [
@@ -132,7 +128,6 @@ dev = [
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
     "pytest-mock>=3.15.1",
-    "python-dotenv>=1.1.1",
     "ruff>=0.13.2",
     "streamlit>=1.50.0",
 ]

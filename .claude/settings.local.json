@@ -12,7 +12,9 @@
       "Bash(timeout:*)",
       "Bash(env)",
       "Bash(python3 -m ruff check:*)",
-      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --force --index-filter 'git rm --cached --ignore-unmatch .env multi_agent_research_system/.env' --prune-empty --tag-name-filter cat -- --all)"
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --force --index-filter 'git rm --cached --ignore-unmatch .env multi_agent_research_system/.env' --prune-empty --tag-name-filter cat -- --all)",
+      "Read(//home/kjdragan/**)",
+      "Bash(stty:*)"
     ],
     "deny": [],
     "ask": []

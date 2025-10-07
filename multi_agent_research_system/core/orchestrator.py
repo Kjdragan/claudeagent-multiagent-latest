@@ -1623,7 +1623,14 @@ class ResearchOrchestrator:
         # Method 3: Check most recent work product file
         session_id = research_result.get("session_id")
         if session_id:
-            research_dir = Path(f"/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/sessions/{session_id}/research")
+            # Use environment-aware path detection
+            current_repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            if "claudeagent-multiagent-latest" in current_repo:
+                # Running from claudeagent-multiagent-latest
+                research_dir = Path(f"{current_repo}/KEVIN/sessions/{session_id}/research")
+            else:
+                # Fallback to new repository structure
+                research_dir = Path(f"/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN/sessions/{session_id}/research")
             if research_dir.exists():
                 files = sorted(research_dir.glob("*.md"), key=lambda x: x.stat().st_mtime, reverse=True)
                 if files:
@@ -2879,6 +2886,8 @@ class ResearchOrchestrator:
                 research_prompt = f"""
                 Use the research_agent agent to conduct comprehensive research on the topic: "{clean_topic}"
 
+                **CURRENT DATE/TIME**: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}
+
                 User Requirements:
                 {json.dumps(user_requirements, indent=2)}
 
@@ -3051,24 +3060,44 @@ class ResearchOrchestrator:
 
                 {"Dynamic Requirements: " + dynamic_requirements if dynamic_requirements else ""}
 
+                **CURRENT DATE/TIME**: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}
+
+                **CRITICAL RESEARCH DATA INTEGRATION REQUIREMENTS**:
+
                 Research results have been collected and are available in the session data.
 
-                Use the mcp__research_tools__get_session_data tool to retrieve research findings, then:
+                **MANDATORY FIRST STEP**: Use mcp__research_tools__get_session_data tool with data_type="research" to access ALL research work products
 
-                1. Create a {report_config['scope']} report on the topic
-                2. Include all key findings from the research
+                **RESEARCH DATA INCORPORATION REQUIREMENTS**:
+                1. **READ ALL RESEARCH FILES**: You MUST read the complete content of ALL research work products available in the session data
+                2. **TEMPORAL ACCURACY VALIDATION**: Ensure all content reflects CURRENT events ({datetime.now().strftime('%B %Y')}), not outdated information
+                3. **SPECIFIC DATA INCORPORATION**: You MUST incorporate specific facts, figures, dates, and data points from the research sources
+                4. **SOURCE CITATION**: Reference specific sources and data points from your research materials
+                5. **GENERIC CONTENT PROHIBITED**: Do not use generic statements when specific data is available from research
+
+                **REPORT GENERATION PROCESS**:
+                1. Create a {report_config['scope']} report on "{topic}"
+                2. Incorporate ALL key findings from the research data you have read
                 3. Organize content logically with clear sections
                 4. Adjust the depth and length to match the {report_config['scope']} scope
-                4. Ensure proper citations and source attribution
-                5. Target the report to the user's specified audience
-                6. Use mcp__research_tools__create_research_report to create the report
-                7. CRITICAL: Save the report using the provided filepath from the tool
+                5. Ensure proper citations and source attribution from your research sources
+                6. Target the report to the user's specified audience
+                7. Use mcp__research_tools__create_research_report to create the report
+                8. CRITICAL: Save the report using the provided filepath from the tool
 
-                REQUIREMENTS:
+                **VALIDATION CHECKLIST**:
+                ☐ Read ALL research work products using get_session_data
+                ☐ Incorporated specific data points, dates, and figures from research
+                ☐ Ensured temporal accuracy for {datetime.now().strftime('%B %Y')}
+                ☐ Used specific source citations instead of generic attribution
+                ☐ Verified no outdated temporal references
+
+                **CRITICAL REQUIREMENTS**:
                 - Execute the create_research_report tool to generate the report
                 - Use the Write tool to save the report to the exact filepath provided
                 - Do not just describe the report - actually create and save it
                 - Ensure the report is comprehensive and well-structured
+                - FAILURE TO INCORPORATE RESEARCH DATA WILL RESULT IN EDITIAL REJECTION AND REVISION REQUIREMENTS
 
                 Session ID: {session_id}
                 """
@@ -3173,8 +3202,26 @@ class ResearchOrchestrator:
                 review_prompt = f"""
                 Use the editor_agent agent to review the generated report for quality, accuracy, and completeness.
 
+                **CURRENT DATE/TIME**: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}
+
                 Topic: {session_data['topic']}
                 Editing Rigor: {editorial_config['editing_rigor']} (determined by LLM: {editorial_config['llm_reasoning']})
+
+                **CRITICAL RESEARCH CONTEXT REQUIREMENTS**:
+
+                **STEP 1 - ACCESS ORIGINAL RESEARCH DATA**:
+                - Use get_session_data with data_type="research" to access the original research work product
+                - Examine the search_workproduct_*.md files to understand what research data was available to the report generation agent
+                - Assess whether the original report properly incorporated the available research data
+
+                **STEP 2 - EXAMINE GENERATED REPORT**:
+                - Use Read tool to examine the generated report files in the working directory
+                - Compare the report content against what was available in the original research data
+
+                **STEP 3 - ASSESS DATA INTEGRATION**:
+                - Evaluate whether the report utilized specific facts, figures, and data points from the research
+                - Check for temporal accuracy (should reflect {datetime.now().strftime('%B %Y')} events, not outdated information)
+                - Identify specific research data that should have been incorporated but wasn't
 
                 EDITORIAL SEARCH CONTROLS:
                 **SUCCESS-BASED TERMINATION**: Continue searching until you achieve 5 successful scrapes total
@@ -3187,13 +3234,12 @@ class ResearchOrchestrator:
                 - Successful scrapes: {budget_status["editorial"]["successful_scrapes"]}
                 - Search limit reached: {budget_status["editorial"]["search_queries_reached_limit"]}
 
-                Use the Read tool to examine the generated report files, then provide comprehensive review:
-
-                1. Assess report quality against professional standards
-                2. Check accuracy and proper source attribution
-                3. Evaluate clarity, organization, and completeness
-                4. Identify specific gaps or areas needing improvement
-                5. Provide specific, actionable feedback
+                **EDITORIAL REVIEW CRITERIA**:
+                1. **Data Integration Assessment**: Did the report properly utilize available research data?
+                2. **Temporal Accuracy**: Does content reflect current events ({datetime.now().strftime('%B %Y')})?
+                3. **Source Attribution**: Are sources cited specifically rather than generically?
+                4. **Professional Standards**: Does the report meet intelligence analysis quality standards?
+                5. **Completeness**: Are there gaps where available research data should have been used?
 
                 SEARCH GUIDELINES:
                 - Only search for SPECIFIC identified gaps, not general "more information"
@@ -3203,7 +3249,12 @@ class ResearchOrchestrator:
 
                 If you identify research gaps and budget allows, conduct targeted searches following the guidelines above.
 
-                Provide detailed feedback that will help improve the report to meet professional standards.
+                **OUTPUT REQUIREMENTS**:
+                Provide detailed feedback that will help improve the report to meet professional standards, including:
+                - Specific examples of research data that should have been incorporated
+                - Temporal accuracy issues and corrections needed
+                - Source attribution improvements needed
+                - Any gaps where additional research would strengthen the report
                 """
 
                 # Execute editorial review with extended timeout for search activities
@@ -3233,22 +3284,35 @@ class ResearchOrchestrator:
                         # **NEW: Return results to editor for integration**
                         integration_prompt = f"""The orchestrator has completed gap-filling research for your identified gaps.
 
+**CURRENT DATE/TIME**: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}
+
+**RESEARCH DATA ACCESS REQUIREMENTS**:
+
+**Original Research Context**:
+1. **FIRST STEP - CRITICAL**: Use get_session_data with data_type="research" to access the original research work product that was available when the initial report was created
+2. **REVIEW ORIGINAL RESEARCH**: Examine the search_workproduct_*.md files to understand what data was available to the report generation agent
+3. **ASSESS DATA UTILIZATION**: Evaluate whether the original report properly incorporated the available research data
+
 **Gap Research Results:**
 - Gaps researched: {gap_research_result.get('gaps_researched', [])}
 - Scrapes completed: {gap_research_result.get('scrapes_completed', 0)}
-- Results available in session data (use get_session_data to access)
+- Gap research results available in session data (use get_session_data with data_type="all" to access both original and new research)
 
-**Your Next Steps:**
-1. Use get_session_data to access the new gap research results
-2. Review the additional research data
-3. Integrate findings into your editorial review
-4. Create final enhanced editorial review with the additional information
+**EDITORIAL REVIEW REQUIREMENTS**:
+1. **CONTEXTUAL ASSESSMENT**: Evaluate the original report in the context of what research data was available when it was created
+2. **IDENTIFY INTEGRATION FAILURES**: Assess whether the original report properly utilized the available research data
+3. **INCORPORATE GAP RESEARCH**: Use your additional gap research to supplement your analysis
+4. **SPECIFIC FEEDBACK**: Provide concrete examples of data from the original research that should have been incorporated
+
+**TEMPORAL ACCURACY VALIDATION**:
+- Ensure all critique references reflect current events ({datetime.now().strftime('%B %Y')})
+- Verify whether the original report used outdated temporal references despite current research availability
 
 **Budget Remaining:**
 - Queries: {gap_research_result.get('budget_remaining', {}).get('queries', 0)}
 - Scrapes: {gap_research_result.get('budget_remaining', {}).get('scrapes', 0)}
 
-Please complete your editorial review with the gap research integrated."""
+Please complete your editorial review with both the original research context and gap research integrated."""
 
                         # Execute editor again to integrate gap research
                         final_review_result = await self.execute_agent_query(
@@ -3387,7 +3451,7 @@ CRITICAL REQUIREMENTS - EDITORIAL GAP-FILLING RESEARCH:
 - Use mcp__zplayground1_search__zplayground1_search_scrape_clean tool
 - REQUIRED anti_bot_level: 2 (EXACTLY as integer 2)
 - Search mode will be auto-selected by strategy analysis (likely 'news' for current events)
-- Set max_urls=5 for focused gap-filling
+- Set auto_crawl_top=5 for focused gap-filling
 - Set crawl_threshold=0.3 for quality filtering
 - Target {max_scrapes} successful scrapes maximum
 - Session ID: {session_id}
@@ -3624,7 +3688,13 @@ Execute the gap-filling search now using these proven parameters."""
 
         # FAIL-FAST: Use the correct session directory structure
         # The session directory should be KEVIN/sessions/{session_id}
-        kevin_base = os.environ.get('KEVIN_WORKPRODUCTS_DIR', '/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN')
+        # Use environment-aware path detection for KEVIN base directory
+        current_repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if "claudeagent-multiagent-latest" in current_repo:
+            kevin_default = f"{current_repo}/KEVIN"
+        else:
+            kevin_default = "/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN"
+        kevin_base = os.environ.get('KEVIN_WORKPRODUCTS_DIR', kevin_default)
         session_dir = Path(kevin_base) / "sessions" / session_id
 
         self.logger.debug(f"Looking for content sources in session directory: {session_dir}")
@@ -3744,16 +3814,39 @@ This session had limited research output available. The editorial agent has proc
         revision_prompt = f"""
         Use the report_agent agent to revise the report based on the editorial feedback provided.
 
+        **CURRENT DATE/TIME**: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}
+
         Topic: {session_data['topic']}
 
-        Use the Read tool to examine the current report and editorial feedback, then:
+        **RESEARCH DATA INTEGRATION REQUIREMENTS**:
 
-        1. Address all feedback from the editorial review
-        2. Improve report quality based on specific recommendations
-        3. Ensure all identified issues are resolved
-        4. Maintain overall report coherence and quality
-        5. Use the Write tool to save the improved report
-        6. CRITICAL: Add "3-" prefix to your revised report title to indicate this is Stage 3 output
+        **STEP 1 - ACCESS ALL RESEARCH DATA**:
+        - Use get_session_data with data_type="all" to access both original research and editorial gap research
+        - Read ALL research work products to ensure comprehensive data integration
+        - Review editorial feedback to understand specific data integration issues identified
+
+        **STEP 2 - SYSTEMATIC FEEDBACK IMPLEMENTATION**:
+        - Address ALL feedback from the editorial review systematically
+        - Ensure all temporal accuracy issues are corrected (content should reflect {datetime.now().strftime('%B %Y')})
+        - Incorporate specific data points, figures, and sources from research materials
+        - Replace generic statements with specific, sourced information
+
+        **STEP 3 - QUALITY VALIDATION**:
+        - Verify all identified issues have been resolved
+        - Ensure proper source attribution instead of generic citations
+        - Maintain overall report coherence and professional quality standards
+        - Validate that research data has been properly integrated throughout
+
+        **STEP 4 - FINALIZE REPORT**:
+        - Use the Write tool to save the improved report
+        - CRITICAL: Add "3-" prefix to your revised report title to indicate this is Stage 3 output
+        - Ensure the revised report demonstrates comprehensive research data integration
+
+        **CRITICAL REQUIREMENTS**:
+        - Failure to properly integrate research data will result in additional revision cycles
+        - All temporal references must be accurate and current ({datetime.now().strftime('%B %Y')})
+        - Generic content must be replaced with specific, sourced information
+        - Editorial feedback must be systematically implemented, not selectively addressed
 
         Focus on implementing the feedback systematically and improving the report to meet professional standards.
         """
@@ -3913,7 +4006,12 @@ This session had limited research output available. The editorial agent has proc
                 self.logger.error(f"Error reading final report: {e}")
 
         # Check for KEVIN directory files
-        kevin_dir = Path("/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN")
+        # Use environment-aware path detection for KEVIN directory
+        current_repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if "claudeagent-multiagent-latest" in current_repo:
+            kevin_dir = Path(f"{current_repo}/KEVIN")
+        else:
+            kevin_dir = Path("/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN")
         if kevin_dir.exists():
             # Look for report files with this session
             report_files = list(kevin_dir.glob("research_report_*.md"))
@@ -4454,7 +4552,12 @@ This session had limited research output available. The editorial agent has proc
                     session_dir.mkdir(parents=True, exist_ok=True)
 
                     # Create KEVIN directory
-                    kevin_dir = Path("/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN")
+                    # Use environment-aware path detection for KEVIN directory
+                    current_repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                    if "claudeagent-multiagent-latest" in current_repo:
+                        kevin_dir = Path(f"{current_repo}/KEVIN")
+                    else:
+                        kevin_dir = Path("/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN")
                     kevin_dir.mkdir(parents=True, exist_ok=True)
 
                     # Generate timestamp

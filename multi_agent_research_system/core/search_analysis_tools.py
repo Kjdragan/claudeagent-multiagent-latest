@@ -59,7 +59,7 @@ async def capture_search_results(args: dict[str, Any]) -> dict[str, Any]:
     session_id = args.get("session_id", str(uuid.uuid4()))
 
     # Create session-based directory structure
-    base_sessions_dir = Path("/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/sessions")
+    base_sessions_dir = Path("/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN/sessions")
     session_dir = base_sessions_dir / session_id
     research_dir = session_dir / "search_analysis"
     research_dir.mkdir(parents=True, exist_ok=True)
@@ -116,7 +116,7 @@ async def save_webfetch_content(args: dict[str, Any]) -> dict[str, Any]:
     content_type = args.get("content_type", "web_content")
 
     # Create session-based directory structure
-    base_sessions_dir = Path("/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/sessions")
+    base_sessions_dir = Path("/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN/sessions")
     session_dir = base_sessions_dir / session_id
     research_dir = session_dir / "search_analysis"
     research_dir.mkdir(parents=True, exist_ok=True)
@@ -171,7 +171,7 @@ async def create_search_verification_report(args: dict[str, Any]) -> dict[str, A
     verification_data = args.get("verification_data", "")
 
     # Create KEVIN directory if it doesn't exist
-    kevin_dir = Path("/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN")
+    kevin_dir = Path("/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN")
     kevin_dir.mkdir(parents=True, exist_ok=True)
 
     # Scan for search and fetch files in both KEVIN root and session directories

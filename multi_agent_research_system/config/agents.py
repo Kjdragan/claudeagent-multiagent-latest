@@ -334,7 +334,7 @@ EDITORIAL SEARCH CONTROLS:
 **SUCCESS-BASED TERMINATION**: Continue searching until you achieve 5 successful scrapes total across all editorial searches
 **SEARCH LIMITS**: Maximum 2 editorial search attempts per session, maximum 10 URLs attempted total
 **QUALITY REQUIREMENT**: Only search when you identify specific gaps in the report content
-**PARAMETERS**: Use max_urls=5, relevance_threshold=0.4 for focused gap-filling research
+**PARAMETERS**: Use auto_crawl_top=5, relevance_threshold=0.4 for focused gap-filling research
 
 EDITORIAL EXECUTION SEQUENCE:
 1. **CRITICAL FIRST STEP**: Use get_session_data to access ALL research data from the session

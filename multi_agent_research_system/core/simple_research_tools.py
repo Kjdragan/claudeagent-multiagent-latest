@@ -76,7 +76,12 @@ async def save_research_findings(args: dict[str, Any]) -> dict[str, Any]:
     session_path = f"researchmaterials/sessions/{session_id}"
     findings_file = f"{session_path}/research_findings.json"
 
-    kevin_dir = "/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN"
+    # Use environment-aware path detection for KEVIN directory
+    current_repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if "claudeagent-multiagent-latest" in current_repo:
+        kevin_dir = f"{current_repo}/KEVIN"
+    else:
+        kevin_dir = "/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN"
     timestamp = datetime.now().strftime('%H%M%S')
     kevin_findings_file = f"{kevin_dir}/research_findings_{session_id[:8]}_{timestamp}.json"
 
@@ -225,7 +230,13 @@ async def get_session_data(args: dict[str, Any]) -> dict[str, Any]:
     data_type = args.get("data_type", "all")
 
     # Try KEVIN directory structure first (primary)
-    kevin_base = os.environ.get('KEVIN_WORKPRODUCTS_DIR', '/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN')
+    # Use environment-aware path detection for KEVIN base directory
+    current_repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if "claudeagent-multiagent-latest" in current_repo:
+        kevin_default = f"{current_repo}/KEVIN"
+    else:
+        kevin_default = "/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN"
+    kevin_base = os.environ.get('KEVIN_WORKPRODUCTS_DIR', kevin_default)
     session_path = Path(f"{kevin_base}/sessions/{session_id}")
 
     # Fallback to legacy researchmaterials structure

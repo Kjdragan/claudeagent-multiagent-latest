@@ -283,9 +283,12 @@ def save_work_product(
         # Determine correct session directory structure
         if workproduct_dir is None:
             # Default to KEVIN sessions directory with proper categorical organization
-            base_sessions_dir = (
-                "/home/kjdragan/lrepos/claude-agent-sdk-python/KEVIN/sessions"
-            )
+            # Use environment-aware path detection for sessions directory
+            current_repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            if "claudeagent-multiagent-latest" in current_repo:
+                base_sessions_dir = f"{current_repo}/KEVIN/sessions"
+            else:
+                base_sessions_dir = "/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN/sessions"
             session_dir = os.path.join(base_sessions_dir, session_id)
             research_dir = os.path.join(session_dir, "research")
             Path(research_dir).mkdir(parents=True, exist_ok=True)
