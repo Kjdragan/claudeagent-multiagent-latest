@@ -3877,6 +3877,9 @@ This session had limited research output available. The editorial agent has proc
 
         await self.save_session_state(session_id)
 
+        # **NEW: Ensure revised document is preserved as the final report**
+        await self._preserve_revised_document_as_final(session_id)
+
         # Complete the session after revisions
         await self.complete_session(session_id)
 
@@ -3993,6 +3996,63 @@ This session had limited research output available. The editorial agent has proc
             return {"error": "Session not found"}
 
         session_data = self.active_sessions[session_id]
+
+        # **NEW: First check if session has a preserved final report from revision**
+        if "final_report_location" in session_data:
+            final_report_path = Path(session_data["final_report_location"])
+            if final_report_path.exists():
+                try:
+                    with open(final_report_path, encoding='utf-8') as f:
+                        content = f.read()
+                    return {
+                        "report_file": str(final_report_path),
+                        "report_content": content,
+                        "report_length": len(content),
+                        "session_id": session_id,
+                        "location": "preserved_final_report",
+                        "source": session_data.get("final_report_source", "unknown"),
+                        "preserved_at": session_data.get("final_report_preserved_at")
+                    }
+                except Exception as e:
+                    self.logger.error(f"Error reading preserved final report: {e}")
+
+        # **NEW: Check session final directory for FINAL_REPORT_ files**
+        working_dir = self._get_session_working_dir(session_id)
+        if working_dir and working_dir.exists():
+            final_dir = working_dir / "final"
+            if final_dir.exists():
+                final_files = list(final_dir.glob("FINAL_REPORT_*.md"))
+                if final_files:
+                    latest_final = max(final_files, key=lambda x: x.stat().st_mtime)
+                    try:
+                        with open(latest_final, encoding='utf-8') as f:
+                            content = f.read()
+                        return {
+                            "report_file": str(latest_final),
+                            "report_content": content,
+                            "report_length": len(content),
+                            "session_id": session_id,
+                            "location": "session_final_directory"
+                        }
+                    except Exception as e:
+                        self.logger.error(f"Error reading session final report: {e}")
+
+            # **NEW: Check working directory for FINAL_ prefixed files**
+            working_final_files = list(working_dir.glob("FINAL_*.md"))
+            if working_final_files:
+                latest_working_final = max(working_final_files, key=lambda x: x.stat().st_mtime)
+                try:
+                    with open(latest_working_final, encoding='utf-8') as f:
+                        content = f.read()
+                    return {
+                        "report_file": str(latest_working_final),
+                        "report_content": content,
+                        "report_length": len(content),
+                        "session_id": session_id,
+                        "location": "working_directory"
+                    }
+                except Exception as e:
+                    self.logger.error(f"Error reading working final report: {e}")
 
         # First, check the centralized final reports directory
         final_reports_dir = self._get_final_reports_directory()
@@ -5177,3 +5237,72 @@ Status: Recovery Completed
                     }
 
         return asyncio.create_task(_execute_with_resilience())
+
+    async def _preserve_revised_document_as_final(self, session_id: str):
+        """
+        Ensure the revised document is properly preserved as the final report.
+        This method addresses the issue where revised documents exist but aren't
+        clearly identified as the definitive final report.
+
+        Args:
+            session_id: The session ID
+        """
+        try:
+            import os
+            import shutil
+            from datetime import datetime
+
+            session_data = self.active_sessions[session_id]
+            self.logger.info(f"Session {session_id}: Preserving revised document as final report")
+
+            # Get the working directory for the session
+            working_dir = self._get_session_working_dir(session_id)
+            if not working_dir or not working_dir.exists():
+                self.logger.warning(f"Session {session_id}: Working directory not found")
+                return
+
+            # Look for the revised document (Stage 3, prefixed with "REVISED_")
+            revised_files = list(working_dir.glob("REVISED_*.md"))
+            if not revised_files:
+                self.logger.warning(f"Session {session_id}: No revised document found to preserve")
+                return
+
+            # Get the most recent revised document
+            latest_revised = max(revised_files, key=lambda x: x.stat().st_mtime)
+            self.logger.info(f"Session {session_id}: Found revised document: {latest_revised.name}")
+
+            # Create final directory if it doesn't exist
+            final_dir = working_dir / "final"
+            final_dir.mkdir(exist_ok=True)
+
+            # Generate clear final report filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            clean_topic = "".join(c for c in session_data.get("topic", "report")[:50] if c.isalnum() or c in (' ', '-', '_')).strip()
+            clean_topic = clean_topic.replace(' ', '_')
+
+            final_filename = f"FINAL_REPORT_{clean_topic}_{timestamp}.md"
+            final_file_path = final_dir / final_filename
+
+            # Copy the revised document to the final directory with clear naming
+            shutil.copy2(latest_revised, final_file_path)
+
+            self.logger.info(f"✅ Session {session_id}: Revised document preserved as final report")
+            self.logger.info(f"   Original: {latest_revised.name}")
+            self.logger.info(f"   Final: {final_filename}")
+
+            # Update session data to track the final report
+            session_data["final_report_location"] = str(final_file_path)
+            session_data["final_report_filename"] = final_filename
+            session_data["final_report_preserved_at"] = datetime.now().isoformat()
+            session_data["final_report_source"] = "revised_document"
+
+            # Also create a clear copy in the working directory with "FINAL_" prefix
+            working_final_path = working_dir / f"FINAL_{final_filename}"
+            shutil.copy2(latest_revised, working_final_path)
+            self.logger.info(f"   Working copy: FINAL_{final_filename}")
+
+            await self.save_session_state(session_id)
+
+        except Exception as e:
+            self.logger.error(f"Session {session_id}: Error preserving revised document as final: {e}")
+            # Don't fail the session - this is a preservation step, not critical
