@@ -503,5 +503,5 @@ class TestResearchOrchestrator:
 
         # Test method is async
         import inspect
-        method = getattr(orchestrator, 'stage_generate_report')
+        method = orchestrator.stage_generate_report
         assert inspect.iscoroutinefunction(method)

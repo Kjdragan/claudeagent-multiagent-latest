@@ -28,6 +28,21 @@ except ImportError:
     sys.path.append(os.path.dirname(__file__))
     from url_tracker import get_url_tracker
 
+# Import enhanced relevance scoring functions
+try:
+    from .enhanced_relevance_scorer import (
+        calculate_term_frequency_score,
+        calculate_domain_authority_boost
+    )
+except ImportError:
+    # Fallback import for module execution
+    import sys
+    sys.path.append(os.path.dirname(__file__))
+    from enhanced_relevance_scorer import (
+        calculate_term_frequency_score,
+        calculate_domain_authority_boost
+    )
+
 def summarize_content(content: str, max_length: int = 2000) -> str:
     """
     Summarize content to fit within token limits.
@@ -928,25 +943,56 @@ async def expanded_query_search_and_extract(
         expanded_queries = await generate_expanded_queries(query, max_expanded_queries)
         logger.info(f"Generated {len(expanded_queries)} expanded queries: {expanded_queries}")
 
-        # Step 2: Execute SERP searches for each expanded query
+        # Step 2: Execute SERP searches for each expanded query and apply query-aware position scoring
         all_search_results = []
-        for expanded_query in expanded_queries:
+        for query_idx, expanded_query in enumerate(expanded_queries):
             logger.info(f"Executing SERP search for expanded query: '{expanded_query}'")
             search_results = await execute_serp_search(
                 query=expanded_query,
                 search_type=search_type,
                 num_results=num_results
             )
-            all_search_results.extend(search_results)
-            logger.info(f"Retrieved {len(search_results)} results for expanded query: '{expanded_query}'")
+
+            # Apply query-aware position scoring (0.05 decay per position within original query order)
+            query_terms = expanded_query.split()
+            enhanced_results = []
+            for pos, result in enumerate(search_results, 1):
+                # Calculate position score with gentle 0.05 decay per position
+                position_score = max(0.0, 1.0 - (pos - 1) * 0.05)
+
+                # Calculate title and snippet scores
+                title_score = calculate_term_frequency_score(result.title, query_terms)
+                snippet_score = calculate_term_frequency_score(result.snippet, query_terms)
+
+                # Calculate domain authority boost
+                authority_boost = calculate_domain_authority_boost(result.link)
+
+                # Apply enhanced relevance scoring formula (Position 40% + Title 30% + Snippet 30% + Authority)
+                base_score = (
+                    position_score * 0.40 +
+                    title_score * 0.30 +
+                    snippet_score * 0.30
+                )
+                final_score = min(1.0, base_score + authority_boost)
+
+                # Update result relevance score
+                result.relevance_score = round(final_score, 3)
+                enhanced_results.append(result)
+
+                logger.debug(f"Query {query_idx+1}, Pos {pos}: Position={position_score:.3f}, "
+                           f"Title={title_score:.3f}, Snippet={snippet_score:.3f}, "
+                           f"Authority={authority_boost:.3f}, Final={final_score:.3f}")
+
+            all_search_results.extend(enhanced_results)
+            logger.info(f"Retrieved {len(enhanced_results)} enhanced results for expanded query: '{expanded_query}'")
 
         # Step 3: Deduplicate all results into one master list
         master_results = deduplicate_search_results(all_search_results)
         logger.info(f"Deduplicated results: {len(all_search_results)} -> {len(master_results)} unique results")
 
-        # Step 4: Rank results by relevance
+        # Step 4: Sort master results by relevance score (now query-aware)
         master_results.sort(key=lambda x: x.relevance_score, reverse=True)
-        logger.info(f"Ranked {len(master_results)} results by relevance score")
+        logger.info(f"Ranked {len(master_results)} results by query-aware relevance scores")
 
         # Step 5: Scrape from master ranked list within budget limits
         config = get_enhanced_search_config()

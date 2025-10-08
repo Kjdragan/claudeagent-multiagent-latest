@@ -684,7 +684,17 @@ async def create_research_report(args: dict[str, Any]) -> dict[str, Any]:
         # Generate timestamp and filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()[:50]
-        filename = f"DRAFT_{safe_title}_{timestamp}.md"
+
+        # Update naming convention based on report type
+        if report_type == "draft":
+            filename = f"Initial Draft-{safe_title}_{timestamp}.md"
+        elif report_type == "editorial_review":
+            filename = f"DRAFT_draft_{safe_title}_{timestamp}.md"
+        elif report_type == "final_enhanced":
+            filename = f"Final Version-{safe_title}_{timestamp}.md"
+        else:
+            filename = f"{report_type.title()}-{safe_title}_{timestamp}.md"
+
         filepath = working_dir / filename
 
         # Format the report content with proper structure

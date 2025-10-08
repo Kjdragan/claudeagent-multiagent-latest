@@ -21,7 +21,7 @@ class ParsedResearchRequest:
     parameters: Dict[str, Any]
     scope: str = "default"
     report_type: str = "default"
-    sources_requested: int = 10
+    clean_scrape_target: int = 15  # Replaces sources_requested
     crawl_speed: str = "normal"
     special_requirements: str = ""
 
@@ -37,11 +37,23 @@ class ParsedResearchRequest:
         if self.report_type not in valid_report_types:
             self.report_type = "default"
 
-        # Ensure sources is reasonable
-        if not isinstance(self.sources_requested, int) or self.sources_requested < 1:
-            self.sources_requested = 10
-        elif self.sources_requested > 50:
-            self.sources_requested = 50
+        # Import research targets configuration for validation
+        try:
+            from ..config.research_targets import get_all_scopes
+            valid_scopes = get_all_scopes()
+            if self.scope not in valid_scopes:
+                self.scope = "default"
+        except ImportError:
+            # Fallback validation
+            valid_scopes = ["brief", "default", "comprehensive"]
+            if self.scope not in valid_scopes:
+                self.scope = "default"
+
+        # Ensure clean_scrape_target is reasonable (will be overridden by config)
+        if not isinstance(self.clean_scrape_target, int) or self.clean_scrape_target < 1:
+            self.clean_scrape_target = 15
+        elif self.clean_scrape_target > 50:
+            self.clean_scrape_target = 50
 
 
 class CLIInputParser:
@@ -54,7 +66,8 @@ class CLIInputParser:
         self.parameter_patterns = {
             'scope': r'scope=(\w+)',
             'report_brief': r'report_brief',
-            'sources': r'sources=(\d+)',
+            'clean_scrape_target': r'target=(\d+)',  # New parameter name
+            'sources': r'sources=(\d+)',  # Keep for backward compatibility but ignore
             'fast_crawl': r'fast_crawl',
             'quick_search': r'quick_search',
             'focus_on': r'focus on ([^.]+)',
@@ -85,8 +98,12 @@ class CLIInputParser:
                     parameters['scope'] = matches[0].lower()
                 elif param_name == 'report_brief':
                     parameters['report_type'] = 'brief'
+                elif param_name == 'clean_scrape_target':
+                    parameters['clean_scrape_target'] = int(matches[0])
                 elif param_name == 'sources':
-                    parameters['sources_requested'] = int(matches[0])
+                    # Keep for backward compatibility but don't use - will be overridden by config
+                    self.logger.warning("The 'sources' parameter is deprecated. Use 'target' parameter instead.")
+                    pass  # Ignore sources parameter
                 elif param_name == 'fast_crawl':
                     parameters['crawl_speed'] = 'fast'
                 elif param_name == 'quick_search':
@@ -97,14 +114,14 @@ class CLIInputParser:
         # Clean the topic by removing parameter strings
         clean_topic = self._clean_topic(raw_input, parameters)
 
-        # Create parsed request
+        # Create parsed request - clean_scrape_target will be set by config based on scope
         parsed_request = ParsedResearchRequest(
             clean_topic=clean_topic.strip(),
             raw_input=raw_input,
             parameters=parameters,
             scope=parameters.get('scope', 'default'),
             report_type=parameters.get('report_type', 'default'),
-            sources_requested=parameters.get('sources_requested', 10),
+            clean_scrape_target=parameters.get('clean_scrape_target', 15),  # Will be overridden by config
             crawl_speed=parameters.get('crawl_speed', 'normal'),
             special_requirements=parameters.get('special_requirements', '')
         )
@@ -130,7 +147,8 @@ class CLIInputParser:
         # Remove parameter patterns from topic
         clean_topic = re.sub(r'scope=\w+', '', clean_topic, flags=re.IGNORECASE)
         clean_topic = re.sub(r'report_brief', '', clean_topic, flags=re.IGNORECASE)
-        clean_topic = re.sub(r'sources=\d+', '', clean_topic, flags=re.IGNORECASE)
+        clean_topic = re.sub(r'target=\d+', '', clean_topic, flags=re.IGNORECASE)
+        clean_topic = re.sub(r'sources=\d+', '', clean_topic, flags=re.IGNORECASE)  # Clean deprecated parameter
         clean_topic = re.sub(r'fast_crawl', '', clean_topic, flags=re.IGNORECASE)
         clean_topic = re.sub(r'quick_search', '', clean_topic, flags=re.IGNORECASE)
         clean_topic = re.sub(r'focus on [^.]+', '', clean_topic, flags=re.IGNORECASE)
@@ -179,8 +197,8 @@ class CLIInputParser:
         if parsed_request.report_type != "default":
             summary_parts.append(f"report_type={parsed_request.report_type}")
 
-        if parsed_request.sources_requested != 10:
-            summary_parts.append(f"sources={parsed_request.sources_requested}")
+        if parsed_request.clean_scrape_target != 15:
+            summary_parts.append(f"target={parsed_request.clean_scrape_target}")
 
         if parsed_request.crawl_speed != "normal":
             summary_parts.append(f"crawl_speed={parsed_request.crawl_speed}")

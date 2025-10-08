@@ -2,7 +2,7 @@
 Enhanced Relevance Scoring with Domain Authority
 
 Implements the sophisticated relevance scoring algorithm from the technical documentation:
-- Position 40% + Title 30% + Snippet 30% base scoring
+- Position 60% + Title 20% + Snippet 20% base scoring (increased position weighting)
 - Domain authority boost up to 25% for high-authority sites
 - Comprehensive scoring logic for optimal search result selection
 """
@@ -168,7 +168,7 @@ def calculate_enhanced_relevance_score_with_domain_authority(
     Calculate comprehensive enhanced relevance score with domain authority.
 
     Formula:
-    - Base scoring: Position 40% + Title 30% + Snippet 30%
+    - Base scoring: Position 60% + Title 20% + Snippet 20% (increased position weighting)
     - Domain authority boost: Up to 25% additional
     - Final score: min(1.0, base_score + authority_boost)
 
@@ -188,11 +188,11 @@ def calculate_enhanced_relevance_score_with_domain_authority(
         title_score = calculate_term_frequency_score(title, query_terms)
         snippet_score = calculate_term_frequency_score(snippet, query_terms)
 
-        # Base score with documented weights
+        # Base score with increased position weighting (60% position, 20% title, 20% snippet)
         base_score = (
-            position_score * 0.40 +
-            title_score * 0.30 +
-            snippet_score * 0.30
+            position_score * 0.60 +
+            title_score * 0.20 +
+            snippet_score * 0.20
         )
 
         # Apply domain authority boost
@@ -211,13 +211,26 @@ def calculate_enhanced_relevance_score_with_domain_authority(
 
     except Exception as e:
         logger.error(f"Error calculating enhanced relevance score: {e}")
-        # Fallback to position-only scoring
-        return max(0.05, 1.0 - (position * 0.05))
+        # Fallback to gentle position-only scoring
+        if position <= 3:
+            return 1.0
+        elif position <= 6:
+            return 0.95
+        elif position <= 9:
+            return 0.90
+        else:
+            return max(0.05, 0.90 - ((position - 9) * 0.0167))  # Gentle decay for positions 10+
 
 
 def _calculate_position_score(position: int) -> float:
     """
-    Calculate position score with documented decay logic.
+    Calculate position score with gentle decay logic for multi-query collation.
+
+    For multi-query research (e.g., 3 queries combined):
+    - Positions 1-3: 1.0 (top results from each query, no decay)
+    - Positions 4-6: 0.95 (second results, -0.05 decay)
+    - Positions 7-9: 0.90 (third results, -0.05 decay)
+    - Continue with 0.05 decay per position group
 
     Args:
         position: Search result position (1-based)
@@ -225,12 +238,27 @@ def _calculate_position_score(position: int) -> float:
     Returns:
         Position score between 0.0 and 1.0
     """
-    if position <= 10:
-        # Top 10 positions: linear decay from 1.0 to 0.1
-        return (11 - position) / 10
+    # Gentle decay for multi-query collation
+    if position <= 3:
+        # Top 3 positions (top result from each query): no decay
+        return 1.0
+    elif position <= 6:
+        # Positions 4-6 (second results): 0.95
+        return 0.95
+    elif position <= 9:
+        # Positions 7-9 (third results): 0.90
+        return 0.90
+    elif position <= 12:
+        # Positions 10-12 (fourth results): 0.85
+        return 0.85
+    elif position <= 15:
+        # Positions 13-15 (fifth results): 0.80
+        return 0.80
     else:
-        # Positions 11+: gradual decay with minimum 0.05
-        return max(0.05, 0.1 - ((position - 10) * 0.01))
+        # Positions 16+: Continue with 0.05 decay per 3 positions, minimum 0.05
+        decay_groups = (position - 16) // 3
+        score = 0.80 - (decay_groups * 0.05)
+        return max(0.05, score)
 
 
 def batch_calculate_relevance_scores(search_results: list[dict], query: str) -> list[dict]:

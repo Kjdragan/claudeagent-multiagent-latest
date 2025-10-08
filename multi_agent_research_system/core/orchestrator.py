@@ -115,15 +115,10 @@ class SessionSearchBudget:
         self.original_topic = topic
         self.parsed_request = parsed_request
 
-        # Primary research limits - will be adjusted based on topic parameters
-        self.primary_successful_scrapes_limit = 10  # Default limit, will be adjusted
+        # Initialize tracking variables
         self.primary_urls_processed = 0
         self.primary_successful_scrapes = 0
         self.primary_search_queries = 0
-
-        # Editorial research limits
-        self.editorial_successful_scrapes_limit = 5  # User requested limit
-        self.editorial_search_queries_limit = 2  # User requested limit
         self.editorial_urls_processed = 0
         self.editorial_successful_scrapes = 0
         self.editorial_search_queries = 0
@@ -140,99 +135,77 @@ class SessionSearchBudget:
         self.high_quality_sources_found = 0
         self.relevance_threshold_met = False
 
+        # Editorial search queries limit (independent of scrape targets)
+        self.editorial_search_queries_limit = 2  # User requested limit
+
         self.logger = logging.getLogger(f"search_budget.{session_id}")
 
-        # Parse topic parameters for intelligent budget adjustment
-        if parsed_request:
-            self._adjust_budget_from_parsed_request(parsed_request)
-        else:
-            # Fallback to regex parsing for backward compatibility
-            self._adjust_budget_from_topic(topic)
+        # Initialize targets using configuration system
+        self._initialize_targets_from_config()
 
-    def _adjust_budget_from_topic(self, topic: str):
-        """Parse topic string and adjust budget limits based on scope parameters."""
+    def _initialize_targets_from_config(self):
+        """Initialize research targets using configuration system."""
+        try:
+            # Import configuration system
+            from multi_agent_research_system.config.research_targets import get_scrape_budget, validate_scope
+
+            # Determine scope from parsed request or fallback to topic parsing
+            if self.parsed_request:
+                scope = validate_scope(self.parsed_request.scope)
+            else:
+                scope = self._extract_scope_from_topic(self.original_topic)
+
+            # Get primary research budget from configuration
+            primary_target, primary_attempts = get_scrape_budget(scope, "primary")
+            self.primary_successful_scrapes_limit = primary_target
+            self.primary_max_attempts = primary_attempts
+
+            # Get editorial research budget from configuration
+            editorial_target, editorial_attempts = get_scrape_budget(scope, "editorial")
+            self.editorial_successful_scrapes_limit = editorial_target
+            self.editorial_max_attempts = editorial_attempts
+
+            self.logger.info(f"Initialized targets for scope '{scope}':")
+            self.logger.info(f"  Primary: {primary_target} successful → {primary_attempts} max attempts")
+            self.logger.info(f"  Editorial: {editorial_target} successful → {editorial_attempts} max attempts")
+
+        except ImportError as e:
+            self.logger.warning(f"Failed to import research targets config: {e}")
+            self._fallback_to_legacy_targets()
+        except Exception as e:
+            self.logger.error(f"Error initializing targets from config: {e}")
+            self._fallback_to_legacy_targets()
+
+    def _extract_scope_from_topic(self, topic: str) -> str:
+        """Extract scope from topic string for backward compatibility."""
         if not topic:
-            return
+            return "default"
 
         topic_lower = topic.lower()
-
-        # Default adjustments based on scope
-        if "scope=limited" in topic_lower:
-            self.primary_successful_scrapes_limit = 8
-            self.logger.info("Budget adjusted for limited scope: 8 primary scrapes")
-        elif "scope=brief" in topic_lower or "report_brief" in topic_lower:
-            self.primary_successful_scrapes_limit = 6
-            self.logger.info("Budget adjusted for brief scope: 6 primary scrapes")
+        if "scope=brief" in topic_lower or "report_brief" in topic_lower:
+            return "brief"
         elif "scope=comprehensive" in topic_lower:
-            self.primary_successful_scrapes_limit = 20
-            self.logger.info("Budget adjusted for comprehensive scope: 20 primary scrapes")
-        elif "scope=extensive" in topic_lower:
-            self.primary_successful_scrapes_limit = 30
-            self.logger.info("Budget adjusted for extensive scope: 30 primary scrapes")
+            return "comprehensive"
+        elif "scope=limited" in topic_lower or "scope=extensive" in topic_lower:
+            return "comprehensive"  # Map to comprehensive for simplicity
+        else:
+            return "default"
 
-        # Adjust based on source requirements
-        if "sources=3" in topic_lower:
-            self.primary_successful_scrapes_limit = max(self.primary_successful_scrapes_limit, 12)
-            self.logger.info("Budget adjusted for 3 sources: 12 primary scrapes")
-        elif "sources=5" in topic_lower:
-            self.primary_successful_scrapes_limit = max(self.primary_successful_scrapes_limit, 15)
-            self.logger.info("Budget adjusted for 5 sources: 15 primary scrapes")
-        elif "sources=10" in topic_lower:
-            self.primary_successful_scrapes_limit = max(self.primary_successful_scrapes_limit, 25)
-            self.logger.info("Budget adjusted for 10 sources: 25 primary scrapes")
+    def _fallback_to_legacy_targets(self):
+        """Fallback to legacy target values if configuration system fails."""
+        self.logger.warning("Using legacy fallback targets")
 
-        # Fast crawl adjustment (allows more sources, focuses on speed)
-        if "fast_crawl" in topic_lower:
-            self.primary_successful_scrapes_limit = int(self.primary_successful_scrapes_limit * 1.5)
-            self.logger.info(f"Budget increased for fast crawl: {self.primary_successful_scrapes_limit} primary scrapes")
+        # Default fallback values (same as configuration defaults)
+        self.primary_successful_scrapes_limit = 15
+        self.primary_max_attempts = 22  # 15 * 1.5 = 22.5, rounded down
+        self.editorial_successful_scrapes_limit = 6
+        self.editorial_max_attempts = 9   # 6 * 1.5 = 9
 
-        # Quick test parameters
-        if "quick" in topic_lower or "test" in topic_lower:
-            self.primary_successful_scrapes_limit = max(self.primary_successful_scrapes_limit, 15)
-            self.logger.info(f"Budget increased for quick test: {self.primary_successful_scrapes_limit} primary scrapes")
+        self.logger.info(f"Using fallback targets:")
+        self.logger.info(f"  Primary: {self.primary_successful_scrapes_limit} successful → {self.primary_max_attempts} max attempts")
+        self.logger.info(f"  Editorial: {self.editorial_successful_scrapes_limit} successful → {self.editorial_max_attempts} max attempts")
 
-    def _adjust_budget_from_parsed_request(self, parsed_request):
-        """Adjust budget limits based on structured parsed request parameters."""
-
-        # Adjust based on scope
-        scope = parsed_request.scope
-        if scope == "limited":
-            self.primary_successful_scrapes_limit = 8
-            self.logger.info("Budget adjusted for limited scope: 8 primary scrapes")
-        elif scope == "brief" or parsed_request.report_type == "brief":
-            self.primary_successful_scrapes_limit = 6
-            self.logger.info("Budget adjusted for brief scope: 6 primary scrapes")
-        elif scope == "comprehensive":
-            self.primary_successful_scrapes_limit = 20
-            self.logger.info("Budget adjusted for comprehensive scope: 20 primary scrapes")
-        elif scope == "extensive":
-            self.primary_successful_scrapes_limit = 30
-            self.logger.info("Budget adjusted for extensive scope: 30 primary scrapes")
-
-        # Adjust based on source requirements
-        sources = parsed_request.sources_requested
-        if sources <= 3:
-            self.primary_successful_scrapes_limit = max(self.primary_successful_scrapes_limit, 12)
-            self.logger.info(f"Budget adjusted for {sources} sources: 12 primary scrapes")
-        elif sources <= 5:
-            self.primary_successful_scrapes_limit = max(self.primary_successful_scrapes_limit, 15)
-            self.logger.info(f"Budget adjusted for {sources} sources: 15 primary scrapes")
-        elif sources <= 10:
-            self.primary_successful_scrapes_limit = max(self.primary_successful_scrapes_limit, 25)
-            self.logger.info(f"Budget adjusted for {sources} sources: 25 primary scrapes")
-
-        # Adjust based on crawl speed
-        crawl_speed = parsed_request.crawl_speed
-        if crawl_speed == "fast":
-            self.primary_successful_scrapes_limit = int(self.primary_successful_scrapes_limit * 1.5)
-            self.logger.info(f"Budget increased for fast crawl: {self.primary_successful_scrapes_limit} primary scrapes")
-        elif crawl_speed == "quick":
-            self.primary_successful_scrapes_limit = max(self.primary_successful_scrapes_limit, 15)
-            self.logger.info(f"Budget increased for quick crawl: {self.primary_successful_scrapes_limit} primary scrapes")
-
-        # Log special requirements
-        if parsed_request.special_requirements:
-            self.logger.info(f"Special requirements detected: {parsed_request.special_requirements}")
+        self.logger.info(f"Legacy fallback targets: Primary 15 → 22 attempts, Editorial 6 → 9 attempts")
 
     def enable_success_override(self, reason: str, quality_indicators: dict[str, Any] = None):
         """Enable success override to allow proceeding despite budget overage."""
@@ -282,7 +255,7 @@ class SessionSearchBudget:
         return True, "Editorial research can proceed"
 
     def record_primary_research(self, urls_processed: int, successful_scrapes: int, search_queries: int = 1, quality_indicators: dict[str, Any] = None):
-        """Record primary research activity with progressive budgeting."""
+        """Record primary research activity."""
         self.primary_urls_processed += urls_processed
         self.primary_successful_scrapes += successful_scrapes
         self.primary_search_queries += search_queries
@@ -294,9 +267,6 @@ class SessionSearchBudget:
                 self.high_quality_sources_found += quality_indicators["high_quality_sources"]
             if quality_indicators.get("relevance_met", False):
                 self.relevance_threshold_met = True
-
-        # Progressive budgeting: increase limit for high-quality research
-        self._apply_progressive_budgeting()
 
         self.logger.info(f"Primary research recorded: {urls_processed} URLs, {successful_scrapes} successful scrapes")
 
@@ -318,30 +288,8 @@ class SessionSearchBudget:
         self.editorial_successful_scrapes = 0
         self.editorial_search_queries = 0
 
-        # Ensure editorial limits are adequate for proper review
-        self.editorial_search_queries_limit = 2  # User requested limit
-        self.editorial_successful_scrapes_limit = 5  # User requested limit
-
-        self.logger.info(f"Editorial budget reset: {self.editorial_search_queries_limit} queries, {self.editorial_successful_scrapes_limit} scrapes allowed")
-
-    def _apply_progressive_budgeting(self):
-        """Apply progressive budget increases based on research quality indicators."""
-        original_limit = self.primary_successful_scrapes_limit
-
-        # Increase budget for high-quality sources
-        if self.high_quality_sources_found >= 3:
-            self.primary_successful_scrapes_limit = max(self.primary_successful_scrapes_limit, 15)
-        elif self.high_quality_sources_found >= 5:
-            self.primary_successful_scrapes_limit = max(self.primary_successful_scrapes_limit, 20)
-
-        # Increase budget for relevant research
-        if self.relevance_threshold_met and self.primary_successful_scrapes > 8:
-            # Allow 50% more budget for relevant research that exceeds initial limits
-            self.primary_successful_scrapes_limit = int(self.primary_successful_scrapes_limit * 1.5)
-
-        # Log any increases
-        if self.primary_successful_scrapes_limit > original_limit:
-            self.logger.info(f"Progressive budgeting increased limit from {original_limit} to {self.primary_successful_scrapes_limit}")
+        # Editorial limits are already set by configuration system, no need to override
+        self.logger.info(f"Editorial budget reset: {self.editorial_successful_scrapes_limit} successful scrapes allowed (from config)")
 
     def assess_research_quality_for_override(self, research_result: dict[str, Any]) -> tuple[bool, str, dict[str, Any]]:
         """Assess research quality and determine if success override should be enabled."""
@@ -389,14 +337,15 @@ class SessionSearchBudget:
             "session_id": self.session_id,
             "primary": {
                 "successful_scrapes": f"{self.primary_successful_scrapes}/{self.primary_successful_scrapes_limit}",
+                "max_attempts": self.primary_max_attempts,
                 "urls_processed": self.primary_urls_processed,
                 "search_queries": self.primary_search_queries,
                 "search_queries_remaining": 0,  # Primary research doesn't use query limits the same way
-                "can_proceed": self.can_primary_research_proceed()[0],
-                "budget_adjusted": self.primary_successful_scrapes_limit != 10
+                "can_proceed": self.can_primary_research_proceed()[0]
             },
             "editorial": {
                 "successful_scrapes": f"{self.editorial_successful_scrapes}/{self.editorial_successful_scrapes_limit}",
+                "max_attempts": self.editorial_max_attempts,
                 "search_queries": f"{self.editorial_search_queries}/{self.editorial_search_queries_limit}",
                 "search_queries_remaining": self.editorial_search_queries_limit - self.editorial_search_queries,
                 "search_queries_reached_limit": self.editorial_search_queries >= self.editorial_search_queries_limit,
@@ -890,7 +839,14 @@ class ResearchOrchestrator:
                 # Hooks disabled - eliminated overhead and debug noise while preserving core logging functionality
                 # Increase buffer size to handle large JSON outputs (DeepWiki recommendation)
                 max_buffer_size=4096000,  # 4MB buffer
-                hooks={}
+                hooks={
+                    "PreToolUse": [
+                        {
+                            "matcher": "Write|create_research_report",
+                            "hooks": [self._validate_editorial_gap_research_completion]
+                        }
+                    ]
+                }
             )
 
             # Create and connect SINGLE client for all agents (CORRECT PATTERN)
@@ -1943,6 +1899,29 @@ class ResearchOrchestrator:
         """Create a new session ID."""
         return str(uuid.uuid4())
 
+    def _get_session_working_dir(self, session_id: str) -> Path:
+        """Get the working directory for a session."""
+        try:
+            # Use environment-aware path detection for KEVIN directory
+            current_repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            if "claudeagent-multiagent-latest" in current_repo:
+                kevin_dir = Path(f"{current_repo}/KEVIN")
+            else:
+                kevin_dir = Path("/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN")
+
+            session_dir = kevin_dir / "sessions" / session_id
+            working_dir = session_dir / "working"
+
+            if working_dir.exists():
+                return working_dir
+            else:
+                self.logger.warning(f"Working directory does not exist: {working_dir}")
+                return working_dir
+
+        except Exception as e:
+            self.logger.error(f"Error getting session working directory for {session_id}: {e}")
+            return Path("KEVIN/sessions") / session_id / "working"
+
     def _cleanup_sessions_directory(self):
         """Clean up logs, work products, and sessions directory for clean slate."""
         import shutil
@@ -2853,9 +2832,9 @@ class ResearchOrchestrator:
                    - query: "{clean_topic}" (the research topic)
                    - search_mode: "news" (MUST be either "web" or "news" - use "news" for current events)
                    - anti_bot_level: 2 (CRITICAL: MUST be pure INTEGER 2, NOT string "2". Type: int, Value: 2)
-                   - num_results: 15 (MUST be integer)
+                   - num_results: 20 (MUST be integer)
                    - auto_crawl_top: {min(10, remaining_budget)} (MUST be integer)
-                   - crawl_threshold: 0.25 (MUST be float between 0.0-1.0, relevance score threshold for crawling - lowered to ensure sufficient sources)
+                   - crawl_threshold: 0.25 (MUST be float between 0.0-1.0, relevance score threshold for crawling - lowered to include more candidates)
                    - session_id: "{session_id}" (string)
 
                 ANTI_BOT_LEVEL PARAMETER CRITICAL NOTES:
@@ -3232,7 +3211,7 @@ Session ID: {session_id}
                 - Identify specific research data that should have been incorporated but wasn't
 
                 EDITORIAL SEARCH CONTROLS:
-                **SUCCESS-BASED TERMINATION**: Continue searching until you achieve 5 successful scrapes total
+                **SUCCESS-BASED TERMINATION**: Continue searching until you achieve {search_budget.editorial_successful_scrapes_limit} successful scrapes total
                 **SEARCH LIMITS**: Maximum {editorial_remaining} editorial search attempts remaining
                 **WORK PRODUCT LABELING**: CRITICAL - Always use workproduct_prefix="editor research"
                 **BUDGET AWARENESS**: Track your search usage to stay within limits
@@ -3252,7 +3231,7 @@ Session ID: {session_id}
                 SEARCH GUIDELINES:
                 - Only search for SPECIFIC identified gaps, not general "more information"
                 - Use workproduct_prefix="editor research" for all editorial searches
-                - STOP searching when you reach your search query limit or 5 successful scrapes
+                - STOP searching when you reach your search query limit or {search_budget.editorial_successful_scrapes_limit} successful scrapes
                 - Each successful scrape should provide meaningful content for gap-filling
 
                 If you identify research gaps and budget allows, conduct targeted searches following the guidelines above.
@@ -3275,8 +3254,15 @@ Session ID: {session_id}
                 # **NEW: Check if editor requested gap research via control handoff**
                 gap_requests = self._extract_gap_research_requests(review_result)
 
+                # **VALIDATION**: Check if editor identified gaps but didn't request research
+                documented_gaps = self._extract_documented_research_gaps(review_result)
+
+                if documented_gaps and not gap_requests:
+                    self.logger.warning(f"⚠️ Editor identified {len(documented_gaps)} research gaps but didn't request gap research. Forcing execution...")
+                    gap_requests = documented_gaps  # Force execution of documented gaps
+
                 if gap_requests and len(gap_requests) > 0:
-                    self.logger.info(f"📋 Editor requested gap research for {len(gap_requests)} gaps")
+                    self.logger.info(f"📋 Processing {len(gap_requests)} gap research requests (auto-detected: {len(documented_gaps) if documented_gaps and not gap_requests else 0})")
 
                     # Execute coordinated gap research using research agent
                     gap_research_result = await self.execute_editorial_gap_research(
@@ -3397,8 +3383,8 @@ Please complete your editorial review with both the original research context an
         self,
         session_id: str,
         research_gaps: list[str],
-        max_scrapes: int = 5,
-        max_queries: int = 2
+        max_scrapes: int = None,  # Will be set from configuration
+        max_queries: int = None   # Will be set from configuration
     ) -> dict[str, Any]:
         """
         Execute gap-filling research for editorial stage using coordinated research agent.
@@ -3409,15 +3395,14 @@ Please complete your editorial review with both the original research context an
         Args:
             session_id: Current research session ID
             research_gaps: List of specific information gaps to research
-            max_scrapes: Maximum successful scrapes allowed (default: 5 for editorial)
-            max_queries: Maximum search queries allowed (default: 2 for editorial)
+            max_scrapes: Maximum successful scrapes allowed (default: from configuration system)
+            max_queries: Maximum search queries allowed (default: from configuration system)
 
         Returns:
             Research results from coordinated research agent execution
         """
         self.logger.info(f"🔍 Executing editorial gap research for session {session_id}")
         self.logger.info(f"   Gaps to research: {research_gaps}")
-        self.logger.info(f"   Limits: {max_scrapes} scrapes, {max_queries} queries")
 
         # Get session data
         session_data = self.active_sessions.get(session_id)
@@ -3430,6 +3415,17 @@ Please complete your editorial review with both the original research context an
         if not search_budget:
             self.logger.error(f"Search budget not found for session {session_id}")
             return {"success": False, "error": "Search budget not found"}
+
+        # Use configuration system values if not provided
+        if max_scrapes is None:
+            max_scrapes = search_budget.editorial_successful_scrapes_limit
+            self.logger.info(f"Using configured editorial scrape target: {max_scrapes}")
+
+        if max_queries is None:
+            max_queries = search_budget.editorial_search_queries_limit
+            self.logger.info(f"Using configured editorial query limit: {max_queries}")
+
+        self.logger.info(f"   Limits: {max_scrapes} scrapes, {max_queries} queries")
 
         # Check editorial budget availability
         if search_budget.editorial_search_queries >= max_queries:
@@ -3481,23 +3477,45 @@ PROVEN SUCCESSFUL PARAMETERS (from primary research):
 Execute the gap-filling search now using these proven parameters."""
 
         try:
-            # Execute gap research using coordinated research agent
-            self.logger.info("🔍 Querying research_agent for gap-filling research")
+            # **FIXED**: Execute gap research using DIRECT zPlayground1 MCP tool call
+            # This bypasses the research agent's incorrect tool selection and ensures
+            # we use the same proven approach as the successful primary research stage
+            self.logger.info("🔍 Executing gap research using DIRECT zPlayground1 tool call (proven approach)")
+            self.logger.info(f"   Combined topic: {combined_topic}")
+            self.logger.info(f"   Work product prefix: 'editor research'")
+            self.logger.info(f"   Anti-bot level: 2 (proven successful)")
 
-            gap_research_result = await self.execute_agent_query(
-                agent_name="research_agent",
-                prompt=gap_research_prompt,
-                session_id=session_id,
-                metadata={
-                    "context": "editorial_gap_filling",
-                    "gaps": gap_topics,
-                    "max_scrapes": max_scrapes,
-                    "max_queries": max_queries
+            # Set up work product directory for editorial gap research
+            from pathlib import Path
+            import os
+
+            session_dir = Path(self.kevin_dir) / "sessions" / session_id
+            research_dir = session_dir / "research"
+            research_dir.mkdir(parents=True, exist_ok=True)
+
+            # Execute DIRECT zPlayground1 search with proven parameters
+            gap_research_result = await self.client.call_tool(
+                "mcp__zplayground1_search__zplayground1_search_scrape_clean",
+                {
+                    "query": combined_topic,
+                    "search_mode": "news",  # Use news for current events/gap research
+                    "num_results": 15,
+                    "auto_crawl_top": min(max_scrapes, 10),  # Limit to 10 for focused research
+                    "crawl_threshold": 0.3,
+                    "anti_bot_level": 2,  # EXACTLY as integer 2 (proven successful)
+                    "max_concurrent": 10,
+                    "session_id": session_id,
+                    "workproduct_prefix": "editor research"  # Clear identification
                 }
             )
 
-            # Extract scrape count from results
-            scrape_count = self._extract_scrape_count_from_result(gap_research_result)
+            # Extract scrape count from work products
+            scrape_count = 0
+            if gap_research_result:
+                # Count work products created
+                research_files = list(research_dir.glob("*editor research*.md"))
+                scrape_count = len(research_files)
+                self.logger.info(f"   Created {scrape_count} editorial research work products")
 
             # Record editorial research in budget
             search_budget.record_editorial_research(
@@ -3509,9 +3527,17 @@ Execute the gap-filling search now using these proven parameters."""
             self.logger.info(f"✅ Editorial gap research completed: {scrape_count} scrapes")
             self.logger.info(f"📊 Editorial budget status: {search_budget.editorial_search_queries}/{max_queries} queries, {search_budget.editorial_successful_scrapes}/{max_scrapes} scrapes")
 
+            # Extract content from zPlayground1 tool result for integration
+            gap_research_content = ""
+            if gap_research_result and gap_research_result.get("content"):
+                content_blocks = gap_research_result["content"]
+                if content_blocks and len(content_blocks) > 0:
+                    gap_research_content = content_blocks[0].get("text", "")
+
             return {
                 "success": True,
                 "gap_research_result": gap_research_result,
+                "gap_research_content": gap_research_content,  # For editorial integration
                 "scrapes_completed": scrape_count,
                 "gaps_researched": gap_topics,
                 "budget_remaining": {
@@ -3582,6 +3608,170 @@ Execute the gap-filling search now using these proven parameters."""
 
         except Exception as e:
             self.logger.warning(f"Could not extract gap research requests: {e}")
+            return []
+
+    async def _validate_editorial_gap_research_completion(self, input: dict, tool_use_id: str, context: Any) -> dict:
+        """
+        Hook to validate that editorial agent has completed gap research before finalizing review.
+
+        This PreToolUse hook checks if the editorial agent is trying to complete its review
+        without requesting gap research for identified gaps.
+        """
+        try:
+            # Only apply to editorial agent
+            agent_name = getattr(context, 'agent_name', None) if context else None
+            if agent_name != 'editor_agent':
+                return {"decision": "allow"}
+
+            # Check if this is a final report/write operation
+            tool_name = input.get("name", "")
+            if tool_name not in ["Write", "create_research_report"]:
+                return {"decision": "allow"}
+
+            # Get the session data to check for gap research activity
+            session_id = getattr(context, 'session_id', None) if context else None
+            if not session_id:
+                return {"decision": "allow"}
+
+            session_data = self.active_sessions.get(session_id, {})
+            search_stats = session_data.get("editorial_search_stats", {})
+
+            # Check if gap research was executed
+            gap_research_executed = search_stats.get("gap_research_executed", False)
+            gap_research_scrapes = search_stats.get("gap_research_scrapes", 0)
+
+            # Look for documented gaps in recent editorial activity
+            editorial_files = list(Path(self.kevin_dir).glob(f"sessions/{session_id}/working/*EDITORIAL*.md"))
+            documented_gaps_found = False
+
+            for file_path in editorial_files:
+                try:
+                    content = file_path.read_text(encoding='utf-8')
+                    if any(indicator.lower() in content.lower() for indicator in [
+                        "Priority 3: Address Information Gaps",
+                        "Conduct targeted searches for:",
+                        "gap-filling research",
+                        "missing information"
+                    ]):
+                        documented_gaps_found = True
+                        break
+                except Exception:
+                    continue
+
+            # Block completion if gaps were documented but no research was executed
+            if documented_gaps_found and not gap_research_executed:
+                self.logger.warning(f"🚫 Editorial agent attempting to complete review without executing documented gap research")
+
+                return {
+                    "decision": "block",
+                    "systemMessage": """⚠️ GAP RESEARCH REQUIRED
+
+You have documented information gaps in your editorial review but have not requested gap research execution.
+
+MANDATORY ACTION REQUIRED:
+1. Use mcp__research_tools__request_gap_research tool
+2. Request research for your documented gaps
+3. Wait for orchestrator to execute research
+4. Integrate results before completing review
+
+Example format:
+{
+    "gaps": ["specific gap topic"],
+    "session_id": "<session_id>",
+    "priority": "high"
+}
+
+You must complete gap research before finalizing your editorial review."""
+                }
+
+            # Allow completion if no gaps found or research was executed
+            if gap_research_executed:
+                self.logger.info(f"✅ Editorial agent completed gap research ({gap_research_scrapes} scrapes) - allowing completion")
+            elif not documented_gaps_found:
+                self.logger.info(f"✅ No documented gaps found - allowing completion")
+
+            return {"decision": "allow"}
+
+        except Exception as e:
+            self.logger.error(f"Error in editorial gap research validation hook: {e}")
+            # Allow completion on error to avoid blocking workflow
+            return {"decision": "allow"}
+
+    def _extract_documented_research_gaps(self, editorial_result: dict[str, Any]) -> list[str]:
+        """
+        Extract documented research gaps from editorial review content.
+
+        Detects when the editor identified gaps in the content but may not have
+        called the request_gap_research tool.
+
+        Args:
+            editorial_result: Result from editor agent execution
+
+        Returns:
+            List of research gap topics extracted from editorial content
+        """
+        try:
+            # Look for gap research plans in editorial output files
+            documented_gaps = []
+
+            # Check if we have any editorial review files that mention gap research
+            session_id = editorial_result.get("session_id", "")
+            if session_id:
+                session_dir = Path(self.kevin_dir) / "sessions" / session_id / "working"
+                if session_dir.exists():
+                    # Look for editorial review files
+                    for file_path in session_dir.glob("*EDITORIAL*.md"):
+                        try:
+                            content = file_path.read_text(encoding='utf-8')
+
+                            # Look for documented gap research plans
+                            gap_indicators = [
+                                "Conduct targeted searches for:",
+                                "Priority 3: Address Information Gaps",
+                                "gap-filling research",
+                                "additional research needed",
+                                "missing information",
+                                "research gaps"
+                            ]
+
+                            for indicator in gap_indicators:
+                                if indicator.lower() in content.lower():
+                                    # Extract specific gap topics
+                                    lines = content.split('\n')
+                                    in_gap_section = False
+                                    for line in lines:
+                                        line_lower = line.lower().strip()
+                                        if any(gap_term in line_lower for gap_term in ["gap", "missing", "need", "research"]):
+                                            in_gap_section = True
+
+                                        if in_gap_section and line.startswith('-'):
+                                            gap_topic = line.strip('- ').strip()
+                                            if len(gap_topic) > 10:  # Only meaningful topics
+                                                documented_gaps.append(gap_topic)
+
+                                        if in_gap_section and line_lower.startswith('##'):
+                                            break
+
+                                    break
+
+                        except Exception as e:
+                            self.logger.debug(f"Could not read editorial file {file_path}: {e}")
+                            continue
+
+            # Clean up and deduplicate gaps
+            unique_gaps = []
+            for gap in documented_gaps:
+                gap = gap.strip()
+                if gap and gap not in unique_gaps and len(gap) > 10:
+                    unique_gaps.append(gap)
+
+            if unique_gaps:
+                self.logger.info(f"🔍 Extracted {len(unique_gaps)} documented research gaps from editorial content")
+
+            return unique_gaps[:5]  # Limit to top 5 most important gaps
+
+        except Exception as e:
+            self.logger.warning(f"Could not extract documented research gaps: {e}")
             return []
 
     async def stage_decoupled_editorial_review(self, session_id: str) -> dict:
@@ -3911,7 +4101,7 @@ This session had limited research output available. The editorial agent has proc
             3. Location of all work products created
             4. Final quality assessment
 
-            CRITICAL: Add "4-" prefix to your final summary title to indicate this is Stage 4 output
+            CRITICAL: Add "Appendix-Report_Generation_Summary_" prefix to your final summary title to indicate this is a report generation summary document
             Save this as a final summary document in the session directory.
             """
 

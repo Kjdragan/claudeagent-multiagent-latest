@@ -200,7 +200,7 @@ def select_urls_for_crawling(
     search_results: list[SearchResult], limit: int = 10, min_relevance: float = 0.4
 ) -> list[str]:
     """
-    Select URLs for crawling based on relevance scores.
+    Select URLs for crawling based on relevance scores with deduplication.
 
     Args:
         search_results: List of search results
@@ -221,22 +221,87 @@ def select_urls_for_crawling(
         # Sort by relevance score (highest first) - ensure float comparison
         filtered_results.sort(key=lambda x: float(x.relevance_score), reverse=True)
 
-        # Extract URLs up to limit
-        urls = [result.link for result in filtered_results[:limit]]
+        # Deduplicate URLs while preserving order and relevance
+        seen_urls = set()
+        seen_domains = {}
+        deduplicated_results = []
+
+        for result in filtered_results:
+            url = result.link
+            domain = _extract_domain_for_dedup(url)
+
+            # Skip exact URL duplicates
+            if url in seen_urls:
+                logger.debug(f"Skipping duplicate URL: {url}")
+                continue
+
+            # For high-quality domains (news, gov, edu), allow up to 3 URLs per domain
+            # For other domains, allow only 1 URL per domain to ensure diversity
+            domain_limit = 3 if _is_high_quality_domain(domain) else 1
+
+            if domain in seen_domains and seen_domains[domain] >= domain_limit:
+                logger.debug(f"Skipping additional URL from domain {domain} (limit: {domain_limit}): {url}")
+                continue
+
+            # Add to results
+            deduplicated_results.append(result)
+            seen_urls.add(url)
+            seen_domains[domain] = seen_domains.get(domain, 0) + 1
+
+        # Extract URLs up to limit from deduplicated results
+        urls = [result.link for result in deduplicated_results[:limit]]
 
         # Enhanced logging for URL selection process
         logger.info(f"URL selection with threshold {min_relevance}:")
         logger.info(f"  - Total results: {len(search_results)}")
         logger.info(f"  - Above threshold: {len(filtered_results)}")
+        logger.info(f"  - After deduplication: {len(deduplicated_results)}")
         logger.info(f"  - Selected for crawling: {len(urls)}")
         logger.info(
             f"  - Rejected: {len(search_results) - len(filtered_results)} below threshold"
         )
+
+        # Log domain distribution
+        domain_counts = {}
+        for url in urls:
+            domain = _extract_domain_for_dedup(url)
+            domain_counts[domain] = domain_counts.get(domain, 0) + 1
+
+        if len(domain_counts) > 1:
+            logger.info(f"  - Domain diversity: {len(domain_counts)} different domains")
+            for domain, count in list(domain_counts.items())[:5]:  # Show top 5
+                logger.info(f"    * {domain}: {count} URLs")
+
         return urls
 
     except Exception as e:
         logger.error(f"Error selecting URLs for crawling: {e}")
         return []
+
+
+def _extract_domain_for_dedup(url: str) -> str:
+    """Extract domain name for deduplication purposes."""
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        return parsed.netloc.lower()
+    except Exception:
+        return "unknown"
+
+
+def _is_high_quality_domain(domain: str) -> bool:
+    """Check if domain is high-quality and can have multiple URLs."""
+    high_quality_patterns = [
+        'gov', 'edu', 'mil',  # Government/educational
+        'bbc.com', 'reuters.com', 'ap.org',  # Major news wires
+        'cnn.com', 'nytimes.com', 'washingtonpost.com', 'wsj.com',  # Major newspapers
+        'theguardian.com', 'economist.com', 'time.com',  # International news
+        'understandingwar.org', 'acleddata.org', 'csis.org',  # Research institutes
+        'aljazeera.com', 'france24.com', 'dw.com'  # International broadcasters
+    ]
+
+    domain_lower = domain.lower()
+    return any(pattern in domain_lower for pattern in high_quality_patterns)
 
 
 def format_search_results(search_results: list[SearchResult]) -> str:

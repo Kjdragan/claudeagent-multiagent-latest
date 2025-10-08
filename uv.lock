@@ -565,16 +565,16 @@ wheels = [
 
 [[package]]
 name = "claude-agent-sdk"
-version = "0.1.0"
+version = "0.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
     { name = "mcp" },
     { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/dd/21/9466f7c38cf02f0a4e5ddeeba7450ef4cddbf21945d2497eac4637f463dc/claude_agent_sdk-0.1.0.tar.gz", hash = "sha256:f60d148f8e9f69991582863a6cdbf337ff908c1bd7d5de2f7845eb830f72d2a5", size = 42827, upload-time = "2025-09-28T23:39:33.333Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e6/85/5e0364d8b567375bc5561a5ca30d73db46072573308677e3db1c435dec69/claude_agent_sdk-0.1.1.tar.gz", hash = "sha256:dcb224d4a65699cd9ceaddf4b9f9501606ba4f10d37fa691aff1ab60b9849b65", size = 43941, upload-time = "2025-10-07T00:21:14.018Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/60/27/0081f232b1119d3973ce5301b31f407bb604ca4434152d39ff62b9e18a0c/claude_agent_sdk-0.1.0-py3-none-any.whl", hash = "sha256:92d9a83689a6a3a54f69aac1224dd2004109bf1fecd0272e2241251747afdb3d", size = 32635, upload-time = "2025-09-28T23:39:32.184Z" },
+    { url = "https://files.pythonhosted.org/packages/bb/17/d18977ef5089064bced8cbf056a4317fc175e986a4a98391fc4121c3cb5b/claude_agent_sdk-0.1.1-py3-none-any.whl", hash = "sha256:4e95ed38786b045c5d42c942d5ce2870cd7e7c4c836cc22b5b9526b1543bfd8a", size = 33672, upload-time = "2025-10-07T00:21:12.717Z" },
 ]
 
 [[package]]
@@ -1627,7 +1627,7 @@ requires-dist = [
     { name = "anyio", specifier = ">=4.0.0" },
     { name = "anyio", extras = ["trio"], marker = "extra == 'dev'", specifier = ">=4.0.0" },
     { name = "beautifulsoup4", specifier = ">=4.12.3" },
-    { name = "claude-agent-sdk", specifier = ">=0.1.0" },
+    { name = "claude-agent-sdk", specifier = "==0.1.1" },
     { name = "crawl4ai", specifier = ">=0.7.4" },
     { name = "cssselect", specifier = ">=1.3.0" },
     { name = "httpx", specifier = ">=0.28.1" },
