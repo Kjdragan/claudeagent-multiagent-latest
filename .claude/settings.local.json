@@ -14,7 +14,8 @@
       "Bash(python3 -m ruff check:*)",
       "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --force --index-filter 'git rm --cached --ignore-unmatch .env multi_agent_research_system/.env' --prune-empty --tag-name-filter cat -- --all)",
       "Read(//home/kjdragan/**)",
-      "Bash(stty:*)"
+      "Bash(stty:*)",
+      "mcp__serena__list_dir"
     ],
     "deny": [],
     "ask": []
