@@ -43,7 +43,7 @@ class ResearchCLI:
 
         print("✅ Logging initialized - logs will be saved to KEVIN/logs/")
         print("✅ Research outputs will be organized in KEVIN/sessions/")
-        print("✅ Final reports will be saved to KEVIN/work_products/reports/")
+        print("✅ Final reports will be saved in session working directories")
         print()
 
     def print_banner(self):
@@ -202,16 +202,8 @@ class ResearchCLI:
                         print(f"     Error reading preview: {str(e)}")
                     print()
 
-                # Copy final reports to work_products
-                work_products_dir = Path("KEVIN/work_products/reports")
-                work_products_dir.mkdir(parents=True, exist_ok=True)
-
-                for report_file in final_reports:
-                    dest_file = work_products_dir / report_file.name
-                    import shutil
-                    shutil.copy2(report_file, dest_file)
-
-                print("📁 Final reports also saved to: KEVIN/work_products/reports/")
+                # Final reports are now kept in session working directory for consistency
+                print("📁 Final reports saved in session working directory for easy access")
 
             else:
                 self.print_progress_update("WARNING", "No final reports found")
@@ -239,8 +231,8 @@ class ResearchCLI:
         print(f"⏱️  Total time: {elapsed}")
         print(f"🆔 Session ID: {session_id}")
         print(f"📁 Session directory: KEVIN/sessions/{session_id}/")
-        print(f"📊 Reports: KEVIN/work_products/reports/")
         print(f"📝 Logs: KEVIN/logs/")
+        print(f"📊 Final reports: KEVIN/sessions/{session_id}/working/")
         print()
 
 def main():

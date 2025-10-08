@@ -171,10 +171,8 @@ async def create_research_report(args: dict[str, Any]) -> dict[str, Any]:
     from pathlib import Path
     recommended_filepath = str(Path.cwd() / f"KEVIN/sessions/{session_id}/{subdir}/{filename}")
 
-    # For final reports, also provide work_products path
+    # Remove work_products path - final reports should stay in session working directory
     work_products_filepath = None
-    if report_type.lower() == "final":
-        work_products_filepath = str(Path.cwd() / f"KEVIN/work_products/reports/{filename}")
 
     if _logger:
         _logger.info(f"Research report formatted for {topic} ({len(report_content)} characters)")
@@ -189,21 +187,18 @@ Use this EXACT filepath:
 
 The Write tool will automatically create any necessary directories."""
 
-    # For final reports, also create an accessible copy in working directory as fallback
+    # For final reports, ensure they go to the working directory for consistency
     if report_type.lower() == "final":
-        working_copy = str(Path.cwd() / f"KEVIN/sessions/{session_id}/working/{filename}")
-        instruction_text += f"""
+        # Final reports should be in the working directory, not the research subdirectory
+        recommended_filepath = str(Path.cwd() / f"KEVIN/sessions/{session_id}/working/{filename}")
+        instruction_text = f"""Report content created for '{topic}' ({len(report_content)} characters).
 
-IMPORTANT: Also save a FINAL copy in working directory as fallback:
-    {working_copy}
+⚠️  CRITICAL: You MUST now save this report using the Write tool.
 
-This ensures the final report is accessible even if finalization fails."""
+Use this EXACT filepath:
+    {recommended_filepath}
 
-    if work_products_filepath:
-        instruction_text += f"""
-
-Also save a copy for easy access at:
-    {work_products_filepath}"""
+The Write tool will automatically create any necessary directories."""
 
     return {
         "content": [{

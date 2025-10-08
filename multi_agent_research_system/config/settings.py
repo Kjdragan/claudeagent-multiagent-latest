@@ -43,7 +43,65 @@ class EnhancedSearchConfig:
     max_response_tokens: int = 20000
     content_summary_threshold: int = 20000
 
-    # Work product directories - use environment-aware path detection
+    # Centralized Path Configuration
+    def _get_base_repo_dir(self) -> str:
+        """Get base repository directory with environment-aware detection."""
+        current_repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        if "claudeagent-multiagent-latest" in current_repo:
+            return current_repo
+        else:
+            return "/home/kjdragan/lrepos/claudeagent-multiagent-latest"
+
+    @property
+    def kevin_base_dir(self) -> str:
+        """Get KEVIN base directory with environment override support."""
+        if hasattr(self, '_kevin_base_dir_override') and self._kevin_base_dir_override:
+            return self._kevin_base_dir_override
+        return f"{self._get_base_repo_dir()}/KEVIN"
+
+    @property
+    def kevin_sessions_dir(self) -> str:
+        """Get KEVIN sessions directory."""
+        return f"{self.kevin_base_dir}/sessions"
+
+    @property
+    def kevin_logs_dir(self) -> str:
+        """Get KEVIN logs directory."""
+        return f"{self.kevin_base_dir}/logs"
+
+    @property
+    def kevin_workproducts_dir(self) -> str:
+        """Get KEVIN work products directory with environment override support."""
+        if hasattr(self, '_kevin_workproducts_dir_override') and self._kevin_workproducts_dir_override:
+            return self._kevin_workproducts_dir_override
+        return f"{self.kevin_base_dir}/work_products"
+
+    def get_session_dir(self, session_id: str) -> str:
+        """Get session directory path."""
+        return f"{self.kevin_sessions_dir}/{session_id}"
+
+    def get_session_working_dir(self, session_id: str) -> str:
+        """Get session working directory path."""
+        return f"{self.get_session_dir(session_id)}/working"
+
+    def get_session_research_dir(self, session_id: str) -> str:
+        """Get session research directory path."""
+        return f"{self.get_session_dir(session_id)}/research"
+
+    def get_session_final_dir(self, session_id: str) -> str:
+        """Get session final directory path."""
+        return f"{self.get_session_dir(session_id)}/final"
+
+    def get_final_report_path(self, session_id: str, filename: str) -> str:
+        """Get final report path - CRITICAL: Always use session working directory."""
+        return f"{self.get_session_working_dir(session_id)}/{filename}"
+
+    def validate_session_path(self, session_id: str, file_path: str) -> bool:
+        """Validate that file path belongs to session directory."""
+        session_dir = self.get_session_dir(session_id)
+        return file_path.startswith(session_dir)
+
+    # Legacy work product directories - use environment-aware path detection
     def _get_default_workproduct_dir(self) -> str:
         current_repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         if "claudeagent-multiagent-latest" in current_repo:
@@ -54,7 +112,6 @@ class EnhancedSearchConfig:
     @property
     def default_workproduct_dir(self) -> str:
         return self._get_default_workproduct_dir()
-    kevin_workproducts_dir: str | None = None
 
     # Content cleaning settings
     default_cleanliness_threshold: float = 0.7
@@ -67,11 +124,18 @@ class EnhancedSearchConfig:
     crawl_retry_attempts: int = 2
 
     def __post_init__(self):
-        """Initialize derived settings."""
-        # Set KEVIN workproducts directory from environment if available
-        self.kevin_workproducts_dir = os.getenv('KEVIN_WORKPRODUCTS_DIR')
-        if self.kevin_workproducts_dir:
-            self.default_workproduct_dir = self.kevin_workproducts_dir
+        """Initialize derived settings with environment variable overrides."""
+        # Set KEVIN directory paths from environment if available
+        if os.getenv('KEVIN_BASE_DIR'):
+            self._kevin_base_dir_override = os.getenv('KEVIN_BASE_DIR')
+        else:
+            self._kevin_base_dir_override = None
+
+        # Legacy support for workproducts directory override
+        if os.getenv('KEVIN_WORKPRODUCTS_DIR'):
+            self._kevin_workproducts_dir_override = os.getenv('KEVIN_WORKPRODUCTS_DIR')
+        else:
+            self._kevin_workproducts_dir_override = None
 
 
 class SettingsManager:
@@ -117,6 +181,88 @@ class SettingsManager:
             except ValueError:
                 pass
 
+        # Path configuration settings
+        self._load_path_environment_overrides()
+
+    def _load_path_environment_overrides(self):
+        """Load path configuration overrides from environment variables."""
+
+        # KEVIN directory path overrides
+        if os.getenv('KEVIN_BASE_DIR'):
+            self._enhanced_search_config._kevin_base_dir_override = os.getenv('KEVIN_BASE_DIR')
+
+        if os.getenv('KEVIN_WORKPRODUCTS_DIR'):
+            self._enhanced_search_config._kevin_workproducts_dir_override = os.getenv('KEVIN_WORKPRODUCTS_DIR')
+
+        # Session directory overrides
+        if os.getenv('KEVIN_SESSIONS_DIR'):
+            self._kevin_sessions_dir_override = os.getenv('KEVIN_SESSIONS_DIR')
+
+        if os.getenv('KEVIN_LOGS_DIR'):
+            self._kevin_logs_dir_override = os.getenv('KEVIN_LOGS_DIR')
+
+    # Path configuration management
+    def get_kevin_base_dir(self) -> str:
+        """Get KEVIN base directory with environment override support."""
+        return self._enhanced_search_config.kevin_base_dir
+
+    def get_kevin_sessions_dir(self) -> str:
+        """Get KEVIN sessions directory with environment override support."""
+        if hasattr(self, '_kevin_sessions_dir_override'):
+            return self._kevin_sessions_dir_override
+        return self._enhanced_search_config.kevin_sessions_dir
+
+    def get_kevin_logs_dir(self) -> str:
+        """Get KEVIN logs directory with environment override support."""
+        if hasattr(self, '_kevin_logs_dir_override'):
+            return self._kevin_logs_dir_override
+        return self._enhanced_search_config.kevin_logs_dir
+
+    def get_session_dir(self, session_id: str) -> str:
+        """Get session directory path."""
+        return f"{self.get_kevin_sessions_dir()}/{session_id}"
+
+    def get_session_working_dir(self, session_id: str) -> str:
+        """Get session working directory path."""
+        return f"{self.get_session_dir(session_id)}/working"
+
+    def get_session_research_dir(self, session_id: str) -> str:
+        """Get session research directory path."""
+        return f"{self.get_session_dir(session_id)}/research"
+
+    def get_session_final_dir(self, session_id: str) -> str:
+        """Get session final directory path."""
+        return f"{self.get_session_dir(session_id)}/final"
+
+    def get_final_report_path(self, session_id: str, filename: str) -> str:
+        """Get final report path - CRITICAL: Always use session working directory."""
+        return f"{self.get_session_working_dir(session_id)}/{filename}"
+
+    def validate_session_path(self, session_id: str, file_path: str) -> bool:
+        """Validate that file path belongs to session directory."""
+        session_dir = self.get_session_dir(session_id)
+        return file_path.startswith(session_dir)
+
+    def ensure_session_directory(self, session_id: str) -> dict[str, Path]:
+        """Ensure all session directories exist and return paths."""
+        base_dir = Path(self.get_session_dir(session_id))
+        working_dir = Path(self.get_session_working_dir(session_id))
+        research_dir = Path(self.get_session_research_dir(session_id))
+        final_dir = Path(self.get_session_final_dir(session_id))
+
+        # Create all directories
+        base_dir.mkdir(parents=True, exist_ok=True)
+        working_dir.mkdir(parents=True, exist_ok=True)
+        research_dir.mkdir(parents=True, exist_ok=True)
+        final_dir.mkdir(parents=True, exist_ok=True)
+
+        return {
+            "session": base_dir,
+            "working": working_dir,
+            "research": research_dir,
+            "final": final_dir
+        }
+
     @property
     def enhanced_search(self) -> EnhancedSearchConfig:
         """Get enhanced search configuration."""
@@ -135,23 +281,17 @@ class SettingsManager:
         return max(0.0, min(1.0, threshold))
 
     def ensure_workproduct_directory(self, custom_dir: str = None, session_id: str = None, category: str = "research") -> Path:
-        """Ensure workproduct directory exists and return path with session-based organization."""
+        """Ensure workproduct directory exists and return path with centralized session-based organization."""
         if custom_dir:
             workproduct_dir = Path(custom_dir)
         elif session_id:
-            # Use session-based directory structure
-            # Use environment-aware path detection for sessions directory
-            current_repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            if "claudeagent-multiagent-latest" in current_repo:
-                base_sessions_dir = Path(f"{current_repo}/KEVIN/sessions")
-            else:
-                base_sessions_dir = Path("/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN/sessions")
-            session_dir = base_sessions_dir / session_id
+            # Use centralized session-based directory structure
+            session_dir = Path(self.get_session_dir(session_id))
             workproduct_dir = session_dir / category
-        elif self._enhanced_search_config.kevin_workproducts_dir:
-            workproduct_dir = Path(self._enhanced_search_config.kevin_workproducts_dir)
+        elif hasattr(self, '_kevin_workproducts_dir_override') and self._kevin_workproducts_dir_override:
+            workproduct_dir = Path(self._kevin_workproducts_dir_override)
         else:
-            workproduct_dir = Path(self._enhanced_search_config.default_workproduct_dir)
+            workproduct_dir = Path(self._enhanced_search_config.kevin_workproducts_dir)
 
         workproduct_dir.mkdir(parents=True, exist_ok=True)
         return workproduct_dir
@@ -179,11 +319,28 @@ class SettingsManager:
                 "workproduct_dir": self._enhanced_search_config.default_workproduct_dir,
                 "kevin_workproducts_dir": self._enhanced_search_config.kevin_workproducts_dir
             },
+            "path_configuration": {
+                "kevin_base_dir": self.get_kevin_base_dir(),
+                "kevin_sessions_dir": self.get_kevin_sessions_dir(),
+                "kevin_logs_dir": self.get_kevin_logs_dir(),
+                "kevin_workproducts_dir": self._enhanced_search_config.kevin_workproducts_dir,
+                "session_working_dir_example": self.get_session_working_dir("example-session-id"),
+                "final_report_path_example": self.get_final_report_path("example-session-id", "FINAL_report.md")
+            },
             "environment_variables": {
                 "SERP_API_KEY": "SET" if os.getenv('SERP_API_KEY') else "NOT_SET",
                 "OPENAI_API_KEY": "SET" if os.getenv('OPENAI_API_KEY') else "NOT_SET",
                 "ANTHROPIC_API_KEY": "SET" if os.getenv('ANTHROPIC_API_KEY') else "NOT_SET",
+                "KEVIN_BASE_DIR": os.getenv('KEVIN_BASE_DIR', 'NOT_SET'),
+                "KEVIN_SESSIONS_DIR": os.getenv('KEVIN_SESSIONS_DIR', 'NOT_SET'),
+                "KEVIN_LOGS_DIR": os.getenv('KEVIN_LOGS_DIR', 'NOT_SET'),
                 "KEVIN_WORKPRODUCTS_DIR": os.getenv('KEVIN_WORKPRODUCTS_DIR', 'NOT_SET')
+            },
+            "path_validation": {
+                "kevin_base_exists": Path(self.get_kevin_base_dir()).exists(),
+                "sessions_dir_exists": Path(self.get_kevin_sessions_dir()).exists(),
+                "logs_dir_exists": Path(self.get_kevin_logs_dir()).exists(),
+                "workproducts_dir_exists": Path(self._enhanced_search_config.kevin_workproducts_dir).exists()
             }
         }
 

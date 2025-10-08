@@ -7,10 +7,10 @@ ClaudeSDKClient, agent definitions, and custom tools.
 import asyncio
 import json
 import os
+import time
 
 # Import from parent directory structure
 import sys
-import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -3392,6 +3392,8 @@ Please complete your editorial review with both the original research context an
         This method uses the same proven research workflow that achieves 100% success in
         primary research, but with reduced scope appropriate for targeted gap-filling.
 
+        **ENHANCED WITH COMPREHENSIVE DEBUGGING AND VALIDATION**
+
         Args:
             session_id: Current research session ID
             research_gaps: List of specific information gaps to research
@@ -3401,46 +3403,107 @@ Please complete your editorial review with both the original research context an
         Returns:
             Research results from coordinated research agent execution
         """
-        self.logger.info(f"🔍 Executing editorial gap research for session {session_id}")
+        # **ENHANCED DEBUGGING**: Step-by-step execution tracking
+        execution_step = 0
+        self.logger.info(f"🔍 [STEP {execution_step}] Starting editorial gap research for session {session_id}")
+        self.logger.info(f"   Input validation: session_id={session_id}, gaps_count={len(research_gaps)}")
         self.logger.info(f"   Gaps to research: {research_gaps}")
 
-        # Get session data
+        # **ENHANCED DEBUGGING**: Validate input parameters
+        if not session_id:
+            self.logger.error("❌ [STEP {execution_step}] CRITICAL ERROR: session_id is None or empty")
+            return {"success": False, "error": "Invalid session_id: None or empty"}
+
+        if not research_gaps or len(research_gaps) == 0:
+            self.logger.error(f"❌ [STEP {execution_step}] CRITICAL ERROR: research_gaps is empty or None: {research_gaps}")
+            return {"success": False, "error": "Invalid research_gaps: empty list"}
+
+        self.logger.info(f"✅ [STEP {execution_step}] Input validation passed")
+        execution_step += 1
+
+        # **ENHANCED DEBUGGING**: Step 2 - Session data validation
+        self.logger.info(f"🔍 [STEP {execution_step}] Validating session data for session {session_id}")
         session_data = self.active_sessions.get(session_id)
         if not session_data:
-            self.logger.error(f"Session {session_id} not found for gap research")
-            return {"success": False, "error": "Session not found"}
+            self.logger.error(f"❌ [STEP {execution_step}] CRITICAL ERROR: Session {session_id} not found for gap research")
+            self.logger.error(f"   Available sessions: {list(self.active_sessions.keys())}")
+            return {"success": False, "error": f"Session {session_id} not found"}
 
-        # Get search budget
+        self.logger.info(f"✅ [STEP {execution_step}] Session data found: {len(session_data)} keys")
+        self.logger.debug(f"   Session keys: {list(session_data.keys())}")
+
+        execution_step += 1
+
+        # **ENHANCED DEBUGGING**: Step 3 - Search budget validation
+        self.logger.info(f"🔍 [STEP {execution_step}] Validating search budget for session {session_id}")
         search_budget = session_data.get("search_budget")
         if not search_budget:
-            self.logger.error(f"Search budget not found for session {session_id}")
+            self.logger.error(f"❌ [STEP {execution_step}] CRITICAL ERROR: Search budget not found for session {session_id}")
+            self.logger.error(f"   Available session data keys: {list(session_data.keys())}")
             return {"success": False, "error": "Search budget not found"}
 
-        # Use configuration system values if not provided
+        self.logger.info(f"✅ [STEP {execution_step}] Search budget found")
+        self.logger.info(f"   Editorial budget status: {search_budget.editorial_search_queries} queries used, {search_budget.editorial_successful_scrapes} scrapes completed")
+
+        execution_step += 1
+
+        # **ENHANCED DEBUGGING**: Step 4 - Configuration validation
+        self.logger.info(f"🔍 [STEP {execution_step}] Configuring research limits")
+
         if max_scrapes is None:
             max_scrapes = search_budget.editorial_successful_scrapes_limit
-            self.logger.info(f"Using configured editorial scrape target: {max_scrapes}")
+            self.logger.info(f"   Using configured editorial scrape target: {max_scrapes}")
+        else:
+            self.logger.info(f"   Using provided scrape limit: {max_scrapes}")
 
         if max_queries is None:
             max_queries = search_budget.editorial_search_queries_limit
-            self.logger.info(f"Using configured editorial query limit: {max_queries}")
+            self.logger.info(f"   Using configured editorial query limit: {max_queries}")
+        else:
+            self.logger.info(f"   Using provided query limit: {max_queries}")
 
-        self.logger.info(f"   Limits: {max_scrapes} scrapes, {max_queries} queries")
+        self.logger.info(f"✅ [STEP {execution_step}] Configuration complete")
+        self.logger.info(f"   Final limits: {max_scrapes} scrapes, {max_queries} queries")
 
-        # Check editorial budget availability
+        execution_step += 1
+
+        # **ENHANCED DEBUGGING**: Step 5 - Budget availability check
+        self.logger.info(f"🔍 [STEP {execution_step}] Checking editorial budget availability")
+        current_queries = search_budget.editorial_search_queries
+        current_scrapes = search_budget.editorial_successful_scrapes
+
+        self.logger.info(f"   Current usage: {current_queries}/{max_queries} queries, {current_scrapes}/{max_scrapes} scrapes")
+
         if search_budget.editorial_search_queries >= max_queries:
-            self.logger.warning(f"⚠️ Editorial search query limit reached ({max_queries})")
+            self.logger.error(f"❌ [STEP {execution_step}] BUDGET EXHAUSTED: Editorial search query limit reached ({max_queries})")
             return {
                 "success": False,
                 "error": "Editorial search budget exhausted",
-                "message": "Maximum editorial search queries reached"
+                "message": f"Maximum editorial search queries reached: {current_queries}/{max_queries}",
+                "debug_info": {
+                    "step": execution_step,
+                    "current_queries": current_queries,
+                    "max_queries": max_queries,
+                    "current_scrapes": current_scrapes,
+                    "max_scrapes": max_scrapes
+                }
             }
 
-        # Combine gaps into focused search topics (limit to top 2)
+        self.logger.info(f"✅ [STEP {execution_step}] Budget check passed - research can proceed")
+        execution_step += 1
+
+        # **ENHANCED DEBUGGING**: Step 6 - Topic preparation
+        self.logger.info(f"🔍 [STEP {execution_step}] Preparing gap research topics")
+
         gap_topics = research_gaps[:2]  # Limit to top 2 for focused research
         combined_topic = " AND ".join(gap_topics)
 
-        self.logger.info(f"📝 Combined gap research topic: {combined_topic}")
+        self.logger.info(f"   Original gaps ({len(research_gaps)}): {research_gaps}")
+        self.logger.info(f"   Selected gaps ({len(gap_topics)}): {gap_topics}")
+        self.logger.info(f"   Combined topic: '{combined_topic}'")
+        self.logger.info(f"✅ [STEP {execution_step}] Topic preparation complete")
+
+        execution_step += 1
 
         # Create research prompt for gap-filling with proven parameters
         gap_research_prompt = f"""Use the research_agent agent to conduct targeted gap-filling research.
@@ -3476,56 +3539,174 @@ PROVEN SUCCESSFUL PARAMETERS (from primary research):
 
 Execute the gap-filling search now using these proven parameters."""
 
+        # **ENHANCED DEBUGGING**: Step 7 - Client validation
+        self.logger.info(f"🔍 [STEP {execution_step}] Validating MCP client availability")
+
+        if not self.client:
+            self.logger.error(f"❌ [STEP {execution_step}] CRITICAL ERROR: MCP client is None or not initialized")
+            return {
+                "success": False,
+                "error": "MCP client not initialized",
+                "debug_info": {
+                    "step": execution_step,
+                    "client_type": type(self.client),
+                    "client_is_none": self.client is None
+                }
+            }
+
+        self.logger.info(f"✅ [STEP {execution_step}] MCP client validated: {type(self.client).__name__}")
+        execution_step += 1
+
         try:
-            # **FIXED**: Execute gap research using DIRECT zPlayground1 MCP tool call
-            # This bypasses the research agent's incorrect tool selection and ensures
-            # we use the same proven approach as the successful primary research stage
-            self.logger.info("🔍 Executing gap research using DIRECT zPlayground1 tool call (proven approach)")
-            self.logger.info(f"   Combined topic: {combined_topic}")
-            self.logger.info(f"   Work product prefix: 'editor research'")
-            self.logger.info(f"   Anti-bot level: 2 (proven successful)")
+            # **ENHANCED DEBUGGING**: Step 8 - Directory setup
+            self.logger.info(f"🔍 [STEP {execution_step}] Setting up research directories")
 
             # Set up work product directory for editorial gap research
             from pathlib import Path
             import os
 
+            if not hasattr(self, 'kevin_dir') or not self.kevin_dir:
+                self.logger.error(f"❌ [STEP {execution_step}] CRITICAL ERROR: kevin_dir not set or invalid")
+                return {
+                    "success": False,
+                    "error": "KEVIN directory not configured",
+                    "debug_info": {
+                        "step": execution_step,
+                        "kevin_dir": getattr(self, 'kevin_dir', 'NOT_SET'),
+                        "has_kevin_dir": hasattr(self, 'kevin_dir')
+                    }
+                }
+
             session_dir = Path(self.kevin_dir) / "sessions" / session_id
             research_dir = session_dir / "research"
+
+            self.logger.info(f"   KEVIN directory: {self.kevin_dir}")
+            self.logger.info(f"   Session directory: {session_dir}")
+            self.logger.info(f"   Research directory: {research_dir}")
+
+            # Create directories if they don't exist
             research_dir.mkdir(parents=True, exist_ok=True)
 
-            # Execute DIRECT zPlayground1 search with proven parameters
+            if not research_dir.exists():
+                self.logger.error(f"❌ [STEP {execution_step}] CRITICAL ERROR: Failed to create research directory: {research_dir}")
+                return {
+                    "success": False,
+                    "error": "Failed to create research directory",
+                    "debug_info": {
+                        "step": execution_step,
+                        "research_dir": str(research_dir),
+                        "parent_exists": research_dir.parent.exists()
+                    }
+                }
+
+            self.logger.info(f"✅ [STEP {execution_step}] Directory setup complete")
+            execution_step += 1
+
+            # **ENHANCED DEBUGGING**: Step 9 - MCP tool execution
+            self.logger.info(f"🔍 [STEP {execution_step}] Executing DIRECT zPlayground1 MCP tool call")
+            self.logger.info(f"   This bypasses research agent tool selection issues")
+            self.logger.info(f"   Combined topic: {combined_topic}")
+            self.logger.info(f"   Work product prefix: 'editor research'")
+            self.logger.info(f"   Anti-bot level: 2 (proven successful)")
+
+            # **FIXED**: Execute gap research using DIRECT zPlayground1 MCP tool call
+            # This bypasses the research agent's incorrect tool selection and ensures
+            # we use the same proven approach as the successful primary research stage
+
+            # **ENHANCED DEBUGGING**: Parameter validation before MCP call
+            mcp_params = {
+                "query": combined_topic,
+                "search_mode": "news",  # Use news for current events/gap research
+                "num_results": 15,
+                "auto_crawl_top": min(max_scrapes, 10),  # Limit to 10 for focused research
+                "crawl_threshold": 0.3,
+                "anti_bot_level": 2,  # EXACTLY as integer 2 (proven successful)
+                "max_concurrent": 10,
+                "session_id": session_id,
+                "workproduct_prefix": "editor research"  # Clear identification
+            }
+
+            self.logger.info(f"🔍 [STEP {execution_step}.a] Validating MCP tool parameters")
+            self.logger.info(f"   Tool name: mcp__zplayground1_search__zplayground1_search_scrape_clean")
+            self.logger.info(f"   Parameter count: {len(mcp_params)}")
+            self.logger.info(f"   Key parameters: query={mcp_params['query'][:50]}..., anti_bot_level={mcp_params['anti_bot_level']}, session_id={mcp_params['session_id']}")
+
+            # Validate critical parameters
+            if not mcp_params["query"] or len(mcp_params["query"].strip()) < 5:
+                self.logger.error(f"❌ [STEP {execution_step}.a] INVALID QUERY: '{mcp_params['query']}'")
+                return {
+                    "success": False,
+                    "error": "Invalid query parameter",
+                    "debug_info": {"step": f"{execution_step}.a", "query": mcp_params["query"]}
+                }
+
+            if not mcp_params["session_id"]:
+                self.logger.error(f"❌ [STEP {execution_step}.a] INVALID SESSION_ID: '{mcp_params['session_id']}'")
+                return {
+                    "success": False,
+                    "error": "Invalid session_id parameter",
+                    "debug_info": {"step": f"{execution_step}.a", "session_id": mcp_params["session_id"]}
+                }
+
+            self.logger.info(f"✅ [STEP {execution_step}.a] Parameter validation passed")
+
+            # **ENHANCED DEBUGGING**: Execute MCP tool call with detailed tracking
+            self.logger.info(f"🔍 [STEP {execution_step}.b] Executing MCP tool call")
+            mcp_start_time = time.time()
+
             gap_research_result = await self.client.call_tool(
                 "mcp__zplayground1_search__zplayground1_search_scrape_clean",
-                {
-                    "query": combined_topic,
-                    "search_mode": "news",  # Use news for current events/gap research
-                    "num_results": 15,
-                    "auto_crawl_top": min(max_scrapes, 10),  # Limit to 10 for focused research
-                    "crawl_threshold": 0.3,
-                    "anti_bot_level": 2,  # EXACTLY as integer 2 (proven successful)
-                    "max_concurrent": 10,
-                    "session_id": session_id,
-                    "workproduct_prefix": "editor research"  # Clear identification
-                }
+                mcp_params
             )
+
+            mcp_execution_time = time.time() - mcp_start_time
+            self.logger.info(f"✅ [STEP {execution_step}.b] MCP tool call completed in {mcp_execution_time:.2f}s")
+            self.logger.info(f"   Result type: {type(gap_research_result)}")
+            self.logger.info(f"   Result keys: {list(gap_research_result.keys()) if gap_research_result else 'None'}")
+
+            execution_step += 1
+
+            # **ENHANCED DEBUGGING**: Step 10 - Result processing and validation
+            self.logger.info(f"🔍 [STEP {execution_step}] Processing MCP tool result")
 
             # Extract scrape count from work products
             scrape_count = 0
             if gap_research_result:
+                self.logger.info(f"   Tool returned successful result")
                 # Count work products created
                 research_files = list(research_dir.glob("*editor research*.md"))
                 scrape_count = len(research_files)
-                self.logger.info(f"   Created {scrape_count} editorial research work products")
+                self.logger.info(f"   Found {scrape_count} editorial research work products:")
+                for i, file_path in enumerate(research_files[:5]):  # List first 5 files
+                    self.logger.info(f"     {i+1}. {file_path.name}")
+                if scrape_count > 5:
+                    self.logger.info(f"     ... and {scrape_count - 5} more files")
+            else:
+                self.logger.warning(f"   Tool returned None or empty result")
 
-            # Record editorial research in budget
+            self.logger.info(f"✅ [STEP {execution_step}] Result processing complete")
+            execution_step += 1
+
+            # **ENHANCED DEBUGGING**: Step 11 - Budget recording and final validation
+            self.logger.info(f"🔍 [STEP {execution_step}] Recording budget and preparing final result")
+
             search_budget.record_editorial_research(
                 urls_processed=scrape_count,
                 successful_scrapes=scrape_count,
                 search_queries=1
             )
 
+            final_queries_used = search_budget.editorial_search_queries
+            final_scrapes_used = search_budget.editorial_successful_scrapes
+
+            self.logger.info(f"✅ [STEP {execution_step}] Budget recorded successfully")
             self.logger.info(f"✅ Editorial gap research completed: {scrape_count} scrapes")
-            self.logger.info(f"📊 Editorial budget status: {search_budget.editorial_search_queries}/{max_queries} queries, {search_budget.editorial_successful_scrapes}/{max_scrapes} scrapes")
+            self.logger.info(f"📊 Final editorial budget status: {final_queries_used}/{max_queries} queries, {final_scrapes_used}/{max_scrapes} scrapes")
+
+            execution_step += 1
+
+            # **ENHANCED DEBUGGING**: Step 12 - Content extraction and result assembly
+            self.logger.info(f"🔍 [STEP {execution_step}] Extracting content and assembling final result")
 
             # Extract content from zPlayground1 tool result for integration
             gap_research_content = ""
@@ -3533,26 +3714,71 @@ Execute the gap-filling search now using these proven parameters."""
                 content_blocks = gap_research_result["content"]
                 if content_blocks and len(content_blocks) > 0:
                     gap_research_content = content_blocks[0].get("text", "")
+                    self.logger.info(f"   Extracted {len(gap_research_content)} characters of content for integration")
+                else:
+                    self.logger.warning(f"   No content blocks found in result")
+            else:
+                self.logger.warning(f"   No content available in result")
 
-            return {
+            # **ENHANCED DEBUGGING**: Assemble comprehensive success result
+            success_result = {
                 "success": True,
                 "gap_research_result": gap_research_result,
                 "gap_research_content": gap_research_content,  # For editorial integration
                 "scrapes_completed": scrape_count,
                 "gaps_researched": gap_topics,
                 "budget_remaining": {
-                    "queries": max_queries - search_budget.editorial_search_queries,
-                    "scrapes": max_scrapes - search_budget.editorial_successful_scrapes
+                    "queries": max_queries - final_queries_used,
+                    "scrapes": max_scrapes - final_scrapes_used
+                },
+                "debug_info": {
+                    "execution_steps": execution_step,
+                    "session_id": session_id,
+                    "combined_topic": combined_topic,
+                    "mcp_execution_successful": True,
+                    "work_products_created": scrape_count,
+                    "total_execution_time": mcp_execution_time if 'mcp_execution_time' in locals() else "unknown"
                 }
             }
 
+            self.logger.info(f"✅ [STEP {execution_step}] Final result assembled successfully")
+            self.logger.info(f"🎉 EDITORIAL GAP RESEARCH COMPLETED SUCCESSFULLY")
+            self.logger.info(f"   Total steps executed: {execution_step}")
+            self.logger.info(f"   Work products created: {scrape_count}")
+            self.logger.info(f"   Content extracted: {len(gap_research_content)} chars")
+
+            return success_result
+
         except Exception as e:
-            self.logger.error(f"❌ Editorial gap research failed: {e}")
-            return {
+            # **ENHANCED DEBUGGING**: Comprehensive exception handling
+            self.logger.error(f"❌ [STEP {execution_step}] CRITICAL ERROR: Editorial gap research failed")
+            self.logger.error(f"   Error type: {type(e).__name__}")
+            self.logger.error(f"   Error message: {str(e)}")
+            self.logger.error(f"   Error occurred at execution step: {execution_step}")
+
+            # Import traceback for detailed error logging
+            import traceback
+            self.logger.error(f"   Full traceback: {traceback.format_exc()}")
+
+            # Provide comprehensive error information
+            error_result = {
                 "success": False,
                 "error": str(e),
-                "message": "Gap research execution failed"
+                "error_type": type(e).__name__,
+                "message": "Gap research execution failed",
+                "debug_info": {
+                    "execution_step": execution_step,
+                    "session_id": session_id,
+                    "combined_topic": combined_topic if 'combined_topic' in locals() else "not_created",
+                    "gap_topics": gap_topics if 'gap_topics' in locals() else "not_created",
+                    "max_scrapes": max_scrapes if 'max_scrapes' in locals() else "not_set",
+                    "max_queries": max_queries if 'max_queries' in locals() else "not_set",
+                    "traceback": traceback.format_exc()
+                }
             }
+
+            self.logger.error(f"❌ EDITORIAL GAP RESEARCH FAILED at step {execution_step}")
+            return error_result
 
     def _extract_scrape_count_from_result(self, result: dict[str, Any]) -> int:
         """
@@ -3601,9 +3827,12 @@ Execute the gap-filling search now using these proven parameters."""
                     gaps = gap_request.get("gaps", [])
 
                     if gaps:
-                        self.logger.info(f"✅ Detected gap research request: {len(gaps)} gaps")
+                        self.logger.info(f"✅ Detected formal gap research request: {len(gaps)} gaps")
+                        for i, gap in enumerate(gaps, 1):
+                            self.logger.info(f"   Request {i}: {gap}")
                         return gaps
 
+            self.logger.info("✅ No formal gap research requests detected")
             return []
 
         except Exception as e:
@@ -3719,40 +3948,68 @@ You must complete gap research before finalizing your editorial review."""
             if session_id:
                 session_dir = Path(self.kevin_dir) / "sessions" / session_id / "working"
                 if session_dir.exists():
-                    # Look for editorial review files
-                    for file_path in session_dir.glob("*EDITORIAL*.md"):
+                    # Look for editorial review files (support both old and new naming conventions)
+                    editorial_files = []
+                    editorial_files.extend(session_dir.glob("*EDITORIAL*.md"))
+                    editorial_files.extend(session_dir.glob("Appendix-*.md"))
+
+                    # Also check recent files that might contain editorial content
+                    all_md_files = list(session_dir.glob("*.md"))
+                    # Sort by modification time to get most recent files
+                    all_md_files.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+                    editorial_files.extend(all_md_files[:5])  # Check 5 most recent files
+
+                    for file_path in editorial_files:
                         try:
                             content = file_path.read_text(encoding='utf-8')
 
-                            # Look for documented gap research plans
+                            # Look for documented gap research plans (ENHANCED indicators)
                             gap_indicators = [
                                 "Conduct targeted searches for:",
                                 "Priority 3: Address Information Gaps",
                                 "gap-filling research",
                                 "additional research needed",
                                 "missing information",
-                                "research gaps"
+                                "research gaps",
+                                "further research",
+                                "insufficient data",
+                                "need more information",
+                                "information gaps",
+                                "knowledge gaps",
+                                "requires investigation",
+                                "should be researched",
+                                "needs verification",
+                                "unanswered questions",
+                                "limited information"
                             ]
+
+                            self.logger.debug(f"🔍 Scanning {file_path.name} for gap indicators...")
+                            found_gaps_in_file = False
 
                             for indicator in gap_indicators:
                                 if indicator.lower() in content.lower():
+                                    self.logger.info(f"🎯 Found gap indicator '{indicator}' in {file_path.name}")
+                                    found_gaps_in_file = True
                                     # Extract specific gap topics
                                     lines = content.split('\n')
                                     in_gap_section = False
                                     for line in lines:
                                         line_lower = line.lower().strip()
-                                        if any(gap_term in line_lower for gap_term in ["gap", "missing", "need", "research"]):
+                                        if any(gap_term in line_lower for gap_term in ["gap", "missing", "need", "research", "further", "additional", "insufficient", "requires", "should", "unanswered"]):
                                             in_gap_section = True
 
                                         if in_gap_section and line.startswith('-'):
                                             gap_topic = line.strip('- ').strip()
                                             if len(gap_topic) > 10:  # Only meaningful topics
                                                 documented_gaps.append(gap_topic)
+                                                self.logger.debug(f"   📋 Extracted gap topic: {gap_topic}")
 
                                         if in_gap_section and line_lower.startswith('##'):
                                             break
+                                    break  # Found gap indicator, no need to check others
 
-                                    break
+                            if not found_gaps_in_file:
+                                self.logger.debug(f"   ✅ No gap indicators found in {file_path.name}")
 
                         except Exception as e:
                             self.logger.debug(f"Could not read editorial file {file_path}: {e}")
@@ -3767,6 +4024,10 @@ You must complete gap research before finalizing your editorial review."""
 
             if unique_gaps:
                 self.logger.info(f"🔍 Extracted {len(unique_gaps)} documented research gaps from editorial content")
+                for i, gap in enumerate(unique_gaps, 1):
+                    self.logger.info(f"   Gap {i}: {gap}")
+            else:
+                self.logger.info(f"✅ No documented research gaps found in editorial content")
 
             return unique_gaps[:5]  # Limit to top 5 most important gaps
 
@@ -4132,15 +4393,34 @@ This session had limited research output available. The editorial agent has proc
         self.logger.info(f"Session {session_id}: Research workflow completed successfully")
 
         # Complete Work Product 4: Finalization
-        self.complete_work_product(session_id, work_product_number, {
+        # Get the current work product number from session state
+        work_products = session_data.get("work_products", {})
+        current_work_product = work_products.get("current_number", 4)
+
+        # Set the final_report field in session state
+        if "error" not in final_report:
+            session_data["final_report"] = final_report.get("report_file")
+            session_data["final_report_metadata"] = {
+                "location": final_report.get("location", "session_working_directory"),
+                "report_length": final_report.get("report_length", 0),
+                "session_id": session_id,
+                "completed_at": datetime.now().isoformat()
+            }
+
+        self.complete_work_product(session_id, current_work_product, {
             "stage": "finalization",
             "success": True,
             "final_summary_created": 'final_summary_result' in locals(),
             "workflow_completed": True,
             "total_stages_completed": 4,
-            "final_report_location": final_report.get("location", "unknown"),
-            "final_report_file": final_report.get("report_file", "none")
+            "final_report_location": final_report.get("location", "session_working_directory"),
+            "final_report_file": final_report.get("report_file", "none"),
+            "final_report_length": final_report.get("report_length", 0)
         })
+
+        # Save session state with final report information
+        await self.save_session_state(session_id)
+        self.logger.info(f"Session {session_id}: Final state saved with work product tracking and final report metadata")
 
     def get_debug_output(self) -> list[str]:
         """Get all debug output collected from stderr callbacks."""
