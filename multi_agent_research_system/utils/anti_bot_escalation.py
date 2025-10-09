@@ -11,11 +11,14 @@ Implements the 4-level progressive anti-bot escalation system from the technical
 """
 
 import asyncio
+import json
 import logging
+import os
 import random
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode, CrawlerRunConfig
@@ -65,6 +68,171 @@ class EscalationStats:
     total_duration: float = 0.0
 
 
+@dataclass
+class DifficultSite:
+    """Configuration for a difficult website domain."""
+
+    domain: str
+    level: int
+    reason: str
+    last_updated: str
+
+    def __post_init__(self):
+        """Validate the difficult site configuration."""
+        if not 0 <= self.level <= 3:
+            raise ValueError(f"Anti-bot level must be 0-3, got {self.level}")
+        if not self.domain:
+            raise ValueError("Domain cannot be empty")
+
+
+class DifficultSitesManager:
+    """Manages difficult website domains and their anti-bot levels."""
+
+    def __init__(self, config_file: str | None = None):
+        """Initialize the difficult sites manager.
+
+        Args:
+            config_file: Path to the difficult sites JSON config file.
+                        If None, uses default location in utils directory.
+        """
+        if config_file is None:
+            # Default location in the utils directory
+            self.config_file = Path(__file__).parent / "difficult_sites.json"
+        else:
+            self.config_file = Path(config_file)
+
+        self._difficult_sites: dict[str, DifficultSite] = {}
+        self._config_metadata: dict[str, Any] = {}
+        self._load_difficult_sites()
+
+    def _load_difficult_sites(self):
+        """Load difficult sites from the JSON configuration file."""
+        try:
+            if not self.config_file.exists():
+                logger.warning(f"Difficult sites config file not found: {self.config_file}")
+                return
+
+            with open(self.config_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            # Load difficult sites
+            if "difficult_sites" in data:
+                for domain, site_data in data["difficult_sites"].items():
+                    try:
+                        site = DifficultSite(
+                            domain=domain,
+                            level=site_data["level"],
+                            reason=site_data["reason"],
+                            last_updated=site_data["last_updated"]
+                        )
+                        self._difficult_sites[domain.lower()] = site
+                    except (KeyError, ValueError) as e:
+                        logger.warning(f"Invalid difficult site entry for {domain}: {e}")
+
+            # Load metadata
+            self._config_metadata = data.get("metadata", {})
+
+            logger.info(f"Loaded {len(self._difficult_sites)} difficult sites from {self.config_file}")
+
+        except Exception as e:
+            logger.error(f"Failed to load difficult sites config: {e}")
+            self._difficult_sites = {}
+            self._config_metadata = {}
+
+    def get_difficult_site(self, domain: str) -> DifficultSite | None:
+        """Get difficult site configuration for a domain.
+
+        Args:
+            domain: The domain to look up (case-insensitive)
+
+        Returns:
+            DifficultSite configuration if found, None otherwise
+        """
+        return self._difficult_sites.get(domain.lower())
+
+    def is_difficult_site(self, domain: str) -> bool:
+        """Check if a domain is configured as a difficult site.
+
+        Args:
+            domain: The domain to check (case-insensitive)
+
+        Returns:
+            True if domain is a difficult site, False otherwise
+        """
+        return domain.lower() in self._difficult_sites
+
+    def add_difficult_site(self, domain: str, level: int, reason: str) -> bool:
+        """Add a new difficult site to the configuration.
+
+        Args:
+            domain: The domain to add
+            level: Anti-bot level (0-3)
+            reason: Reason for the difficulty level
+
+        Returns:
+            True if added successfully, False otherwise
+        """
+        try:
+            site = DifficultSite(
+                domain=domain.lower(),
+                level=level,
+                reason=reason,
+                last_updated=datetime.now().isoformat()
+            )
+
+            self._difficult_sites[domain.lower()] = site
+            logger.info(f"Added difficult site: {domain.lower()} (level {level}: {reason})")
+            return True
+
+        except ValueError as e:
+            logger.error(f"Failed to add difficult site {domain}: {e}")
+            return False
+
+    def remove_difficult_site(self, domain: str) -> bool:
+        """Remove a difficult site from the configuration.
+
+        Args:
+            domain: The domain to remove
+
+        Returns:
+            True if removed successfully, False otherwise
+        """
+        domain_lower = domain.lower()
+        if domain_lower in self._difficult_sites:
+            del self._difficult_sites[domain_lower]
+            logger.info(f"Removed difficult site: {domain_lower}")
+            return True
+        else:
+            logger.warning(f"Difficult site not found for removal: {domain}")
+            return False
+
+    def get_all_difficult_sites(self) -> dict[str, DifficultSite]:
+        """Get all difficult site configurations.
+
+        Returns:
+            Dictionary mapping domains to DifficultSite objects
+        """
+        return self._difficult_sites.copy()
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get statistics about difficult sites configuration.
+
+        Returns:
+            Dictionary with configuration statistics
+        """
+        level_counts = {0: 0, 1: 0, 2: 0, 3: 0}
+        for site in self._difficult_sites.values():
+            level_counts[site.level] += 1
+
+        return {
+            "total_sites": len(self._difficult_sites),
+            "level_distribution": level_counts,
+            "config_file": str(self.config_file),
+            "last_loaded": datetime.now().isoformat(),
+            "metadata": self._config_metadata
+        }
+
+
 class AntiBotEscalationManager:
     """
     Progressive anti-bot escalation system with smart retry logic.
@@ -75,6 +243,7 @@ class AntiBotEscalationManager:
     - Smart retry with exponential backoff
     - Domain-specific escalation patterns
     - Performance monitoring and analytics
+    - Difficult sites database for optimized starting levels
     """
 
     def __init__(self):
@@ -89,6 +258,17 @@ class AntiBotEscalationManager:
         self.max_attempts_per_url = 4
         self.base_delay = 1.0  # Base delay in seconds
         self.max_delay = 30.0  # Maximum delay in seconds
+
+        # Initialize difficult sites manager
+        self.difficult_sites_manager = DifficultSitesManager()
+
+        # Statistics for difficult sites usage
+        self.difficult_sites_hits: dict[str, int] = {}
+
+        # Learning and auto-detection settings
+        self.enable_auto_learning = os.getenv("ANTI_BOT_AUTO_LEARNING", "true").lower() == "true"
+        self.min_escalations_for_learning = int(os.getenv("ANTI_BOT_MIN_ESCALATIONS", "3"))
+        self.escalation_patterns: dict[str, list[int]] = {}  # Track escalation patterns per domain
 
     @async_timed(metadata={"category": "scraping", "stage": "anti_bot"})
     async def crawl_with_escalation(
@@ -181,6 +361,10 @@ class AntiBotEscalationManager:
                         current_level += 1
                         escalation_used = True
                         logger.info(f"Escalating to level {current_level} for {url}")
+
+                        # Track escalation pattern for learning
+                        if self.enable_auto_learning:
+                            self._track_escalation_pattern(domain, current_level)
                     else:
                         # Try again at same level if not at max
                         if attempt < self.max_attempts_per_url - 1:
@@ -402,7 +586,23 @@ class AntiBotEscalationManager:
             return None
 
     def _get_optimal_start_level(self, domain: str, default_level: int) -> int:
-        """Determine optimal starting level based on domain history."""
+        """Determine optimal starting level based on difficult sites database and domain history."""
+
+        # STEP 1: Check difficult sites database first (highest priority)
+        difficult_site = self.difficult_sites_manager.get_difficult_site(domain)
+        if difficult_site:
+            # Track usage of difficult sites
+            if domain not in self.difficult_sites_hits:
+                self.difficult_sites_hits[domain] = 0
+            self.difficult_sites_hits[domain] += 1
+
+            logger.info(
+                f"🎯 Using predefined anti-bot level {difficult_site.level} for difficult site '{domain}' "
+                f"(reason: {difficult_site.reason}, hits: {self.difficult_sites_hits[domain]})"
+            )
+            return difficult_site.level
+
+        # STEP 2: Fall back to domain success history if not in difficult sites
         if domain not in self.domain_success_history:
             return default_level
 
@@ -414,10 +614,13 @@ class AntiBotEscalationManager:
 
         # If domain has low success rate, start at higher level
         if success_rate < 0.3:
+            logger.info(f"📊 Using history-based level {min(default_level + 2, 3)} for domain '{domain}' (success rate: {success_rate:.2f})")
             return min(default_level + 2, 3)
         elif success_rate < 0.6:
+            logger.info(f"📊 Using history-based level {min(default_level + 1, 3)} for domain '{domain}' (success rate: {success_rate:.2f})")
             return min(default_level + 1, 3)
         else:
+            logger.debug(f"📊 Using default level {default_level} for domain '{domain}' (success rate: {success_rate:.2f})")
             return default_level
 
     def _should_escalate(self, domain: str, current_level: int, attempt: int) -> bool:
@@ -436,6 +639,116 @@ class AntiBotEscalationManager:
 
         # Default escalation logic
         return attempt < 2  # Allow up to 2 attempts per level
+
+    def _track_escalation_pattern(self, domain: str, escalated_level: int):
+        """Track escalation patterns for automatic learning.
+
+        Args:
+            domain: The domain being tracked
+            escalated_level: The level the system escalated to
+        """
+        if domain not in self.escalation_patterns:
+            self.escalation_patterns[domain] = []
+
+        self.escalation_patterns[domain].append(escalated_level)
+
+        # Keep only last 10 escalations per domain
+        if len(self.escalation_patterns[domain]) > 10:
+            self.escalation_patterns[domain] = self.escalation_patterns[domain][-10:]
+
+        # Check if we should automatically add this as a difficult site
+        self._check_and_auto_add_difficult_site(domain)
+
+    def _check_and_auto_add_difficult_site(self, domain: str):
+        """Check if a domain should be automatically added as a difficult site.
+
+        Args:
+            domain: The domain to check
+        """
+        if not self.enable_auto_learning:
+            return
+
+        # Skip if already in difficult sites
+        if self.difficult_sites_manager.is_difficult_site(domain):
+            return
+
+        # Check if we have enough escalation data
+        if domain not in self.escalation_patterns:
+            return
+
+        escalations = self.escalation_patterns[domain]
+        if len(escalations) < self.min_escalations_for_learning:
+            return
+
+        # Analyze escalation patterns
+        avg_level = sum(escalations) / len(escalations)
+        max_level = max(escalations)
+
+        # Only add if consistently requiring higher levels
+        if max_level >= 2 and avg_level >= 1.5:  # Consistently needs enhanced or higher
+            # Determine appropriate level based on patterns
+            if max_level == 3 and len([e for e in escalations if e == 3]) >= 2:
+                recommended_level = 3  # Stealth mode
+                reason = f"Auto-detected: consistently requires stealth mode (escalations: {escalations})"
+            elif avg_level >= 2.0:
+                recommended_level = 2  # Advanced
+                reason = f"Auto-detected: consistently requires advanced anti-bot (escalations: {escalations})"
+            else:
+                recommended_level = 1  # Enhanced
+                reason = f"Auto-detected: consistently requires enhanced headers (escalations: {escalations})"
+
+            # Add to difficult sites
+            success = self.difficult_sites_manager.add_difficult_site(domain, recommended_level, reason)
+            if success:
+                logger.info(
+                    f"🧠 AUTO-LEARNED: Added domain '{domain}' as difficult site (level {recommended_level}) "
+                    f"based on {len(escalations)} escalations: {escalations}"
+                )
+
+                # Clear escalation patterns for this domain since it's now in difficult sites
+                if domain in self.escalation_patterns:
+                    del self.escalation_patterns[domain]
+
+    def get_learning_stats(self) -> dict[str, Any]:
+        """Get statistics about the auto-learning system.
+
+        Returns:
+            Dictionary with learning statistics
+        """
+        domains_tracking = len(self.escalation_patterns)
+        total_patterns = sum(len(patterns) for patterns in self.escalation_patterns.values())
+
+        # Identify potential candidates for auto-addition
+        candidates = []
+        for domain, escalations in self.escalation_patterns.items():
+            if len(escalations) >= self.min_escalations_for_learning:
+                avg_level = sum(escalations) / len(escalations)
+                max_level = max(escalations)
+                if max_level >= 2 and avg_level >= 1.5:
+                    candidates.append({
+                        "domain": domain,
+                        "escalations": escalations,
+                        "avg_level": round(avg_level, 2),
+                        "max_level": max_level,
+                        "recommended_level": 3 if max_level == 3 and len([e for e in escalations if e == 3]) >= 2 else (2 if avg_level >= 2.0 else 1)
+                    })
+
+        return {
+            "auto_learning_enabled": self.enable_auto_learning,
+            "min_escalations_for_learning": self.min_escalations_for_learning,
+            "domains_tracking": domains_tracking,
+            "total_escalation_patterns": total_patterns,
+            "potential_candidates": candidates,
+            "patterns_by_domain": {
+                domain: {
+                    "escalations": patterns,
+                    "count": len(patterns),
+                    "avg_level": round(sum(patterns) / len(patterns), 2) if patterns else 0,
+                    "max_level": max(patterns) if patterns else 0
+                }
+                for domain, patterns in self.escalation_patterns.items()
+            }
+        }
 
     def _record_attempt(self, domain: str, success: bool, level: int):
         """Record crawl attempt for tracking and optimization."""
@@ -500,12 +813,22 @@ class AntiBotEscalationManager:
             ),
             "level_success_rates": level_rates,
             "domains_tracked": len(self.domain_success_history),
+            "difficult_sites_stats": {
+                "configured_sites": len(self.difficult_sites_manager.get_all_difficult_sites()),
+                "hits": dict(sorted(self.difficult_sites_hits.items(), key=lambda x: x[1], reverse=True)),
+                "total_hits": sum(self.difficult_sites_hits.values()),
+                "config_details": self.difficult_sites_manager.get_stats()
+            },
+            "learning_stats": self.get_learning_stats(),
         }
 
     def reset_stats(self):
         """Reset all escalation statistics."""
         self.stats = EscalationStats()
         self.domain_success_history.clear()
+        self.difficult_sites_hits.clear()
+        self.escalation_patterns.clear()
+        logger.info("Reset all escalation statistics including difficult sites hits and learning patterns")
 
 
 # Global escalation manager instance
@@ -518,3 +841,56 @@ def get_escalation_manager() -> AntiBotEscalationManager:
     if _global_escalation_manager is None:
         _global_escalation_manager = AntiBotEscalationManager()
     return _global_escalation_manager
+
+
+def extract_domain_from_url(url: str) -> str:
+    """Extract domain from URL for difficult sites matching.
+
+    Args:
+        url: The URL to extract domain from
+
+    Returns:
+        Domain string in lowercase, or empty string if extraction fails
+    """
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        return parsed.netloc.lower()
+    except Exception as e:
+        logger.warning(f"Failed to extract domain from URL '{url}': {e}")
+        return ""
+
+
+def is_url_difficult_site(url: str, escalation_manager: AntiBotEscalationManager | None = None) -> tuple[bool, DifficultSite | None]:
+    """Check if a URL belongs to a difficult site and get the site configuration.
+
+    Args:
+        url: The URL to check
+        escalation_manager: Optional escalation manager to use (creates one if None)
+
+    Returns:
+        Tuple of (is_difficult, site_config)
+    """
+    if escalation_manager is None:
+        escalation_manager = get_escalation_manager()
+
+    domain = extract_domain_from_url(url)
+    if not domain:
+        return False, None
+
+    difficult_site = escalation_manager.difficult_sites_manager.get_difficult_site(domain)
+    return (difficult_site is not None), difficult_site
+
+
+def get_predefined_anti_bot_level(url: str, escalation_manager: AntiBotEscalationManager | None = None) -> int | None:
+    """Get the predefined anti-bot level for a URL if it's a difficult site.
+
+    Args:
+        url: The URL to check
+        escalation_manager: Optional escalation manager to use (creates one if None)
+
+    Returns:
+        Anti-bot level (0-3) if URL is a difficult site, None otherwise
+    """
+    is_difficult, difficult_site = is_url_difficult_site(url, escalation_manager)
+    return difficult_site.level if is_difficult and difficult_site else None

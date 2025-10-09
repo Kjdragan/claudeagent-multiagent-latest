@@ -1,0 +1,99 @@
+{
+  "difficult_sites": {
+    "linkedin.com": {
+      "level": 2,
+      "reason": "Professional network requires advanced simulation",
+      "last_updated": "2025-10-09T08:37:00Z"
+    },
+    "facebook.com": {
+      "level": 3,
+      "reason": "Heavy bot protection requires stealth mode",
+      "last_updated": "2025-10-09T08:37:00Z"
+    },
+    "instagram.com": {
+      "level": 3,
+      "reason": "Social media platform with strong anti-bot",
+      "last_updated": "2025-10-09T08:37:00Z"
+    },
+    "twitter.com": {
+      "level": 2,
+      "reason": "Microblogging with moderate protection",
+      "last_updated": "2025-10-09T08:37:00Z"
+    },
+    "tiktok.com": {
+      "level": 3,
+      "reason": "Short-form video platform with aggressive bot detection",
+      "last_updated": "2025-10-09T08:37:00Z"
+    },
+    "youtube.com": {
+      "level": 2,
+      "reason": "Video platform with moderate anti-bot measures",
+      "last_updated": "2025-10-09T08:37:00Z"
+    },
+    "reddit.com": {
+      "level": 2,
+      "reason": "Social forum with rate limiting and bot detection",
+      "last_updated": "2025-10-09T08:37:00Z"
+    },
+    "amazon.com": {
+      "level": 2,
+      "reason": "E-commerce platform with sophisticated bot protection",
+      "last_updated": "2025-10-09T08:37:00Z"
+    },
+    "netflix.com": {
+      "level": 3,
+      "reason": "Streaming service with aggressive anti-bot",
+      "last_updated": "2025-10-09T08:37:00Z"
+    },
+    "glassdoor.com": {
+      "level": 2,
+      "reason": "Job site with access restrictions and bot detection",
+      "last_updated": "2025-10-09T08:37:00Z"
+    },
+    "indeed.com": {
+      "level": 2,
+      "reason": "Job search platform with moderate protection",
+      "last_updated": "2025-10-09T08:37:00Z"
+    },
+    "medium.com": {
+      "level": 1,
+      "reason": "Content platform with paywall and bot detection",
+      "last_updated": "2025-10-09T08:37:00Z"
+    },
+    "quora.com": {
+      "level": 1,
+      "reason": "Q&A platform with rate limiting",
+      "last_updated": "2025-10-09T08:37:00Z"
+    },
+    "pinterest.com": {
+      "level": 2,
+      "reason": "Visual discovery platform with bot protection",
+      "last_updated": "2025-10-09T08:37:00Z"
+    },
+    "tripadvisor.com": {
+      "level": 1,
+      "reason": "Review site with moderate anti-bot measures",
+      "last_updated": "2025-10-09T08:37:00Z"
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "created": "2025-10-09T08:37:00Z",
+    "description": "Difficult website domains and their recommended anti-bot escalation levels",
+    "levels": {
+      "0": "Basic - Basic SERP API and simple crawl",
+      "1": "Enhanced - Enhanced headers + JavaScript rendering",
+      "2": "Advanced - Advanced proxy rotation + browser automation",
+      "3": "Stealth - Stealth mode with full browser simulation"
+    },
+    "usage_stats": {
+      "total_sites": 15,
+      "level_distribution": {
+        "0": 0,
+        "1": 3,
+        "2": 8,
+        "3": 4
+      }
+    }
+  }
+}
