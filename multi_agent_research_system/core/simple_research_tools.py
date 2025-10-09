@@ -145,53 +145,52 @@ async def create_research_report(args: dict[str, Any]) -> dict[str, Any]:
     if "editorial" in report_type.lower() or "review" in report_type.lower() or "feedback" in report_type.lower():
         subdir = "working"  # Editorial reviews and feedback go to working directory
     elif report_type.lower() == "final":
-        subdir = "final"  # Final reports go to final directory
+        subdir = "working"  # Final reports go to working directory
     else:
         subdir = "working"  # Drafts and other reports go to working directory
 
-    # Generate filename with sanitized topic
-    sanitized_topic = topic.replace(' ', '_').replace('/', '_')[:50]  # Limit length
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    # Generate timestamp in new format
+    timestamp = datetime.now().strftime('%m-%d_%H:%M:%S')
     # Always use .md extension for all reports (markdown is the standard format)
     extension = "md"
 
-    # Include report type in filename for clarity with prefixes for better organization
-    # Format: PREFIX_reporttype_topic_timestamp.ext
+    # Simplified file naming with prefixes and no titles in filenames
+    # Format: PREFIX_NAME_timestamp.ext or PREFIX_revision_number_timestamp.ext
     prefixes = {
         "draft": "DRAFT",
-        "final": "FINAL",
-        "editorial_review": "EDITORIAL",
+        "final": "INITIAL_DRAFT",
+        "editorial_review": "EDITORIAL_RECOMMENDATIONS",
         "editorial_feedback": "EDITORIAL_FEEDBACK",
         "research_findings": "RESEARCH",
-        "search_verification": "SEARCH_VERIFY"
+        "search_verification": "SEARCH_VERIFY",
+        "comprehensive_analysis": "COMPREHENSIVE_ANALYSIS",
+        "brief": "BRIEF",
+        "revise": "REVISED",
+        "revision": "REVISED"
     }
+    
     prefix = prefixes.get(report_type.lower(), report_type.upper())
-    filename = f"{prefix}_{report_type}_{sanitized_topic}_{timestamp}.{extension}"
+    
+    # Special naming for editorial reviews and revisions
+    if report_type.lower() == "editorial_review":
+        filename = f"{prefix}_{timestamp}.{extension}"
+    elif report_type.lower() in ["revise", "revision"]:
+        # For revision files, use REVISED_Edited #[number] format
+        # Extract revision number from content or use default #1
+        revision_number = "1"  # Default to first revision
+        filename = f"REVISED_Edited #{revision_number}_{timestamp}.{extension}"
+    else:
+        filename = f"{prefix}_{timestamp}.{extension}"
+    
     # Use absolute path to ensure agents save files to correct location
     from pathlib import Path
     recommended_filepath = str(Path.cwd() / f"KEVIN/sessions/{session_id}/{subdir}/{filename}")
-
-    # Remove work_products path - final reports should stay in session working directory
-    work_products_filepath = None
 
     if _logger:
         _logger.info(f"Research report formatted for {topic} ({len(report_content)} characters)")
 
     # Return instructions for the agent to save the file
     instruction_text = f"""Report content created for '{topic}' ({len(report_content)} characters).
-
-⚠️  CRITICAL: You MUST now save this report using the Write tool.
-
-Use this EXACT filepath:
-    {recommended_filepath}
-
-The Write tool will automatically create any necessary directories."""
-
-    # For final reports, ensure they go to the working directory for consistency
-    if report_type.lower() == "final":
-        # Final reports should be in the working directory, not the research subdirectory
-        recommended_filepath = str(Path.cwd() / f"KEVIN/sessions/{session_id}/working/{filename}")
-        instruction_text = f"""Report content created for '{topic}' ({len(report_content)} characters).
 
 ⚠️  CRITICAL: You MUST now save this report using the Write tool.
 
@@ -207,7 +206,6 @@ The Write tool will automatically create any necessary directories."""
         }],
         "report_content": report_content,
         "recommended_filepath": recommended_filepath,
-        "work_products_filepath": work_products_filepath,
         "session_id": session_id,
         "report_size": len(report_content),
         "report_type": report_type,

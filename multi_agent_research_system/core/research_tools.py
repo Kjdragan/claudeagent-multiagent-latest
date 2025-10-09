@@ -393,7 +393,7 @@ async def save_report(args: dict[str, Any]) -> dict[str, Any]:
     session_path.mkdir(parents=True, exist_ok=True)
 
     # Generate filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now().strftime("%m-%d_%H:%M:%S")
     filename = f"report_v{version}_{timestamp}.md"
     # Save to final folder for completed reports
     filepath = session_path / "final" / filename
@@ -682,7 +682,7 @@ async def create_research_report(args: dict[str, Any]) -> dict[str, Any]:
         working_dir.mkdir(parents=True, exist_ok=True)
 
         # Generate timestamp and filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%m-%d_%H:%M:%S")
         safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()[:50]
 
         # Update naming convention based on report type

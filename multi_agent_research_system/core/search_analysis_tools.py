@@ -1,6 +1,6 @@
-"""Research tools that capture and analyze actual web search results.
+"""Research tools that analyze and verify web search activity.
 
-This module creates tools that will save raw search results and metadata
+This module creates tools that will save WebFetch content and generate verification reports
 to verify we're getting real web search data, not just LLM knowledge.
 """
 
@@ -42,61 +42,6 @@ except ImportError:
     print("Warning: claude_agent_sdk not found. Using fallback tool decorator.")
 
 
-@tool("capture_search_results", "Capture and save web search results with metadata", {
-    "search_query": str,
-    "search_results": str,
-    "sources_found": str,
-    "session_id": str
-})
-async def capture_search_results(args: dict[str, Any]) -> dict[str, Any]:
-    """Capture and save actual web search results with full metadata."""
-    if _logger:
-        _logger.info(f"Capturing search results for query: {args.get('search_query', 'Unknown')}")
-
-    search_query = args["search_query"]
-    search_results = args["search_results"]
-    sources_found = args["sources_found"]
-    session_id = args.get("session_id", str(uuid.uuid4()))
-
-    # Create session-based directory structure
-    base_sessions_dir = Path("/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN/sessions")
-    session_dir = base_sessions_dir / session_id
-    research_dir = session_dir / "search_analysis"
-    research_dir.mkdir(parents=True, exist_ok=True)
-
-    # Save raw search data with timestamp
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    search_data = {
-        "search_query": search_query,
-        "search_results": search_results,
-        "sources_found": sources_found,
-        "captured_at": datetime.now().isoformat(),
-        "session_id": session_id,
-        "search_type": "web_search_analysis",
-        "verification_data": {
-            "query_timestamp": timestamp,
-            "result_length": len(search_results),
-            "sources_count": len(sources_found.split('\n')) if sources_found else 0
-        }
-    }
-
-    # Save to session-based directory
-    search_file = research_dir / f"web_search_results_{timestamp}.json"
-    with open(search_file, 'w', encoding='utf-8') as f:
-        json.dump(search_data, f, indent=2, ensure_ascii=False)
-
-    if _logger:
-        _logger.info(f"Search results captured and saved to {search_file}")
-
-    return {
-        "content": [{
-            "type": "text",
-            "text": f"Web search results for '{search_query}' captured and saved. Found {len(search_results)} characters of search data with {len(sources_found.split()) if sources_found else 0} sources."
-        }],
-        "search_file": str(search_file),
-        "session_id": session_id,
-        "results_length": len(search_results)
-    }
 
 
 @tool("save_webfetch_content", "Save WebFetch content with source URLs", {
@@ -174,26 +119,22 @@ async def create_search_verification_report(args: dict[str, Any]) -> dict[str, A
     kevin_dir = Path("/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN")
     kevin_dir.mkdir(parents=True, exist_ok=True)
 
-    # Scan for search and fetch files in both KEVIN root and session directories
-    search_files = []
+    # Scan for WebFetch content files (search verification files removed)
     fetch_files = []
 
-    # Check session directories first (organized approach)
+    # Check session directories for WebFetch content files
     sessions_dir = kevin_dir / "sessions"
     if sessions_dir.exists():
         for session_dir in sessions_dir.iterdir():
             if session_dir.is_dir():
                 search_analysis_dir = session_dir / "search_analysis"
                 if search_analysis_dir.exists():
-                    search_files.extend(search_analysis_dir.glob("web_search_results_*.json"))
                     fetch_files.extend(search_analysis_dir.glob("web_fetch_content_*.json"))
 
-    # Also check KEVIN root for backward compatibility (old files)
-    search_files.extend(kevin_dir.glob("web_search_results_*.json"))
+    # Also check KEVIN root for backward compatibility (old WebFetch files)
     fetch_files.extend(kevin_dir.glob("web_fetch_content_*.json"))
 
-    # Remove duplicates
-    search_files = list(set(search_files))
+    # Remove duplicates (only WebFetch files now)
     fetch_files = list(set(fetch_files))
 
     # Create verification report
@@ -211,30 +152,14 @@ async def create_search_verification_report(args: dict[str, Any]) -> dict[str, A
 This report analyzes whether the research system is using actual web search results or LLM-generated content.
 
 ### Web Search Activity
-- **Search Queries Found:** {len(search_files)}
 - **WebFetch Operations:** {len(fetch_files)}
-- **Total Search Files:** {len(search_files) + len(fetch_files)}
+- **Note:** Search verification metadata has been streamlined - focusing on actual content extraction
 
-### Actual Search Results Found
+### WebFetch Content Analysis
 """
 
-    if search_files:
-        verification_report += "\n**Raw Search Data Files:**\n"
-        for search_file in search_files[-5:]:  # Show last 5 files
-            try:
-                with open(search_file, encoding='utf-8') as f:
-                    data = json.load(f)
-                verification_report += f"\n- **File:** {search_file.name}"
-                verification_report += f"\n  - Query: {data.get('search_query', 'N/A')}"
-                verification_report += f"\n  - Results Length: {data.get('verification_data', {}).get('result_length', 'N/A')} chars"
-                verification_report += f"\n  - Captured: {data.get('captured_at', 'N/A')}"
-            except Exception as e:
-                verification_report += f"\n- **File:** {search_file.name} (Error reading: {e})"
-    else:
-        verification_report += "\n❌ **NO ACTUAL WEB SEARCH RESULTS FOUND**"
-
     if fetch_files:
-        verification_report += "\n\n**WebFetch Content Files:**\n"
+        verification_report += "\n**WebFetch Content Files:**\n"
         for fetch_file in fetch_files[-5:]:  # Show last 5 files
             try:
                 with open(fetch_file, encoding='utf-8') as f:
@@ -253,11 +178,11 @@ This report analyzes whether the research system is using actual web search resu
 
 ## CONCLUSION
 
-{'✅ REAL WEB SEARCH DETECTED' if search_files or fetch_files else '❌ NO REAL WEB SEARCH - LIKELY LLM GENERATED'}
+{'✅ REAL WEB SEARCH DETECTED' if fetch_files else '❌ NO REAL WEB SEARCH - LIKELY LLM GENERATED'}
 
-The system {'IS' if search_files or fetch_files else 'IS NOT'} performing actual web searches and retrieving real content from the internet.
+The system {'IS' if fetch_files else 'IS NOT'} performing actual web searches and retrieving real content from the internet.
 
-{'Search results and source URLs are captured and saved for verification.' if search_files or fetch_files else 'No search results or source URLs were found, suggesting content may be from LLM knowledge rather than live web search.'}
+{'WebFetch operations with real content extraction are captured and saved for verification.' if fetch_files else 'No WebFetch content was found, suggesting content may be from LLM knowledge rather than live web search.'}
 
 ---
 
@@ -275,9 +200,9 @@ The system {'IS' if search_files or fetch_files else 'IS NOT'} performing actual
     return {
         "content": [{
             "type": "text",
-            "text": f"Search verification report created. Real web search detected: {bool(search_files or fetch_files)}"
+            "text": f"Search verification report created. Real web search detected: {bool(fetch_files)}"
         }],
         "report_file": str(report_file),
-        "verification_result": "REAL_SEARCH" if search_files or fetch_files else "LLM_ONLY",
+        "verification_result": "REAL_SEARCH" if fetch_files else "LLM_ONLY",
         "session_id": session_id
     }

@@ -395,7 +395,6 @@ from multi_agent_research_system.core.workflow_state import (
 )
 
 from .search_analysis_tools import (
-    capture_search_results,
     create_search_verification_report,
     save_webfetch_content,
 )
@@ -687,7 +686,7 @@ class ResearchOrchestrator:
                 tools=[
                     save_research_findings, create_research_report, get_session_data,
                     request_gap_research,  # NEW: Gap research request tool for editor
-                    capture_search_results, save_webfetch_content, create_search_verification_report,
+                    save_webfetch_content, create_search_verification_report,
                     serp_search  # Add SERP API search tool to MCP server
                 ]
             )
@@ -697,7 +696,7 @@ class ResearchOrchestrator:
             self.logger.info("🔍 MCP Server Configuration:")
             self.logger.info(f"   Research Tools Server: {type(self.mcp_server).__name__} (TypedDict - correct)")
             self.logger.info(f"   Server Name: {self.mcp_server.get('name', 'Unknown')}")
-            self.logger.info(f"   Available Tools: {len([save_research_findings, create_research_report, get_session_data, request_gap_research, capture_search_results, save_webfetch_content, create_search_verification_report, serp_search])} tools")
+            self.logger.info(f"   Available Tools: {len([save_research_findings, create_research_report, get_session_data, request_gap_research, save_webfetch_content, create_search_verification_report, serp_search])} tools")
 
             # Debug SERP API configuration
             serper_key = os.getenv('SERP_API_KEY', 'NOT_SET')
@@ -770,7 +769,6 @@ class ResearchOrchestrator:
                         "mcp__research_tools__save_research_findings",
                         "mcp__research_tools__create_research_report",
                         "mcp__research_tools__get_session_data",
-                        "mcp__research_tools__capture_search_results",
                         "mcp__research_tools__save_webfetch_content",
                         "mcp__research_tools__create_search_verification_report",
                         "Read", "Write", "Glob", "Grep"
@@ -784,7 +782,6 @@ class ResearchOrchestrator:
                         "mcp__research_tools__create_research_report",
                         "mcp__research_tools__get_session_data",
                         "mcp__research_tools__request_gap_research",  # NEW: Gap research request for editor
-                        "mcp__research_tools__capture_search_results",
                         "mcp__research_tools__save_webfetch_content",
                         "mcp__research_tools__create_search_verification_report",
                         "Read", "Write", "Glob", "Grep"
@@ -2843,7 +2840,6 @@ class ResearchOrchestrator:
                 - 0=basic, 1=enhanced, 2=advanced, 3=stealth
                 - This parameter is strictly validated and will cause immediate failure if not integer
                 4. Use mcp__research_tools__save_research_findings to save your findings
-                5. Use mcp__research_tools__capture_search_results to structure results
 
                 SEARCH BUDGET CONSTRAINTS:
                 - **STRICT LIMIT**: Maximum {search_budget.primary_successful_scrapes_limit} successful content extractions per session
@@ -4447,7 +4443,7 @@ This session had limited research output available. The editorial agent has proc
         safe_topic = "".join(c for c in clean_topic[:50] if c.isalnum() or c in (' ', '-', '_')).rstrip()
         safe_topic = safe_topic.replace(' ', '_')
 
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now().strftime('%m-%d_%H:%M:%S')
         final_report_name = f"final_report_{safe_topic}_{session_id[:8]}_{timestamp}.md"
         final_report_path = final_reports_dir / final_report_name
 
@@ -4676,7 +4672,7 @@ This session had limited research output available. The editorial agent has proc
             self.logger.info("Using fallback method to save final report")
 
             # Generate filename for final version
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%m-%d_%H:%M:%S")
             topic = session_data.get("topic", "research").replace(" ", "_")[:30]
             format_type = format_config.get("format_type", "standard")
 
@@ -5754,7 +5750,7 @@ Status: Recovery Completed
             final_dir.mkdir(exist_ok=True)
 
             # Generate clear final report filename with timestamp
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%m-%d_%H:%M:%S")
             clean_topic = "".join(c for c in session_data.get("topic", "report")[:50] if c.isalnum() or c in (' ', '-', '_')).strip()
             clean_topic = clean_topic.replace(' ', '_')
 

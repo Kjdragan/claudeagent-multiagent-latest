@@ -15,7 +15,10 @@
       "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --force --index-filter 'git rm --cached --ignore-unmatch .env multi_agent_research_system/.env' --prune-empty --tag-name-filter cat -- --all)",
       "Read(//home/kjdragan/**)",
       "Bash(stty:*)",
-      "mcp__serena__list_dir"
+      "mcp__serena__list_dir",
+      "Bash(xargs:*)",
+      "mcp__serena__find_symbol",
+      "mcp__serena__replace_symbol_body"
     ],
     "deny": [],
     "ask": []
