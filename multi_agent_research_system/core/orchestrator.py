@@ -503,6 +503,214 @@ class ResearchOrchestrator:
                                    event_type="orchestrator_ready",
                                    total_agents=len(self.agent_definitions))
 
+    # ----------------------------------------------------------------------
+    # File-labeling helpers
+    # ----------------------------------------------------------------------
+
+    def _extract_report_prefix(self, file_stem: str) -> str:
+        """Derive a stable prefix from a draft filename.
+        
+        Handles new naming convention:
+        - EXECUTIVE_SUMMARY_DRAFT → EXECUTIVE_SUMMARY
+        - INITIAL_REPORT_DRAFT → INITIAL_REPORT
+        """
+        if not file_stem:
+            return "REPORT"
+        
+        # Handle multi-word prefixes for new naming convention
+        if file_stem.startswith("EXECUTIVE_SUMMARY"):
+            return "EXECUTIVE_SUMMARY"
+        elif file_stem.startswith("INITIAL_REPORT"):
+            return "INITIAL_REPORT"
+        
+        token = file_stem.split("_")[0] if "_" in file_stem else file_stem
+        return token or "REPORT"
+
+    def find_report_files(self, session_dir: Path, report_type: str) -> list[Path]:
+        """Find report files supporting both old and new naming conventions.
+        
+        Args:
+            session_dir: Directory to search for reports
+            report_type: Type of report to find ("executive_summary" or "initial_report")
+            
+        Returns:
+            List of matching report file paths
+        """
+        patterns = {
+            "executive_summary": [
+                "EXECUTIVE_SUMMARY_DRAFT_*.md",  # New naming
+                "DRAFT_*.md"                      # Old naming
+            ],
+            "initial_report": [
+                "INITIAL_REPORT_DRAFT_*.md",     # New naming
+                "COMPREHENSIVE_REPORT_*.md",      # Old naming (was misnamed)
+                "COMPREHENSIVE_ANALYSIS_*.md",    # Old naming (was misnamed)
+                "BRIEF_*.md",                     # Old naming (was misnamed)
+                "STANDARD_REPORT_*.md"            # Old naming (was misnamed)
+            ]
+        }
+        
+        files = []
+        for pattern in patterns.get(report_type, []):
+            files.extend(session_dir.glob(pattern))
+        return files
+
+    def _generate_unique_report_filename(
+        self,
+        working_dir: Path,
+        prefix: str,
+        stage_label: str,
+        extension: str,
+        original_name: str | None = None,
+    ) -> Path:
+        """Generate a unique filename for a stage-labelled report."""
+        extension = extension or ".md"
+        if not extension.startswith("."):
+            extension = f".{extension}"
+
+        base_name = f"{prefix}_{stage_label}"
+        candidate = working_dir / f"{base_name}{extension}"
+        counter = 2
+
+        while candidate.exists() and candidate.name != original_name:
+            candidate = working_dir / f"{base_name}-{counter}{extension}"
+            counter += 1
+
+        return candidate
+
+    def _update_tool_execution_path(self, tool_entry: dict[str, Any] | None, new_path: Path) -> None:
+        """Update the stored tool execution record with the renamed file path."""
+        if not tool_entry:
+            return
+        tool_input = tool_entry.get("input")
+        if isinstance(tool_input, dict):
+            tool_input["file_path"] = str(new_path)
+
+    def _apply_stage_label_to_latest_report(
+        self,
+        session_id: str,
+        tool_executions: list[dict[str, Any]],
+        stage_label: str,
+    ) -> Path | None:
+        """Rename the most recent Write output to include the given stage label."""
+        if not self.kevin_dir or not tool_executions:
+            return None
+
+        working_dir = Path(self.kevin_dir) / "sessions" / session_id / "working"
+        if not working_dir.exists():
+            return None
+
+        write_entries = [
+            entry for entry in tool_executions
+            if entry.get("name") in {"Write", "TodoWrite"} and isinstance(entry.get("input"), dict)
+        ]
+        if not write_entries:
+            return None
+
+        latest_entry = write_entries[-1]
+        original_path_str = latest_entry["input"].get("file_path")
+        if not original_path_str:
+            return None
+
+        original_path = Path(original_path_str)
+        if not original_path.is_absolute():
+            original_path = working_dir / original_path.name
+
+        if not original_path.exists():
+            # Attempt to locate by filename within working directory
+            fallback = working_dir / Path(original_path_str).name
+            if fallback.exists():
+                original_path = fallback
+            else:
+                self.logger.warning(f"Session {session_id}: Unable to locate report file '{original_path_str}' for relabeling")
+                return None
+
+        prefix = self._extract_report_prefix(original_path.stem)
+        target_path = self._generate_unique_report_filename(
+            working_dir=working_dir,
+            prefix=prefix,
+            stage_label=stage_label,
+            extension=original_path.suffix,
+            original_name=original_path.name,
+        )
+
+        if target_path == original_path:
+            return original_path
+
+        original_path.rename(target_path)
+        self._update_tool_execution_path(latest_entry, target_path)
+        self.logger.info(f"Session {session_id}: Renamed report '{original_path.name}' → '{target_path.name}'")
+        return target_path
+
+    def _label_initial_report(self, session_id: str, tool_executions: list[dict[str, Any]]) -> None:
+        """Apply the 'initial' label to the first draft."""
+        self._apply_stage_label_to_latest_report(session_id, tool_executions, "initial")
+
+    def _label_editorial_revision(self, session_id: str, tool_executions: list[dict[str, Any]]) -> Path | None:
+        """Label the most recent revision with an incremental editorial-revision-N suffix."""
+        if not self.kevin_dir:
+            return None
+
+        working_dir = Path(self.kevin_dir) / "sessions" / session_id / "working"
+        if not working_dir.exists():
+            return None
+
+        # Determine the upcoming revision index by counting existing labelled revisions
+        write_entries = [
+            entry for entry in tool_executions
+            if entry.get("name") in {"Write", "TodoWrite"} and isinstance(entry.get("input"), dict)
+        ]
+        if not write_entries:
+            return None
+
+        last_entry = write_entries[-1]
+        last_path = Path(last_entry["input"].get("file_path", ""))
+        if not last_path.is_absolute():
+            last_path = working_dir / last_path.name
+        if not last_path.exists():
+            last_path = working_dir / last_path.name  # attempt fallback
+        prefix = self._extract_report_prefix(last_path.stem)
+
+        existing = sorted(working_dir.glob(f"{prefix}_editorial-revision-*.md"))
+        next_index = 1
+        if existing:
+            # Extract numeric suffix, ignore failures
+            def _revision_number(path: Path) -> int:
+                try:
+                    return int(path.stem.split("-")[-1])
+                except ValueError:
+                    return 0
+            next_index = max(_revision_number(path) for path in existing) + 1
+
+        stage_label = f"editorial-revision-{next_index}"
+        return self._apply_stage_label_to_latest_report(session_id, tool_executions, stage_label)
+
+    def _standardize_editor_workproducts(self, research_dir: Path, newly_created: list[Path]) -> list[Path]:
+        """Rename freshly created editor workproducts to the canonical prefix."""
+        standardized_paths: list[Path] = []
+        timestamp_base = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        for path in newly_created:
+            if not path.exists():
+                continue
+
+            if path.name.startswith("editor-search-workproduct_"):
+                standardized_paths.append(path)
+                continue
+
+            filename = f"editor-search-workproduct_{timestamp_base}"
+            candidate = research_dir / f"{filename}.md"
+            suffix_counter = 2
+
+            while candidate.exists():
+                candidate = research_dir / f"{filename}_{suffix_counter}.md"
+                suffix_counter += 1
+
+            path.rename(candidate)
+            standardized_paths.append(candidate)
+
+        return standardized_paths
+
     def _create_debug_callback(self, agent_name: str):
         """Create a debug callback for capturing stderr output."""
         def debug_callback(message: str):
@@ -1422,6 +1630,12 @@ class ResearchOrchestrator:
                 successful_scrapes = self._extract_successful_scrapes_from_result(tool_result)
 
             stats["successful_scrapes"] += successful_scrapes
+
+            # Flag gap research when editor-specific searches run
+            if tool_input.get("workproduct_prefix") == "editor research":
+                stats["gap_research_executed"] = True
+                if successful_scrapes:
+                    stats["gap_research_scrapes"] = stats.get("gap_research_scrapes", 0) + successful_scrapes
 
             self.logger.info(f"Updated editorial search stats for session {session_id}: "
                            f"+1 search attempt, +{urls_count} URLs attempted, +{successful_scrapes} successful scrapes. "
@@ -3239,6 +3453,9 @@ Session ID: {session_id}
             "attempts": attempt + 1
         })
 
+        # Apply stage-aware naming for the initial draft
+        self._label_initial_report(session_id, report_result.get("tool_executions", []))
+
         await self.save_session_state(session_id)
         self.logger.info(f"Session {session_id}: Report generation stage completed successfully")
 
@@ -3294,7 +3511,9 @@ Session ID: {session_id}
                     "search_attempts": 0,
                     "successful_scrapes": 0,
                     "urls_attempted": 0,
-                    "search_limit_reached": False
+                    "search_limit_reached": False,
+                    "gap_research_executed": False,
+                    "gap_research_scrapes": 0
                 }
 
                 # Create current budget status for the prompt
@@ -3549,6 +3768,12 @@ Please complete your editorial review with both the original research context an
 
         execution_step += 1
 
+        gap_execution_count = session_data.get("gap_research_execution_count", 0) + 1
+        session_data["gap_research_execution_count"] = gap_execution_count
+        self.logger.info(f"🔁 [STEP {execution_step}] Gap research execution #{gap_execution_count} for this session")
+
+        execution_step += 1
+
         # **ENHANCED DEBUGGING**: Step 3 - Search budget validation
         self.logger.info(f"🔍 [STEP {execution_step}] Validating search budget for session {session_id}")
         search_budget = session_data.get("search_budget")
@@ -3717,6 +3942,9 @@ Execute the gap-filling search now using these proven parameters."""
             self.logger.info(f"✅ [STEP {execution_step}] Directory setup complete")
             execution_step += 1
 
+            # Track existing work products to identify new files created by gap research
+            existing_workproducts = {path.resolve() for path in research_dir.glob("*.md")}
+
             # **ENHANCED DEBUGGING**: Step 9 - MCP tool execution
             self.logger.info(f"🔍 [STEP {execution_step}] Executing DIRECT zPlayground1 MCP tool call")
             self.logger.info(f"   This bypasses research agent tool selection issues")
@@ -3802,20 +4030,21 @@ Execute immediately without explanation.
             # **ENHANCED DEBUGGING**: Step 10 - Result processing and validation
             self.logger.info(f"🔍 [STEP {execution_step}] Processing MCP tool result")
 
-            # Extract scrape count from work products
-            scrape_count = 0
-            if gap_research_result:
-                self.logger.info(f"   Tool returned successful result")
-                # Count work products created
-                research_files = list(research_dir.glob("*editor research*.md"))
-                scrape_count = len(research_files)
-                self.logger.info(f"   Found {scrape_count} editorial research work products:")
-                for i, file_path in enumerate(research_files[:5]):  # List first 5 files
-                    self.logger.info(f"     {i+1}. {file_path.name}")
-                if scrape_count > 5:
-                    self.logger.info(f"     ... and {scrape_count - 5} more files")
+            # Identify newly created workproducts and standardise names
+            current_workproducts = list(research_dir.glob("*.md"))
+            new_workproducts = [
+                path for path in current_workproducts if path.resolve() not in existing_workproducts
+            ]
+            standardised_workproducts = self._standardize_editor_workproducts(research_dir, new_workproducts)
+
+            scrape_count = len(standardised_workproducts)
+
+            if scrape_count:
+                self.logger.info(f"   Standardised {scrape_count} editorial work products:")
+                for file_path in standardised_workproducts:
+                    self.logger.info(f"     • {file_path.name}")
             else:
-                self.logger.warning(f"   Tool returned None or empty result")
+                self.logger.warning("   No new editorial work products detected for this gap research execution")
 
             self.logger.info(f"✅ [STEP {execution_step}] Result processing complete")
             execution_step += 1
@@ -3835,6 +4064,10 @@ Execute immediately without explanation.
             self.logger.info(f"✅ [STEP {execution_step}] Budget recorded successfully")
             self.logger.info(f"✅ Editorial gap research completed: {scrape_count} scrapes")
             self.logger.info(f"📊 Final editorial budget status: {final_queries_used}/{max_queries} queries, {final_scrapes_used}/{max_scrapes} scrapes")
+
+            stats = session_data.setdefault("editorial_search_stats", {})
+            stats["gap_research_executed"] = True
+            stats["gap_research_scrapes"] = stats.get("gap_research_scrapes", 0) + scrape_count
 
             execution_step += 1
 
@@ -4511,6 +4744,11 @@ This session had limited research output available. The editorial agent has proc
 
         # Store revision results
         session_data["revision_results"] = revision_result
+
+        last_revision_path = self._label_editorial_revision(session_id, revision_result.get("tool_executions", []))
+        if last_revision_path:
+            session_data["last_revision_working_path"] = str(last_revision_path)
+
         session_data["workflow_history"].append({
             "stage": "revisions",
             "completed_at": datetime.now().isoformat(),
@@ -4684,7 +4922,7 @@ This session had limited research output available. The editorial agent has proc
         if working_dir and working_dir.exists():
             final_dir = working_dir / "final"
             if final_dir.exists():
-                final_files = list(final_dir.glob("FINAL_REPORT_*.md"))
+                final_files = list(final_dir.glob("*_final*.md"))
                 if final_files:
                     latest_final = max(final_files, key=lambda x: x.stat().st_mtime)
                     try:
@@ -4701,7 +4939,7 @@ This session had limited research output available. The editorial agent has proc
                         self.logger.error(f"Error reading session final report: {e}")
 
             # **NEW: Check working directory for FINAL_ prefixed files**
-            working_final_files = list(working_dir.glob("FINAL_*.md"))
+            working_final_files = list(working_dir.glob("*_final*.md"))
             if working_final_files:
                 latest_working_final = max(working_final_files, key=lambda x: x.stat().st_mtime)
                 try:
@@ -4867,26 +5105,43 @@ This session had limited research output available. The editorial agent has proc
             # Fallback: manually copy the file to /final/ directory
             self.logger.info("Using fallback method to save final report")
 
-            # Generate filename for final version
-            timestamp = datetime.now().strftime("%m-%d_%H:%M:%S")
-            topic = session_data.get("topic", "research").replace(" ", "_")[:30]
-            format_type = format_config.get("format_type", "standard")
+            final_dir_path = Path(final_dir)
+            working_dir_path = Path(working_dir)
+            final_dir_path.mkdir(parents=True, exist_ok=True)
+            working_dir_path.mkdir(parents=True, exist_ok=True)
 
-            final_filename = f"FINAL_REPORT_{format_type}_{topic}_{timestamp}.md"
-            final_file_path = os.path.join(final_dir, final_filename)
+            topic_slug = "".join(c for c in session_data.get("topic", "research")[:50] if c.isalnum() or c in (" ", "-", "_")).strip().replace(" ", "_")
+            stage_label_with_topic = f"final-{topic_slug}" if topic_slug else "final"
+            report_prefix = self._extract_report_prefix(Path(current_report_path).stem)
 
-            # Copy the report to final directory
+            final_file_path = self._generate_unique_report_filename(
+                working_dir=final_dir_path,
+                prefix=report_prefix,
+                stage_label=stage_label_with_topic,
+                extension=Path(current_report_path).suffix,
+            )
+
             shutil.copy2(current_report_path, final_file_path)
 
+            # Maintain a matching working copy
+            working_copy_path = self._generate_unique_report_filename(
+                working_dir=working_dir_path,
+                prefix=report_prefix,
+                stage_label=stage_label_with_topic,
+                extension=Path(current_report_path).suffix,
+            )
+            shutil.copy2(current_report_path, working_copy_path)
+
             self.logger.info(f"✅ Final report copied to /final/ directory: {final_file_path}")
+            self.logger.info(f"📝 Working final copy: {working_copy_path}")
 
             # Update session data
-            session_data["final_report_location"] = final_file_path
-            session_data["final_report_filename"] = final_filename
+            session_data["final_report_location"] = str(final_file_path)
+            session_data["final_report_filename"] = final_file_path.name
 
             return {
-                "final_file_path": final_file_path,
-                "filename": final_filename,
+                "final_file_path": str(final_file_path),
+                "filename": final_file_path.name,
                 "method": "fallback_copy"
             }
 
@@ -5925,51 +6180,80 @@ Status: Recovery Completed
             session_data = self.active_sessions[session_id]
             self.logger.info(f"Session {session_id}: Preserving revised document as final report")
 
-            # Get the working directory for the session
-            working_dir = self._get_session_working_dir(session_id)
-            if not working_dir or not working_dir.exists():
+            if not self.kevin_dir:
+                self.logger.warning(f"Session {session_id}: kevin_dir not configured, cannot preserve final report")
+                return
+
+            session_dir = Path(self.kevin_dir) / "sessions" / session_id
+            working_dir = session_dir / "working"
+            if not working_dir.exists():
                 self.logger.warning(f"Session {session_id}: Working directory not found")
                 return
 
-            # Look for the revised document (Stage 3, prefixed with "REVISED_")
-            revised_files = list(working_dir.glob("REVISED_*.md"))
-            if not revised_files:
-                self.logger.warning(f"Session {session_id}: No revised document found to preserve")
-                return
+            # Prefer the path of the most recent labelled revision if we tracked it
+            latest_revised_path = None
+            candidate_path = session_data.get("last_revision_working_path")
+            if candidate_path:
+                path_obj = Path(candidate_path)
+                if not path_obj.is_absolute():
+                    path_obj = working_dir / path_obj.name
+                if path_obj.exists():
+                    latest_revised_path = path_obj
 
-            # Get the most recent revised document
-            latest_revised = max(revised_files, key=lambda x: x.stat().st_mtime)
-            self.logger.info(f"Session {session_id}: Found revised document: {latest_revised.name}")
+            if latest_revised_path is None:
+                # Look for stage-labelled revisions first
+                revision_candidates = sorted(working_dir.glob("*_editorial-revision-*.md"))
+                if not revision_candidates:
+                    # Fallback to legacy naming
+                    revision_candidates = sorted(working_dir.glob("REVISED_*.md"))
+                if not revision_candidates:
+                    self.logger.warning(f"Session {session_id}: No revised document found to preserve")
+                    return
+                latest_revised_path = max(revision_candidates, key=lambda x: x.stat().st_mtime)
+
+            self.logger.info(f"Session {session_id}: Found revised document: {latest_revised_path.name}")
 
             # Create final directory if it doesn't exist
-            final_dir = working_dir / "final"
+            final_dir = session_dir / "final"
             final_dir.mkdir(exist_ok=True)
 
             # Generate clear final report filename with timestamp
-            timestamp = datetime.now().strftime("%m-%d_%H:%M:%S")
+            prefix = self._extract_report_prefix(latest_revised_path.stem)
             clean_topic = "".join(c for c in session_data.get("topic", "report")[:50] if c.isalnum() or c in (' ', '-', '_')).strip()
             clean_topic = clean_topic.replace(' ', '_')
 
-            final_filename = f"FINAL_REPORT_{clean_topic}_{timestamp}.md"
-            final_file_path = final_dir / final_filename
+            final_stage_label = "final"
+            stage_label_with_topic = f"{final_stage_label}-{clean_topic}" if clean_topic else final_stage_label
+            final_file_path = self._generate_unique_report_filename(
+                working_dir=final_dir,
+                prefix=prefix,
+                stage_label=stage_label_with_topic,
+                extension=latest_revised_path.suffix,
+            )
 
             # Copy the revised document to the final directory with clear naming
-            shutil.copy2(latest_revised, final_file_path)
+            shutil.copy2(latest_revised_path, final_file_path)
 
             self.logger.info(f"✅ Session {session_id}: Revised document preserved as final report")
-            self.logger.info(f"   Original: {latest_revised.name}")
-            self.logger.info(f"   Final: {final_filename}")
+            self.logger.info(f"   Original: {latest_revised_path.name}")
+            self.logger.info(f"   Final: {final_file_path.name}")
 
             # Update session data to track the final report
             session_data["final_report_location"] = str(final_file_path)
-            session_data["final_report_filename"] = final_filename
+            session_data["final_report_filename"] = final_file_path.name
             session_data["final_report_preserved_at"] = datetime.now().isoformat()
             session_data["final_report_source"] = "revised_document"
 
             # Also create a clear copy in the working directory with "FINAL_" prefix
-            working_final_path = working_dir / f"FINAL_{final_filename}"
-            shutil.copy2(latest_revised, working_final_path)
-            self.logger.info(f"   Working copy: FINAL_{final_filename}")
+            working_final_path = self._generate_unique_report_filename(
+                working_dir=working_dir,
+                prefix=prefix,
+                stage_label=stage_label_with_topic,
+                extension=latest_revised_path.suffix,
+                original_name=latest_revised_path.name,
+            )
+            shutil.copy2(latest_revised_path, working_final_path)
+            self.logger.info(f"   Working copy: {working_final_path.name}")
 
             await self.save_session_state(session_id)
 

@@ -686,14 +686,16 @@ async def create_research_report(args: dict[str, Any]) -> dict[str, Any]:
         safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()[:50]
 
         # Update naming convention based on report type
+        # NOTE: Research scope (brief/default/comprehensive) affects research parameters, NOT filename
         if report_type == "draft":
-            filename = f"Initial Draft-{safe_title}_{timestamp}.md"
+            filename = f"Executive Summary Draft-{safe_title}_{timestamp}.md"
         elif report_type == "editorial_review":
-            filename = f"DRAFT_draft_{safe_title}_{timestamp}.md"
+            filename = f"EDITORIAL_RECOMMENDATIONS_{timestamp}.md"
         elif report_type == "final_enhanced":
             filename = f"Final Version-{safe_title}_{timestamp}.md"
         else:
-            filename = f"{report_type.title()}-{safe_title}_{timestamp}.md"
+            # All other report types generate the main Initial Report Draft
+            filename = f"Initial Report Draft-{safe_title}_{timestamp}.md"
 
         filepath = working_dir / filename
 

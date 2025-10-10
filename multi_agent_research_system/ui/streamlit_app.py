@@ -775,7 +775,14 @@ class ResearchUI:
             st.metric("Web Search Files", len(web_search_files))
 
         with col3:
-            report_files = list(kevin_dir.glob("research_report_*.md")) + list(kevin_dir.glob("research_report_*.txt"))
+            # Support both old and new naming conventions
+            report_files = (
+                list(kevin_dir.glob("research_report_*.md")) + 
+                list(kevin_dir.glob("research_report_*.txt")) +
+                list(kevin_dir.glob("EXECUTIVE_SUMMARY_DRAFT_*.md")) +
+                list(kevin_dir.glob("INITIAL_REPORT_DRAFT_*.md")) +
+                list(kevin_dir.glob("COMPREHENSIVE_REPORT_*.md"))  # Old naming - backward compatibility
+            )
             st.metric("Report Files", len(report_files))
 
         st.markdown("---")
@@ -842,8 +849,17 @@ class ResearchUI:
                 except Exception as e:
                     st.error(f"Error reading {search_file.name}: {e}")
 
-        # Show research reports
-        report_files = sorted(kevin_dir.glob("research_report_*.*"), key=lambda x: x.stat().st_mtime, reverse=True)
+        # Show research reports (support both old and new naming conventions)
+        report_patterns = [
+            "research_report_*.*",
+            "EXECUTIVE_SUMMARY_DRAFT_*.md",
+            "INITIAL_REPORT_DRAFT_*.md",
+            "COMPREHENSIVE_REPORT_*.md"  # Old naming - backward compatibility
+        ]
+        report_files = []
+        for pattern in report_patterns:
+            report_files.extend(kevin_dir.glob(pattern))
+        report_files = sorted(report_files, key=lambda x: x.stat().st_mtime, reverse=True)
         if report_files:
             st.markdown("### 📄 Research Reports (Most Recent First)")
             for report_file in report_files[:5]:  # Show last 5

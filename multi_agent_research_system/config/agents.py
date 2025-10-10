@@ -2,6 +2,24 @@
 
 This module defines agents using the proper SDK configuration approach with
 AgentDefinition objects and tool decorators.
+
+REPORT NAMING CONVENTION:
+The system generates TWO documents in the "working" directory:
+
+1. EXECUTIVE_SUMMARY_DRAFT (report_type="draft")
+   - Brief, concise overview (typically 50-100 lines)
+   - Key findings and highlights
+   - Generated for quick review
+
+2. INITIAL_REPORT_DRAFT (report_type="comprehensive_report" or similar)
+   - The main research report (length varies based on research scope)
+   - Full research findings with analysis
+   - This is THE report - not labeled as "comprehensive" or "brief"
+
+IMPORTANT DISTINCTION:
+- Query scope (brief/default/comprehensive) → affects RESEARCH PARAMETERS (how much to search)
+- Document naming → ALWAYS "Initial Report Draft" (regardless of research scope)
+- We don't create separate "brief reports" or "comprehensive reports" - just one main report
 """
 
 import json
@@ -151,7 +169,10 @@ MANDATORY REPORT GENERATION PROCESS:
 2. Read all research findings from the research agent
 3. Extract key themes, facts, and insights from research
 4. Create comprehensive report following standard structure
-5. Call mcp__research_tools__create_research_report with report_type="draft" to format the report
+5. Call mcp__research_tools__create_research_report with appropriate report_type:
+   - Use report_type="draft" for EXECUTIVE_SUMMARY_DRAFT (brief overview)
+   - Use report_type="comprehensive_report" for INITIAL_REPORT_DRAFT (main report)
+   NOTE: Query scope (brief/default/comprehensive) affects RESEARCH PARAMETERS, not the filename
 6. CRITICAL: The create_research_report tool will return "report_content" and "recommended_filepath"
 7. You MUST immediately use the Write tool to save the report_content to the recommended_filepath
 8. IMPORTANT: The recommended_filepath is now an ABSOLUTE PATH - use it exactly as provided

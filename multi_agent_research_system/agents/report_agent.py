@@ -272,6 +272,8 @@ Always prioritize accuracy, clarity, and logical organization."""
         confidence = intent_result["confidence"]
 
         # Determine format configuration based on intent
+        # NOTE: Query intent (brief/default/comprehensive) affects research scope, NOT the document name
+        # All reports are named "Initial Report Draft" regardless of research scope
         if detected_format == QueryIntent.BRIEF:
             format_config = {
                 "format_type": "brief",
@@ -280,7 +282,7 @@ Always prioritize accuracy, clarity, and logical organization."""
                 "style": "concise",
                 "audience": "general"
             }
-            filename_prefix = "BRIEF"
+            filename_prefix = "INITIAL_REPORT_DRAFT"  # Changed from "BRIEF"
         elif detected_format == QueryIntent.COMPREHENSIVE:
             format_config = {
                 "format_type": "comprehensive",
@@ -289,7 +291,7 @@ Always prioritize accuracy, clarity, and logical organization."""
                 "style": "detailed",
                 "audience": "professional"
             }
-            filename_prefix = "COMPREHENSIVE_ANALYSIS"
+            filename_prefix = "INITIAL_REPORT_DRAFT"  # Changed from "COMPREHENSIVE_ANALYSIS"
         else:  # DEFAULT
             format_config = {
                 "format_type": "standard",
@@ -298,7 +300,7 @@ Always prioritize accuracy, clarity, and logical organization."""
                 "style": "balanced",
                 "audience": "educated"
             }
-            filename_prefix = "STANDARD_REPORT"
+            filename_prefix = "INITIAL_REPORT_DRAFT"  # Changed from "STANDARD_REPORT"
 
         # Add intent analysis results to config
         format_config.update({

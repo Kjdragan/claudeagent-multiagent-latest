@@ -156,15 +156,17 @@ async def create_research_report(args: dict[str, Any]) -> dict[str, Any]:
 
     # Simplified file naming with prefixes and no titles in filenames
     # Format: PREFIX_NAME_timestamp.ext or PREFIX_revision_number_timestamp.ext
+    # NOTE: Research scope (brief/default/comprehensive) affects research parameters, NOT filename
     prefixes = {
-        "draft": "DRAFT",
-        "final": "INITIAL_DRAFT",
+        "draft": "EXECUTIVE_SUMMARY_DRAFT",           # Brief overview document
+        "comprehensive_report": "INITIAL_REPORT_DRAFT",  # Main report (regardless of research scope)
+        "comprehensive_analysis": "INITIAL_REPORT_DRAFT",  # Same as above - main report
+        "brief": "INITIAL_REPORT_DRAFT",              # Main report (research scope doesn't affect name)
+        "default": "INITIAL_REPORT_DRAFT",            # Main report (research scope doesn't affect name)
         "editorial_review": "EDITORIAL_RECOMMENDATIONS",
         "editorial_feedback": "EDITORIAL_FEEDBACK",
         "research_findings": "RESEARCH",
         "search_verification": "SEARCH_VERIFY",
-        "comprehensive_analysis": "COMPREHENSIVE_ANALYSIS",
-        "brief": "BRIEF",
         "revise": "REVISED",
         "revision": "REVISED"
     }
@@ -303,7 +305,11 @@ async def get_session_data(args: dict[str, Any]) -> dict[str, Any]:
             for subdir in ["research", "working", "final"]:
                 subdir_path = session_path / subdir
                 if subdir_path.exists():
-                    report_files = list(subdir_path.glob("*report*.md"))
+                    # Match various report types including new naming convention
+                    report_files = list(subdir_path.glob("*.md"))
+                    # Filter for report-like files (supports both old and new naming)
+                    report_files = [f for f in report_files if any(keyword in f.name.upper() 
+                        for keyword in ["REPORT", "DRAFT", "SUMMARY", "EDITORIAL", "REVISED", "COMPREHENSIVE", "BRIEF"])]
                     if report_files:
                         try:
                             latest_report = max(report_files, key=os.path.getctime)
