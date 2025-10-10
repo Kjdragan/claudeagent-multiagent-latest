@@ -495,6 +495,9 @@ class ResearchOrchestrator:
         # Initialize agent-specific loggers
         self._initialize_agent_loggers()
 
+        # Initialize KEVIN directory reference
+        self.kevin_dir = None
+
         self.logger.info("ResearchOrchestrator initialized")
         self.structured_logger.info("ResearchOrchestrator initialization completed",
                                    event_type="orchestrator_ready",
@@ -1085,7 +1088,7 @@ class ResearchOrchestrator:
                         query_result["substantive_responses"] += 1
 
                 # Extract tool use information from AssistantMessage content blocks
-                tool_executions = self._extract_tool_executions_from_message(message, agent_name, session_id)
+                tool_executions, _ = self._extract_tool_executions_from_message(message, agent_name, session_id)
                 if tool_executions:
                     message_info["tool_use"] = tool_executions[0]  # Primary tool for this message
                     query_result["tool_executions"].extend(tool_executions)
@@ -1275,7 +1278,7 @@ class ResearchOrchestrator:
 
         return validation_result
 
-    def _extract_tool_executions_from_message(self, message, agent_name: str, session_id: str = None) -> list:
+    def _extract_tool_executions_from_message(self, message, agent_name: str, session_id: str = None) -> tuple[list[dict], dict[str, dict]]:
         """Extract tool executions with comprehensive error handling.
 
         Args:
@@ -1284,9 +1287,10 @@ class ResearchOrchestrator:
             session_id: Optional session ID for tracking editorial search statistics
 
         Returns:
-            List of tool execution dictionaries
+            Tuple of (list of tool execution dictionaries, dict of pending tools by tool_use_id)
         """
         tool_executions = []
+        pending_tools: dict[str, dict] = {}
 
         try:
             if isinstance(message, AssistantMessage):
@@ -1298,6 +1302,9 @@ class ResearchOrchestrator:
                             "input": block.input,
                             "timestamp": datetime.now().isoformat()
                         }
+
+                        # Store in pending tools for result attachment
+                        pending_tools[block.id] = tool_info
 
                         # Check if this is an editorial search and update statistics
                         if session_id and "search" in block.name.lower():
@@ -1311,7 +1318,66 @@ class ResearchOrchestrator:
         except Exception as e:
             self.logger.warning(f"Error extracting tools from {agent_name} message: {e}")
 
-        return tool_executions
+        return tool_executions, pending_tools
+
+    def _parse_tool_result_content(self, content, tool_use_id: str) -> dict[str, Any]:
+        """Parse tool result content from ToolResultBlock using existing logic.
+
+        Args:
+            content: The content from the ToolResultBlock
+            tool_use_id: The tool use ID for logging
+
+        Returns:
+            Parsed result data (empty dict if parsing fails or content is None)
+        """
+        # Handle None/empty cases gracefully to ensure downstream calls don't skip stats updates
+        if content is None or content == "":
+            self.logger.debug(f"Tool {tool_use_id} content is None/empty, returning empty dict")
+            return {}
+
+        try:
+            import json
+
+            # Case 1: Content is a string (JSON data or plain text)
+            if isinstance(content, str):
+                # First, try to parse as JSON
+                try:
+                    parsed_data = json.loads(content)
+                    self.logger.debug(f"✅ Successfully parsed JSON string from tool result {tool_use_id}")
+                    return parsed_data
+                except json.JSONDecodeError:
+                    # If not JSON, treat as plain text result
+                    self.logger.debug(f"🔧 Content is plain text for tool {tool_use_id}, creating simple result structure")
+
+                    # Create a simple result structure for plain text content
+                    text_result = {
+                        "content": [{"type": "text", "text": content}],
+                        "success": True,
+                        "text_output": content,
+                        "tool_type": "text_response"
+                    }
+
+                    return text_result
+
+            # Case 2: Content is already a dict or list
+            elif isinstance(content, (dict, list)):
+                self.logger.debug(f"✅ Tool {tool_use_id} content is already structured data")
+                return content if isinstance(content, dict) else {"content": content}
+
+            # Case 3: Content is other type (convert to string)
+            else:
+                self.logger.debug(f"🔧 Tool {tool_use_id} content is {type(content)}, converting to string")
+                return {
+                    "content": [{"type": "text", "text": str(content)}],
+                    "success": True,
+                    "text_output": str(content),
+                    "tool_type": "converted_response"
+                }
+
+        except Exception as e:
+            self.logger.warning(f"Error parsing tool result content for {tool_use_id}: {e}")
+            # Return empty dict instead of None to ensure downstream calls don't skip stats updates
+            return {}
 
     def _update_editorial_search_stats(self, session_id: str, tool_name: str, tool_input: dict[str, Any], tool_result: dict[str, Any] = None):
         """Update editorial search statistics when an editorial search tool is executed.
@@ -1324,11 +1390,11 @@ class ResearchOrchestrator:
         """
         try:
             # Get session data
-            if session_id not in self.sessions:
+            if session_id not in self.active_sessions:
                 self.logger.warning(f"Session {session_id} not found for editorial search stats update")
                 return
 
-            session_data = self.sessions[session_id]
+            session_data = self.active_sessions[session_id]
 
             # Initialize editorial search stats if not present
             if "editorial_search_stats" not in session_data:
@@ -1336,7 +1402,9 @@ class ResearchOrchestrator:
                     "search_attempts": 0,
                     "successful_scrapes": 0,
                     "urls_attempted": 0,
-                    "search_limit_reached": False
+                    "search_limit_reached": False,
+                    "gap_research_executed": False,
+                    "gap_research_scrapes": 0
                 }
 
             stats = session_data["editorial_search_stats"]
@@ -1973,6 +2041,10 @@ class ResearchOrchestrator:
         current_file = Path(__file__)
         project_root = current_file.parent.parent.parent  # Go up from core/ to project root
         kevin_dir = project_root / "KEVIN"
+
+        # Store KEVIN directory reference for gap research extraction
+        self.kevin_dir = kevin_dir
+
         session_path = kevin_dir / "sessions" / session_id
 
         session_path.mkdir(parents=True, exist_ok=True)
@@ -2699,6 +2771,9 @@ class ResearchOrchestrator:
             "success": False
         }
 
+        # Track pending tools awaiting results
+        pending_tools: dict[str, dict] = {}
+
         try:
             # Send the query
             await agent_client.query(prompt, session_id=session_id)
@@ -2729,15 +2804,59 @@ class ResearchOrchestrator:
                             self.logger.debug(f"{agent_name} content: {content_texts[0][:100]}...")
 
                     # Extract tool use information from AssistantMessage content blocks
-                    tool_executions = self._extract_tool_executions_from_message(message, agent_name, session_id)
+                    tool_executions, new_pending_tools = self._extract_tool_executions_from_message(message, agent_name, session_id)
                     if tool_executions:
                         message_info["tool_use"] = tool_executions[0]  # Primary tool for this message
                         query_result["tool_executions"].extend(tool_executions)
+                        # Add to pending tools for result attachment
+                        pending_tools.update(new_pending_tools)
 
-                    # Extract result information
+                    # Extract result information from ToolResultBlock
+                    if hasattr(message, 'content'):
+                        for block in message.content:
+                            if isinstance(block, ToolResultBlock):
+                                tool_use_id = block.tool_use_id
+                                if tool_use_id in pending_tools:
+                                    # Parse the result content using existing logic
+                                    result_data = self._parse_tool_result_content(block.content, tool_use_id)
+                                    if result_data:
+                                        pending_tools[tool_use_id]["result"] = result_data
+
+                                        # Update editorial search statistics if applicable
+                                        tool_info = pending_tools[tool_use_id]
+                                        if session_id and "search" in tool_info.get("name", "").lower():
+                                            workproduct_prefix = tool_info.get("input", {}).get("workproduct_prefix", "")
+                                            if workproduct_prefix == "editor research":
+                                                self._update_editorial_search_stats(session_id, tool_info["name"], tool_info["input"], result_data)
+
+                                        self.logger.debug(f"✅ Attached result to tool {tool_use_id}")
+
+                    # Extract result information from ResultMessage
                     if isinstance(message, ResultMessage):
                         message_info["has_result"] = True
                         message_info["cost_usd"] = message.total_cost_usd if hasattr(message, 'total_cost_usd') else None
+
+                        # CRITICAL: Capture ResultMessage.result payload for pending tools
+                        if hasattr(message, 'result') and message.result:
+                            # Try to match result with pending tools by examining tool names in result
+                            if pending_tools:
+                                # Find the most recent pending tool that doesn't have a result yet
+                                for tool_id, tool_info in reversed(list(pending_tools.items())):
+                                    if "result" not in tool_info:
+                                        # Parse the result payload using the same logic as ToolResultBlock
+                                        result_data = self._parse_tool_result_content(message.result, tool_id)
+                                        if result_data:
+                                            pending_tools[tool_id]["result"] = result_data
+
+                                            # Update editorial search statistics if applicable
+                                            if session_id and "search" in tool_info.get("name", "").lower():
+                                                workproduct_prefix = tool_info.get("input", {}).get("workproduct_prefix", "")
+                                                if workproduct_prefix == "editor research":
+                                                    self._update_editorial_search_stats(session_id, tool_info["name"], tool_info["input"], result_data)
+
+                                            self.logger.debug(f"✅ Attached ResultMessage.result to tool {tool_id}")
+                                            break
+
                         self.logger.debug(f"{agent_name} received ResultMessage with cost: ${message_info.get('cost_usd', 'N/A')}")
 
                     query_result["messages_collected"].append(message_info)
@@ -3646,17 +3765,35 @@ Execute the gap-filling search now using these proven parameters."""
 
             self.logger.info(f"✅ [STEP {execution_step}.a] Parameter validation passed")
 
-            # **ENHANCED DEBUGGING**: Execute MCP tool call with detailed tracking
-            self.logger.info(f"🔍 [STEP {execution_step}.b] Executing MCP tool call")
+            # **ENHANCED DEBUGGING**: Execute gap research using agent query pattern
+            self.logger.info(f"🔍 [STEP {execution_step}.b] Executing gap research with agent query")
             mcp_start_time = time.time()
 
-            gap_research_result = await self.client.call_tool(
-                "mcp__zplayground1_search__zplayground1_search_scrape_clean",
-                mcp_params
+            # Create gap research prompt for research agent
+            gap_research_prompt = f"""Execute gap-filling research to address identified research gaps.
+
+GAP RESEARCH REQUIREMENTS:
+- Combined Topic: {mcp_params['query']}
+- Search Mode: {mcp_params.get('search_mode', 'news')}
+- Anti-bot Level: {mcp_params.get('anti_bot_level', 2)}
+- Number of Results: {mcp_params.get('num_results', 15)}
+- Auto Crawl Top: {mcp_params.get('auto_crawl_top', 10)}
+- Crawl Threshold: {mcp_params.get('crawl_threshold', 0.3)}
+- Session ID: {mcp_params['session_id']}
+
+IMMEDIATELY execute mcp__zplayground1_search__zplayground1_search_scrape_clean with these exact parameters.
+
+This is critical gap research to address editorial identified deficiencies.
+Execute immediately without explanation.
+"""
+
+            # Execute gap research using the correct agent query pattern
+            gap_research_result = await self.execute_agent_query(
+                "research_agent", gap_research_prompt, session_id, timeout_seconds=180
             )
 
             mcp_execution_time = time.time() - mcp_start_time
-            self.logger.info(f"✅ [STEP {execution_step}.b] MCP tool call completed in {mcp_execution_time:.2f}s")
+            self.logger.info(f"✅ [STEP {execution_step}.b] Gap research completed in {mcp_execution_time:.2f}s")
             self.logger.info(f"   Result type: {type(gap_research_result)}")
             self.logger.info(f"   Result keys: {list(gap_research_result.keys()) if gap_research_result else 'None'}")
 
@@ -3804,7 +3941,7 @@ Execute the gap-filling search now using these proven parameters."""
         """
         Extract gap research requests from editorial agent result.
 
-        Detects if editor called request_gap_research tool and extracts the gaps.
+        Detects both formal gap research requests and direct editorial searches.
 
         Args:
             editorial_result: Result from editor agent execution
@@ -3814,7 +3951,9 @@ Execute the gap-filling search now using these proven parameters."""
         """
         try:
             tool_executions = editorial_result.get("tool_executions", [])
+            session_id = editorial_result.get("session_id")
 
+            # First check for formal gap research requests
             for tool in tool_executions:
                 if tool.get("name") == "mcp__research_tools__request_gap_research":
                     # Extract gap research request from tool result
@@ -3826,6 +3965,55 @@ Execute the gap-filling search now using these proven parameters."""
                         self.logger.info(f"✅ Detected formal gap research request: {len(gaps)} gaps")
                         for i, gap in enumerate(gaps, 1):
                             self.logger.info(f"   Request {i}: {gap}")
+                        return gaps
+
+            # If no formal requests, check for direct editorial searches
+            for tool in tool_executions:
+                if tool.get("name") == "mcp__zplayground1_search__zplayground1_search_scrape_clean":
+                    tool_input = tool.get("input", {})
+                    workproduct_prefix = tool_input.get("workproduct_prefix", "")
+
+                    if workproduct_prefix == "editor research":
+                        # This is a direct editorial search - treat as gap research
+                        self.logger.info("✅ Detected direct editorial search as gap research")
+
+                        # Create synthetic gap list from the search query or extract from editorial content
+                        search_query = tool_input.get("query", "")
+                        gaps = []
+
+                        if search_query:
+                            gaps.append(search_query)
+                            self.logger.info(f"   Synthetic gap from search query: {search_query}")
+                        else:
+                            # Fallback to extracting gaps from editorial markdown
+                            gaps = self._extract_documented_research_gaps(editorial_result)
+                            if gaps:
+                                self.logger.info(f"   Synthetic gaps from editorial content: {len(gaps)} gaps")
+                                for i, gap in enumerate(gaps, 1):
+                                    self.logger.info(f"   Extracted gap {i}: {gap}")
+                            else:
+                                # Last resort: use generic gap topic
+                                gaps.append("editor research follow-up")
+                                self.logger.info("   Using generic gap topic: editor research follow-up")
+
+                        # Update editorial search statistics to mark gap research as executed
+                        if session_id:
+                            session_data = self.active_sessions.get(session_id)
+                            if session_data and "editorial_search_stats" in session_data:
+                                stats = session_data["editorial_search_stats"]
+                                stats["gap_research_executed"] = True
+
+                                # Extract scrape count from tool result if available
+                                tool_result = tool.get("result", {})
+                                if tool_result:
+                                    scrape_count = self._extract_successful_scrapes_from_result(tool_result)
+                                    stats["gap_research_scrapes"] = scrape_count
+                                    self.logger.info(f"   Updated gap research scrapes: {scrape_count}")
+
+                                # Persist gap research result for integration step
+                                session_data["gap_research_result"] = tool_result
+                                self.logger.info("   Persisted gap research result for integration")
+
                         return gaps
 
             self.logger.info("✅ No formal gap research requests detected")
@@ -3866,7 +4054,11 @@ Execute the gap-filling search now using these proven parameters."""
             gap_research_scrapes = search_stats.get("gap_research_scrapes", 0)
 
             # Look for documented gaps in recent editorial activity
-            editorial_files = list(Path(self.kevin_dir).glob(f"sessions/{session_id}/working/*EDITORIAL*.md"))
+            if not self.kevin_dir:
+                self.logger.warning("⚠️ KEVIN directory not set, cannot check for documented gaps")
+                editorial_files = []
+            else:
+                editorial_files = list(Path(self.kevin_dir).glob(f"sessions/{session_id}/working/*EDITORIAL*.md"))
             documented_gaps_found = False
 
             for file_path in editorial_files:
@@ -3941,9 +4133,13 @@ You must complete gap research before finalizing your editorial review."""
 
             # Check if we have any editorial review files that mention gap research
             session_id = editorial_result.get("session_id", "")
-            if session_id:
+            if session_id and self.kevin_dir:
                 session_dir = Path(self.kevin_dir) / "sessions" / session_id / "working"
-                if session_dir.exists():
+            elif not self.kevin_dir:
+                self.logger.warning("⚠️ KEVIN directory not set, cannot extract documented research gaps")
+                return []
+
+            if session_dir.exists():
                     # Look for editorial review files (support both old and new naming conventions)
                     editorial_files = []
                     editorial_files.extend(session_dir.glob("*EDITORIAL*.md"))

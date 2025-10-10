@@ -103,7 +103,13 @@ class ResearchCLI:
             self.print_progress_update("START", f"Beginning research on: {topic}")
             session_id = await self.orchestrator.start_research_session(
                 topic=topic,
-                user_requirements=requirements or "Comprehensive research with web search"
+                user_requirements=requirements if isinstance(requirements, dict) else {
+                    "depth": "Comprehensive Research",
+                    "audience": "General",
+                    "format": "Standard Report",
+                    "timeline": "ASAP",
+                    "original_string_requirement": requirements if isinstance(requirements, str) else "None provided"
+                }
             )
 
             self.print_session_info(session_id, topic)

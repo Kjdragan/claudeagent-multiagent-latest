@@ -144,95 +144,101 @@ def create_zplayground1_mcp_server():
                     "is_error": True,
                 }
 
-            # Extract and validate parameters with detailed error reporting
+            # Extract and normalize numeric parameters immediately after argument extraction
             try:
+                # Normalize numeric inputs to ensure consistent types
+                num_results_raw = args.get("num_results", 15)
+                auto_crawl_top_raw = args.get("auto_crawl_top", 10)
+                max_concurrent_raw = args.get("max_concurrent", 15)
+                anti_bot_level_raw = args.get("anti_bot_level", 1)
+                crawl_threshold_raw = args.get("crawl_threshold", 0.3)
+
+                # Convert numeric strings to integers for all numeric parameters
+                def normalize_int_param(value, default, min_val, max_val, param_name):
+                    """Normalize integer parameter from string or integer input."""
+                    if isinstance(value, int):
+                        result = value
+                    elif isinstance(value, str) and value.isdigit():
+                        result = int(value)
+                        logger.info(f"🔄 Converted numeric string '{value}' to integer {result} for {param_name}")
+                    elif isinstance(value, str):
+                        # Try to parse float and convert to int
+                        try:
+                            result = int(float(value))
+                            logger.info(f"🔄 Converted string '{value}' to integer {result} for {param_name}")
+                        except ValueError:
+                            logger.warning(f"⚠️ Invalid numeric value '{value}' for {param_name}, using default {default}")
+                            result = default
+                    else:
+                        logger.warning(f"⚠️ Invalid type {type(value)} for {param_name}, using default {default}")
+                        result = default
+
+                    # Apply range constraints
+                    if not (min_val <= result <= max_val):
+                        logger.warning(f"⚠️ {param_name} value {result} out of range [{min_val}, {max_val}], clamping to nearest bound")
+                        result = max(min_val, min(result, max_val))
+
+                    return result
+
+                def normalize_float_param(value, default, min_val, max_val, param_name):
+                    """Normalize float parameter from string or number input."""
+                    if isinstance(value, (int, float)):
+                        result = float(value)
+                    elif isinstance(value, str):
+                        try:
+                            result = float(value)
+                            logger.info(f"🔄 Converted string '{value}' to float {result} for {param_name}")
+                        except ValueError:
+                            logger.warning(f"⚠️ Invalid numeric value '{value}' for {param_name}, using default {default}")
+                            result = default
+                    else:
+                        logger.warning(f"⚠️ Invalid type {type(value)} for {param_name}, using default {default}")
+                        result = default
+
+                    # Apply range constraints
+                    if not (min_val <= result <= max_val):
+                        logger.warning(f"⚠️ {param_name} value {result} out of range [{min_val}, {max_val}], clamping to nearest bound")
+                        result = max(min_val, min(result, max_val))
+
+                    return result
+
+                # Apply normalization to all numeric parameters
+                num_results = normalize_int_param(num_results_raw, 15, 1, 50, "num_results")
+                auto_crawl_top = normalize_int_param(auto_crawl_top_raw, 10, 0, 20, "auto_crawl_top")
+                max_concurrent = normalize_int_param(max_concurrent_raw, 15, 1, 20, "max_concurrent")
+                anti_bot_level = normalize_int_param(anti_bot_level_raw, 1, 0, 3, "anti_bot_level")
+                crawl_threshold = normalize_float_param(crawl_threshold_raw, 0.3, 0.0, 1.0, "crawl_threshold")
+
+                # Extract non-numeric parameters
                 search_mode = args.get("search_mode", "web")
                 if search_mode not in ["web", "news"]:
                     raise ValueError(
                         f"Invalid search_mode '{search_mode}'. Must be 'web' or 'news'"
                     )
 
-                num_results = int(args.get("num_results", 15))
-                if not (1 <= num_results <= 50):
-                    raise ValueError(
-                        f"Invalid num_results '{num_results}'. Must be between 1 and 50"
-                    )
-
-                auto_crawl_top = int(args.get("auto_crawl_top", 10))
-                if not (0 <= auto_crawl_top <= 20):
-                    raise ValueError(
-                        f"Invalid auto_crawl_top '{auto_crawl_top}'. Must be between 0 and 20"
-                    )
-
-                crawl_threshold = float(args.get("crawl_threshold", 0.3))
-                if not (0.0 <= crawl_threshold <= 1.0):
-                    raise ValueError(
-                        f"Invalid crawl_threshold '{crawl_threshold}'. Must be between 0.0 and 1.0"
-                    )
-
-                # FAIL-FAST: Require integer anti_bot_level parameter
-                anti_bot_level_raw = args.get("anti_bot_level", 1)
-                logger.debug(
-                    f"Raw anti_bot_level parameter: {anti_bot_level_raw} (type: {type(anti_bot_level_raw)})"
-                )
-
-                # Strict validation: anti_bot_level must be an integer, with smart conversion for numeric strings
-                if isinstance(anti_bot_level_raw, int):
-                    # Perfect: already an integer
-                    anti_bot_level = anti_bot_level_raw
-                elif isinstance(anti_bot_level_raw, str):
-                    # Try to convert numeric strings to integers
-                    if anti_bot_level_raw.isdigit() and len(anti_bot_level_raw) == 1:
-                        anti_bot_level = int(anti_bot_level_raw)
+                # Additional validation for anti_bot_level to allow named levels
+                if isinstance(anti_bot_level_raw, str) and not anti_bot_level_raw.isdigit():
+                    # Try named string mapping for anti_bot_level
+                    level_mapping = {
+                        "basic": 0,
+                        "enhanced": 1,
+                        "advanced": 2,
+                        "stealth": 3,
+                        "low": 0,
+                        "medium": 1,
+                        "high": 2,
+                        "maximum": 3,
+                    }
+                    anti_bot_level_str = anti_bot_level_raw.lower().strip()
+                    if anti_bot_level_str in level_mapping:
+                        anti_bot_level = level_mapping[anti_bot_level_str]
                         logger.info(
-                            f"🔄 Converted numeric string '{anti_bot_level_raw}' to integer {anti_bot_level}"
+                            f"🔄 Converted named string '{anti_bot_level_raw}' to integer {anti_bot_level}"
                         )
                     else:
-                        # Try named string mapping
-                        level_mapping = {
-                            "basic": 0,
-                            "enhanced": 1,
-                            "advanced": 2,
-                            "stealth": 3,
-                            "low": 0,
-                            "medium": 1,
-                            "high": 2,
-                            "maximum": 3,
-                        }
-                        anti_bot_level_str = anti_bot_level_raw.lower().strip()
-                        if anti_bot_level_str in level_mapping:
-                            anti_bot_level = level_mapping[anti_bot_level_str]
-                            logger.info(
-                                f"🔄 Converted named string '{anti_bot_level_raw}' to integer {anti_bot_level}"
-                            )
-                        else:
-                            error_msg = f"FAIL-FAST PARAMETER ERROR: ❌ **CRITICAL PARAMETER VALIDATION ERROR**: Invalid anti_bot_level parameter '{anti_bot_level_raw}' (type: {type(anti_bot_level_raw)}). Must be an integer between 0 and 3, or one of: {list(level_mapping.keys())}"
-                            logger.error(f"❌ {error_msg}")
-                            logger.error(
-                                f"String to integer mapping failed - unknown string value"
-                            )
-                            # Provide mapping guidance for numeric strings
-                            if anti_bot_level_raw.isdigit():
-                                logger.error(
-                                    f"💡 For numeric strings, use single digits: '0', '1', '2', '3'"
-                                )
-                            raise ValueError(error_msg)
-                else:
-                    # Any other type is invalid
-                    error_msg = f"FAIL-FAST PARAMETER ERROR: ❌ **CRITICAL PARAMETER VALIDATION ERROR**: Invalid anti_bot_level parameter '{anti_bot_level_raw}' (type: {type(anti_bot_level_raw)}). Must be an integer between 0 and 3."
-                    logger.error(f"❌ {error_msg}")
-                    raise ValueError(error_msg)
-
-                if not (0 <= anti_bot_level <= 3):
-                    raise ValueError(
-                        f"Invalid anti_bot_level '{anti_bot_level}'. Must be between 0 and 3"
-                    )
-
-                max_concurrent = int(args.get("max_concurrent", 15))
-                if not (1 <= max_concurrent <= 20):
-                    raise ValueError(
-                        f"Invalid max_concurrent '{max_concurrent}'. Must be between 1 and 20"
-                    )
+                        error_msg = f"FAIL-FAST PARAMETER ERROR: ❌ **CRITICAL PARAMETER VALIDATION ERROR**: Invalid anti_bot_level parameter '{anti_bot_level_raw}' (type: {type(anti_bot_level_raw)}). Must be an integer between 0 and 3, or one of: {list(level_mapping.keys())}"
+                        logger.error(f"❌ {error_msg}")
+                        raise ValueError(error_msg)
 
                 session_id = args.get("session_id", "default")
                 workproduct_prefix = args.get("workproduct_prefix", "")
