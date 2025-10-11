@@ -59,14 +59,19 @@ async def test_intelligent_research_directly():
             kevin_dir=kevin_dir
         )
 
+        if isinstance(result, tuple):
+            result_text, _ = result
+        else:
+            result_text = result
+
         print("\n📊 Results Analysis:")
-        print(f"  - Result length: {len(result)} characters")
-        print(f"  - Success: {'✅ Content extracted' if len(result) > 1000 else '❌ No content extracted'}")
+        print(f"  - Result length: {len(result_text)} characters")
+        print(f"  - Success: {'✅ Content extracted' if len(result_text) > 1000 else '❌ No content extracted'}")
 
         # Check for content extraction indicators
-        has_crawled_content = "EXTRACTED CONTENT" in result
-        has_work_product = "Work Product Saved" in result
-        has_multiple_sources = len(result.split('\n#')) > 5
+        has_crawled_content = "EXTRACTED CONTENT" in result_text
+        has_work_product = "Work Product Saved" in result_text
+        has_multiple_sources = len(result_text.split('\n#')) > 5
 
         print(f"  - Has crawled content: {'✅' if has_crawled_content else '❌'}")
         print(f"  - Has work products: {'✅' if has_work_product else '❌'}")
@@ -74,7 +79,7 @@ async def test_intelligent_research_directly():
 
         # Show first 800 characters
         print("\n📄 Content Preview (first 800 chars):")
-        print(result[:800])
+        print(result_text[:800])
         print("...")
 
         # Check work product directory
@@ -88,7 +93,7 @@ async def test_intelligent_research_directly():
         else:
             print(f"\n⚠️  No work product directory found at: {work_product_dir}")
 
-        if len(result) > 2000 and has_crawled_content:
+        if len(result_text) > 2000 and has_crawled_content:
             print("\n🎉 SUCCESS: Intelligent research system working correctly!")
             print("✅ Content length indicates successful extraction")
             print("✅ 'EXTRACTED CONTENT' indicates advanced scraping worked")

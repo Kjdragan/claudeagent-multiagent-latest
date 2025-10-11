@@ -6,11 +6,14 @@ parallel processing, anti-bot detection, and AI content cleaning.
 Adapted for integration with the multi-agent research system.
 """
 
-import asyncio
 import logging
 import os
+import re
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List
+from urllib.parse import urlparse
 
 # Performance timer imports
 try:
@@ -28,6 +31,21 @@ except ImportError:
 
     def save_session_performance_report(session_id, working_dir):
         pass
+
+from .crawl4ai_utils import crawl_multiple_urls_with_cleaning
+from .serp_search_utils import _build_orthogonal_queries
+from .url_tracker import get_url_tracker
+
+try:
+    from ..config.settings import get_enhanced_search_config
+except ImportError:
+    def get_enhanced_search_config():
+        class _FallbackConfig:
+            target_successful_scrapes = 10
+            candidate_pool_multiplier = 2.0
+            domain_soft_cap = 2
+            min_query_coverage = 1
+        return _FallbackConfig()
 
 logger = logging.getLogger(__name__)
 
@@ -84,9 +102,7 @@ async def execute_serper_search(
         import httpx
 
         # FAIL-FAST: Check for correct API key name - must match orchestrator expectations
-        serper_api_key = os.getenv(
-            "SERP_API_KEY"
-        )  # Note: SERP_API_KEY, not SERPER_API_KEY
+        serper_api_key = os.getenv("SERP_API_KEY") or os.getenv("SERPER_API_KEY")
 
         if not serper_api_key:
             # During development, fail hard and fast with clear error message
@@ -95,13 +111,6 @@ async def execute_serper_search(
             logger.error("Search functionality cannot work without SERP_API_KEY!")
             logger.error("Expected environment variable: SERP_API_KEY")
             logger.error("Set with: export SERP_API_KEY='your-serper-api-key'")
-
-            # Check if user has the wrong API key name
-            if os.getenv("SERPER_API_KEY"):
-                logger.error("🚨 FOUND SERPER_API_KEY but system expects SERP_API_KEY!")
-                logger.error(
-                    "Please rename your environment variable from SERPER_API_KEY to SERP_API_KEY"
-                )
 
             # During development, fail immediately instead of returning empty results
             raise RuntimeError(f"CRITICAL SEARCH CONFIGURATION FAILURE: {error_msg}")
@@ -338,11 +347,200 @@ def format_search_results(search_results: list[SearchResult]) -> str:
     return "\n".join(result_parts)
 
 
+def _extract_domain(url: str) -> str:
+    try:
+        parsed = urlparse(url)
+        return parsed.netloc.lower()
+    except Exception:
+        return ""
+
+
+def _calculate_recency_multiplier(date_str: str, half_life_days: float = 7.0) -> float:
+    if not date_str:
+        return 1.0
+
+    now = datetime.utcnow()
+    parsed_date = None
+
+    for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%b %d, %Y", "%B %d, %Y"):
+        try:
+            parsed_date = datetime.strptime(date_str, fmt)
+            break
+        except ValueError:
+            continue
+
+    if not parsed_date:
+        match = re.search(r"(\d+)\s+(minute|hour|day|week|month|year)s?\s+ago", date_str.lower())
+        if match:
+            value = int(match.group(1))
+            unit = match.group(2)
+            if unit == "minute":
+                delta_days = value / (60 * 24)
+            elif unit == "hour":
+                delta_days = value / 24
+            elif unit == "day":
+                delta_days = value
+            elif unit == "week":
+                delta_days = value * 7
+            elif unit == "month":
+                delta_days = value * 30
+            elif unit == "year":
+                delta_days = value * 365
+            else:
+                delta_days = 0
+            age_days = max(delta_days, 0)
+        else:
+            return 1.0
+    else:
+        delta = now - parsed_date
+        age_days = max(delta.days + delta.seconds / 86400, 0)
+
+    if half_life_days <= 0:
+        return 1.0
+
+    decay_factor = 0.5 ** (age_days / half_life_days)
+    return max(0.2, decay_factor)
+
+
+def _select_candidate_urls(
+    search_results: List[SearchResult],
+    pool_target: int,
+    crawl_threshold: float,
+    domain_soft_cap: int,
+    pool_multiplier: float = 2.0,
+    min_per_query: int = 1,
+) -> tuple[List[str], Dict[str, Any]]:
+    if pool_target <= 0:
+        return [], {"per_query_counts": {}, "domain_counts": {}}
+
+    seen_urls: set[str] = set()
+    domain_counts: defaultdict[str, int] = defaultdict(int)
+    per_query_counts: defaultdict[str, int] = defaultdict(int)
+    candidates: List[str] = []
+
+    required_labels: List[str] = []
+    for result in search_results:
+        label = getattr(result, "query_label", "primary")
+        if label not in required_labels:
+            required_labels.append(label)
+
+    min_per_query = max(1, min_per_query)
+    domain_cap_for_candidates = max(domain_soft_cap, 1) + 1
+
+    def record_candidate(result: SearchResult) -> bool:
+        url = getattr(result, "link", "")
+        if not url or url in seen_urls:
+            return False
+        domain = _extract_domain(url)
+        label = getattr(result, "query_label", "primary")
+        candidates.append(url)
+        seen_urls.add(url)
+        domain_counts[domain] += 1
+        per_query_counts[label] += 1
+        return True
+
+    # Stage 1: ensure minimum per-query coverage
+    for label in required_labels:
+        label_results = [r for r in search_results if getattr(r, "query_label", "primary") == label]
+        if not label_results:
+            continue
+
+        for result in label_results:
+            if per_query_counts[label] >= min_per_query:
+                break
+            if result.relevance_score >= crawl_threshold:
+                record_candidate(result)
+
+        while per_query_counts[label] < min_per_query:
+            fallback = next((r for r in label_results if r.link and r.link not in seen_urls), None)
+            if fallback is None:
+                break
+            if not record_candidate(fallback):
+                break
+
+    max_candidates = max(pool_target, int(pool_target * pool_multiplier))
+
+    # Stage 2: add threshold-compliant results respecting domain cap strictly
+    for result in search_results:
+        if len(candidates) >= max_candidates:
+            break
+        url = getattr(result, "link", "")
+        if not url or url in seen_urls:
+            continue
+        if result.relevance_score < crawl_threshold:
+            continue
+        domain = _extract_domain(url)
+        if domain_counts[domain] >= domain_soft_cap:
+            continue
+        record_candidate(result)
+
+    # Stage 3: relax threshold if needed, still respecting hard cap
+    if len(candidates) < max_candidates:
+        for result in search_results:
+            if len(candidates) >= max_candidates:
+                break
+            url = getattr(result, "link", "")
+            if not url or url in seen_urls:
+                continue
+            domain = _extract_domain(url)
+            if domain_counts[domain] >= domain_cap_for_candidates:
+                continue
+            record_candidate(result)
+
+    # Stage 4: allow additional diversity by selecting underrepresented domains first
+    if len(candidates) < max_candidates:
+        ranked_by_domain = sorted(
+            (r for r in search_results if getattr(r, "link", "") not in seen_urls),
+            key=lambda r: domain_counts[_extract_domain(getattr(r, "link", ""))]
+        )
+        for result in ranked_by_domain:
+            if len(candidates) >= max_candidates:
+                break
+            url = getattr(result, "link", "")
+            if not url or url in seen_urls:
+                continue
+            domain = _extract_domain(url)
+            if domain_counts[domain] >= domain_cap_for_candidates:
+                continue
+            record_candidate(result)
+
+    fallback_applied = False
+    if len(candidates) < pool_target:
+        fallback_applied = True
+        for result in search_results:
+            if len(candidates) >= pool_target:
+                break
+            url = getattr(result, "link", "")
+            if not url or url in seen_urls:
+                continue
+            domain = _extract_domain(url)
+            seen_urls.add(url)
+            candidates.append(url)
+            domain_counts[domain] += 1
+            label = getattr(result, "query_label", "primary")
+            per_query_counts[label] += 1
+
+    stats = {
+        "per_query_counts": dict(per_query_counts),
+        "domain_counts": dict(domain_counts),
+        "pool_size": len(candidates),
+        "pool_target": pool_target,
+        "pool_multiplier": pool_multiplier,
+        "min_per_query": min_per_query,
+        "fallback_applied": fallback_applied,
+    }
+
+    return candidates, stats
+
+
 def save_work_product(
     search_results: list[SearchResult],
     crawled_content: list[str],
     urls: list[str],
     query: str,
+    selection_stats: dict[str, Any],
+    attempted_crawls: int,
+    successful_crawls: int,
     session_id: str = "default",
     workproduct_dir: str = None,
     workproduct_prefix: str = "",
@@ -351,10 +549,13 @@ def save_work_product(
     Save detailed search and crawl results to work product file.
 
     Args:
-        search_results: List of search results
-        crawled_content: List of cleaned content strings
-        urls: List of crawled URLs
+        search_results: List of search results retrieved from SERP
+        crawled_content: List of cleaned content strings (successful crawls)
+        urls: List of successfully crawled URLs (aligned with crawled_content)
         query: Original search query
+        selection_stats: Candidate selection statistics
+        attempted_crawls: Total crawl attempts made
+        successful_crawls: Count of successful crawls
         session_id: Session identifier
         workproduct_dir: Directory to save work products
         workproduct_prefix: Prefix for workproduct naming (e.g., "editor research")
@@ -401,6 +602,17 @@ def save_work_product(
 
             filepath = os.path.join(workproduct_dir, filename)
 
+        pool_size = selection_stats.get("pool_size", len(urls))
+        pool_target_value = selection_stats.get("pool_target", pool_size)
+        filtered_candidates = selection_stats.get("filtered_candidates", len(urls))
+        trimmed_for_limit = selection_stats.get("trimmed_for_limit", 0)
+        fallback_used = selection_stats.get("fallback_applied", False)
+        domain_counts = selection_stats.get("domain_counts", {})
+
+        success_rate = (
+            (successful_crawls / attempted_crawls) * 100 if attempted_crawls else 0.0
+        )
+
         # Build work product content
         workproduct_content = [
             "# Enhanced Search+Crawl+Clean Workproduct",
@@ -409,8 +621,13 @@ def save_work_product(
             f"**Export Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "**Agent**: Enhanced Search+Crawl Tool (zPlayground1 integration)",
             f"**Search Query**: {query}",
-            f"**Total Search Results**: {len(search_results)}",
-            f"**Successfully Crawled**: {len(crawled_content)}",
+            f"**Search Queries Executed**: {selection_stats.get('search_queries_executed', 1)} (Orthogonal: {len(selection_stats.get('orthogonal_queries', []))})",
+            f"**Search Results Retrieved**: {len(search_results)}",
+            f"**Candidates Selected**: {filtered_candidates} (Pool: {pool_size}, Target: {pool_target_value}, Trimmed: {trimmed_for_limit})",
+            f"**Crawl Attempts**: {attempted_crawls}",
+            f"**Successful Crawls**: {successful_crawls}",
+            f"**Crawl Success Rate**: {success_rate:.1f}%",
+            f"**Fallback Used**: {'Yes' if fallback_used else 'No'}",
             "",
             "---",
             "",
@@ -435,38 +652,39 @@ def save_work_product(
                 ]
             )
 
-        workproduct_content.extend(
-            ["", "## 📄 Detailed Crawled Content (AI Cleaned)", ""]
-        )
-
-        # Add detailed crawled content
-        for i, (content, url) in enumerate(zip(crawled_content, urls, strict=False), 1):
-            # Find corresponding search result for title
-            title = f"Article {i}"
-            for result in search_results:
-                if result.link == url:
-                    title = result.title
-                    break
-
+        if crawled_content:
             workproduct_content.extend(
-                [
-                    f"## 🌐 {i}. {title}",
-                    "",
-                    f"**URL**: {url}",
-                    f"**Extraction Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-                    f"**Content Length**: {len(content)} characters",
-                    "**Processing**: ✅ Cleaned with GPT-5-nano",
-                    "",
-                    "### 📄 Full Cleaned Content",
-                    "",
-                    "---",
-                    "",
-                    content,
-                    "",
-                    "---",
-                    "",
-                ]
+                ["", "## 📄 Detailed Crawled Content (AI Cleaned)", ""]
             )
+
+            # Add detailed crawled content
+            for i, (content, url) in enumerate(zip(crawled_content, urls, strict=False), 1):
+                # Find corresponding search result for title
+                title = f"Article {i}"
+                for result in search_results:
+                    if result.link == url:
+                        title = result.title
+                        break
+
+                workproduct_content.extend(
+                    [
+                        f"## 🌐 {i}. {title}",
+                        "",
+                        f"**URL**: {url}",
+                        f"**Extraction Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                        f"**Content Length**: {len(content)} characters",
+                        "**Processing**: ✅ Cleaned with GPT-5-nano",
+                        "",
+                        "### 📄 Full Cleaned Content",
+                        "",
+                        "---",
+                        "",
+                        content,
+                        "",
+                        "---",
+                        "",
+                    ]
+                )
 
         # Add footer
         workproduct_content.extend(
@@ -475,8 +693,13 @@ def save_work_product(
                 "## 📊 Processing Summary",
                 "",
                 f"- **Search Query**: {query}",
-                f"- **Search Results Found**: {len(search_results)}",
-                f"- **URLs Successfully Crawled**: {len(crawled_content)}",
+                f"- **Search Results Retrieved**: {len(search_results)}",
+                f"- **Candidates Selected for Crawling**: {filtered_candidates} (Pool: {pool_size})",
+                f"- **Crawl Attempts**: {attempted_crawls}",
+                f"- **Successful Crawls**: {successful_crawls}",
+                f"- **Crawl Success Rate**: {success_rate:.1f}%",
+                f"- **Unique Domains in Pool**: {len(domain_counts)}",
+                f"- **Fallback Applied**: {'Yes' if fallback_used else 'No'}",
                 "- **Content Cleaning**: GPT-5-nano AI processing",
                 "- **Total Processing Time**: Combined search+crawl+clean in single operation",
                 "- **Performance**: Parallel processing with anti-bot detection",
@@ -484,6 +707,98 @@ def save_work_product(
                 "*Generated by Enhanced Search+Crawl+Clean Tool - Powered by zPlayground1 technology*",
             ]
         )
+
+        if domain_counts:
+            workproduct_content.extend([
+                "",
+                "## 🌍 Domain Distribution",
+                "",
+            ])
+            for domain, count in sorted(domain_counts.items(), key=lambda item: item[1], reverse=True):
+                workproduct_content.append(f"- {domain}: {count}")
+
+        # Add excluded sites section if any URLs were excluded
+        skipped_urls = selection_stats.get("skipped_urls", [])
+        if skipped_urls:
+            from urllib.parse import urlparse
+            from utils.url_tracker import get_url_tracker
+
+            url_tracker = get_url_tracker()
+            excluded_domains = url_tracker.get_excluded_domains()
+
+            # Categorize excluded URLs by reason
+            domain_excluded = []
+            already_successful = []
+            session_duplicates = []
+
+            for url in skipped_urls:
+                domain = urlparse(url).netloc.lower()
+                if domain in excluded_domains:
+                    domain_excluded.append(url)
+                elif url in url_tracker.url_records and url_tracker.url_records[url].is_successful:
+                    already_successful.append(url)
+                elif url in url_tracker.session_urls:
+                    session_duplicates.append(url)
+
+            # Add excluded sites section
+            excluded_sections = []
+
+            if domain_excluded:
+                excluded_sections.extend([
+                    "",
+                    "## 🚫 Excluded Sites (Domain Block List)",
+                    "",
+                    f"The following {len(domain_excluded)} URLs were excluded due to being on the domain exclusion list:",
+                    ""
+                ])
+
+                # Group by domain for better organization
+                domain_groups = {}
+                for url in domain_excluded:
+                    domain = urlparse(url).netloc.lower()
+                    if domain not in domain_groups:
+                        domain_groups[domain] = []
+                    domain_groups[domain].append(url)
+
+                for domain, urls in sorted(domain_groups.items()):
+                    excluded_sections.append(f"**{domain}** ({len(urls)} URLs):")
+                    for url in urls[:3]:  # Show up to 3 URLs per domain
+                        excluded_sections.append(f"  - {url}")
+                    if len(urls) > 3:
+                        excluded_sections.append(f"  - ... and {len(urls) - 3} more URLs")
+                    excluded_sections.append("")
+
+            if already_successful:
+                excluded_sections.extend([
+                    "## ✅ Previously Processed Sites",
+                    "",
+                    f"The following {len(already_successful)} URLs were skipped as they were successfully processed in previous sessions:",
+                    ""
+                ])
+
+                for url in already_successful[:5]:  # Show up to 5 examples
+                    excluded_sections.append(f"  - {url}")
+                if len(already_successful) > 5:
+                    excluded_sections.append(f"  - ... and {len(already_successful) - 5} more previously processed URLs")
+                excluded_sections.append("")
+
+            if session_duplicates:
+                excluded_sections.extend([
+                    "## 🔄 Session Duplicates",
+                    "",
+                    f"The following {len(session_duplicates)} URLs were skipped as duplicates within the current session:",
+                    ""
+                ])
+
+                for url in session_duplicates[:3]:  # Show up to 3 examples
+                    excluded_sections.append(f"  - {url}")
+                if len(session_duplicates) > 3:
+                    excluded_sections.append(f"  - ... and {len(session_duplicates) - 3} more duplicate URLs")
+                excluded_sections.append("")
+
+            # Add all excluded sections to work product
+            if excluded_sections:
+                workproduct_content.extend(excluded_sections)
 
         # Write to file
         with open(filepath, "w", encoding="utf-8") as f:
@@ -536,8 +851,13 @@ async def search_crawl_and_clean_direct(
     try:
         start_time = datetime.now()
         logger.info(
-            f"Starting enhanced search+crawl+clean for query: '{query}' (anti_bot_level: {anti_bot_level})"
+            f"Starting search+crawl+clean for query: '{query}' (requested anti_bot_level: {anti_bot_level})"
         )
+        if anti_bot_level != 1:
+            logger.debug(
+                "SimpleCrawler pipeline ignores anti_bot_level parameter (received %s)",
+                anti_bot_level,
+            )
 
         # Initialize performance timer for this session
         timer = get_performance_timer()
@@ -569,18 +889,108 @@ async def search_crawl_and_clean_direct(
 
         # Step 2: Execute search with optimal strategy (1-2 seconds)
         async with timed_block("search_execution", metadata={"query": query, "search_type": optimal_search_type}):
-            search_results = await execute_serper_search(
+            primary_results = await execute_serper_search(
                 query=query, search_type=optimal_search_type, num_results=num_results
             )
+
+        search_results: list[SearchResult] = []
+        for res in primary_results:
+            setattr(res, "query_label", "primary")
+            setattr(res, "query_weight", 1.0)
+            search_results.append(res)
+
+        config = get_enhanced_search_config()
+        enable_orthogonals = getattr(config, "enable_orthogonal_queries", True)
+        max_orthogonals = int(getattr(config, "max_orthogonal_queries", 2))
+        orthogonal_stats: list[dict[str, Any]] = []
+
+        if enable_orthogonals and max_orthogonals > 0:
+            orthogonal_entries = _build_orthogonal_queries(query, max_orthogonals)
+            for idx, entry in enumerate(orthogonal_entries, 1):
+                orth_query = entry.get("query")
+                if not orth_query:
+                    continue
+                async with timed_block(
+                    "orthogonal_search_execution",
+                    metadata={"query": orth_query, "label": entry.get("angle"), "index": idx},
+                ):
+                    orth_results = await execute_serper_search(
+                        query=orth_query,
+                        search_type=optimal_search_type,
+                        num_results=num_results,
+                    )
+
+                for res in orth_results:
+                    setattr(res, "query_label", f"orthogonal_{idx}")
+                    setattr(res, "query_weight", 0.8)
+                    search_results.append(res)
+
+                orthogonal_stats.append(
+                    {
+                        "index": idx,
+                        "angle": entry.get("angle"),
+                        "query": orth_query,
+                        "results": len(orth_results),
+                    }
+                )
+
+                logger.debug(
+                    "Orthogonal query %s (%s) produced %s results",
+                    idx,
+                    entry.get("angle"),
+                    len(orth_results),
+                )
+
+            logger.info(
+                "Executed %d orthogonal queries", len(orthogonal_stats)
+            )
+        else:
+            logger.info("Orthogonal query expansion disabled")
 
         if not search_results:
             return f"❌ **Search Failed**\n\nNo results found for query: '{query}'"
 
-        # Step 2: Select URLs for crawling based on relevance
-        urls_to_crawl = select_urls_for_crawling(
+        selection_stats: dict[str, Any]
+
+        # Step 2: Build candidate URL set using target-based selection
+        target_successful_scrapes = getattr(config, "target_successful_scrapes", auto_crawl_top)
+        minimum_candidate_pool = int(getattr(config, "minimum_candidate_pool", 20))
+        pool_target = max(target_successful_scrapes, minimum_candidate_pool)
+        pool_multiplier = float(getattr(config, "candidate_pool_multiplier", 2.0))
+        domain_soft_cap = int(getattr(config, "domain_soft_cap", 2))
+        min_query_coverage = int(getattr(config, "min_query_coverage", 1))
+
+        candidate_urls, selection_stats = _select_candidate_urls(
             search_results=search_results,
-            limit=auto_crawl_top,
-            min_relevance=crawl_threshold,
+            pool_target=pool_target,
+            crawl_threshold=crawl_threshold,
+            domain_soft_cap=domain_soft_cap,
+            pool_multiplier=pool_multiplier,
+            min_per_query=min_query_coverage,
+        )
+
+        url_tracker = get_url_tracker()
+        urls_to_crawl, skipped_urls = url_tracker.filter_urls(candidate_urls, session_id)
+        selection_stats["filtered_candidates"] = len(urls_to_crawl)
+        selection_stats["skipped_urls"] = skipped_urls
+        selection_stats["target_successful_scrapes"] = target_successful_scrapes
+        selection_stats["orthogonal_queries"] = orthogonal_stats
+        selection_stats["search_queries_executed"] = 1 + len(orthogonal_stats)
+
+        # Respect auto_crawl_top as an upper bound but keep extra buffer if target is higher
+        max_urls = max(auto_crawl_top, target_successful_scrapes)
+        if len(urls_to_crawl) > max_urls:
+            selection_stats["trimmed_for_limit"] = len(urls_to_crawl) - max_urls
+            urls_to_crawl = urls_to_crawl[:max_urls]
+
+        logger.info(
+            "Candidate selection complete: target_success=%s, pool_target=%s, selected=%s, skipped=%s, fallback=%s, domains=%s",
+            target_successful_scrapes,
+            pool_target,
+            len(urls_to_crawl),
+            len(skipped_urls),
+            selection_stats.get("fallback_applied"),
+            selection_stats.get("domain_counts"),
         )
 
         if not urls_to_crawl:
@@ -588,145 +998,49 @@ async def search_crawl_and_clean_direct(
             search_section = format_search_results(search_results)
             return f"{search_section}\n\n**Note**: No URLs met the crawling threshold ({crawl_threshold}). Standard search results provided above."
 
-        # Step 3: Process URLs with IMMEDIATE cleaning after each scrape completes
-        # This eliminates the sequential bottleneck between scraping and cleaning
+        # Step 3: Process URLs using the proven zPlayground SimpleCrawler pipeline
         logger.info(
-            f"Processing {len(urls_to_crawl)} URLs with immediate cleaning (anti_bot_level: {anti_bot_level})"
+            f"Processing {len(urls_to_crawl)} URLs with zPlayground SimpleCrawler parallel crawl+clean"
         )
 
-        # Import dependencies
-        from utils.anti_bot_escalation import get_escalation_manager
-        from agents.content_cleaner_agent import ContentCleaningContext, get_content_cleaner
-        from urllib.parse import urlparse
-
-        escalation_manager = get_escalation_manager()
-        content_cleaner = get_content_cleaner()
-        query_terms = query.split()
-
-        # Semaphores for concurrency control
-        scrape_semaphore = asyncio.Semaphore(max_concurrent)
-        clean_semaphore = asyncio.Semaphore(max_concurrent)  # No rate limiting restrictions
-
-        # Process each URL: scrape then immediately clean
-        async def process_url_immediately(url: str):
-            """Scrape URL, then immediately clean it without waiting for others."""
-
-            # Scrape with anti-bot escalation
-            async with scrape_semaphore:
-                scrape_result = await escalation_manager.crawl_with_escalation(
-                    url=url,
-                    initial_level=anti_bot_level,
-                    max_level=3,
-                    use_content_filter=False,
-                    session_id=session_id,
-                )
-
-            # Check if scraping succeeded
-            if not scrape_result.success or not scrape_result.content or len(scrape_result.content.strip()) < 200:
-                logger.error(
-                    f"❌ Scraping failed: {url} [L{scrape_result.final_level}, {scrape_result.attempts_made} attempts] - {scrape_result.error}"
-                )
-                return {
-                    "success": False,
-                    "url": url,
-                    "scrape_result": scrape_result,
-                }
-
-            # Log successful scrape
-            escalation_info = f"L{scrape_result.final_level}"
-            if scrape_result.escalation_used:
-                escalation_info += f" (escalated)"
-            logger.info(
-                f"✅ Scraped: {len(scrape_result.content)} chars from {url} [{escalation_info}, {scrape_result.duration:.1f}s]"
+        async with timed_block(
+            "concurrent_crawl_and_clean",
+            metadata={"url_count": len(urls_to_crawl)}
+        ):
+            crawl_results = await crawl_multiple_urls_with_cleaning(
+                urls=urls_to_crawl,
+                session_id=session_id,
+                search_query=query,
+                max_concurrent=max_concurrent,
+                extraction_mode="article"
             )
-
-            # IMMEDIATELY clean the scraped content (don't wait for other URLs!)
-            async with clean_semaphore:
-                domain = urlparse(url).netloc.lower()
-                context = ContentCleaningContext(
-                    search_query=query,
-                    query_terms=query_terms,
-                    url=url,
-                    source_domain=domain,
-                    session_id=session_id,
-                    min_quality_threshold=50,
-                    max_content_length=50000,
-                )
-
-                clean_result = await content_cleaner.clean_content(
-                    scrape_result.content.strip(), context
-                )
-
-            return {
-                "success": True,
-                "url": url,
-                "scrape_result": scrape_result,
-                "clean_result": clean_result,
-                "context": context,
-            }
-
-        # Launch all URLs concurrently - each will scrape then immediately clean
-        logger.info("🚀 Launching concurrent scrape+clean processing...")
-        tasks = [process_url_immediately(url) for url in urls_to_crawl]
-
-        async with timed_block("concurrent_scrape_and_clean", metadata={"url_count": len(urls_to_crawl)}):
-            all_results = await asyncio.gather(*tasks, return_exceptions=True)
 
         end_time = datetime.now()
         total_duration = (end_time - start_time).total_seconds()
 
-        # Step 4: Extract successful results
         cleaned_content_list = []
         cleaned_urls = []
-        escalation_stats = []
-        cleaning_stats = []
+        crawl_stats = []
 
-        for result in all_results:
-            if isinstance(result, Exception):
-                logger.error(f"Exception processing URL: {result}")
+        for result in crawl_results:
+            if not isinstance(result, dict):
+                logger.error(f"Unexpected crawl result type: {type(result)}")
                 continue
 
-            if not result["success"]:
-                # Track failed scrape
-                escalation_stats.append({
-                    "url": result["url"],
-                    "success": False,
-                    "attempts": result["scrape_result"].attempts_made,
-                    "final_level": result["scrape_result"].final_level,
-                    "escalation_used": result["scrape_result"].escalation_used,
-                    "duration": result["scrape_result"].duration,
-                    "word_count": 0,
-                    "char_count": 0,
-                })
-                continue
+            crawl_stats.append(result)
 
-            # Track successful scrape
-            scrape_result = result["scrape_result"]
-            escalation_stats.append({
-                "url": result["url"],
-                "success": True,
-                "attempts": scrape_result.attempts_made,
-                "final_level": scrape_result.final_level,
-                "escalation_used": scrape_result.escalation_used,
-                "duration": scrape_result.duration,
-                "word_count": scrape_result.word_count,
-                "char_count": scrape_result.char_count,
-            })
+            cleaned_content = result.get("cleaned_content") or result.get("content", "")
+            if result.get("success") and cleaned_content and len(cleaned_content.strip()) > 200:
+                cleaned_content_list.append(cleaned_content.strip())
+                cleaned_urls.append(result.get("url"))
 
-            # Track cleaning result (accept all content regardless of quality score)
-            clean_result = result["clean_result"]
-            if clean_result.quality_score >= 0:
-                cleaned_content_list.append(clean_result.cleaned_content)
-                cleaned_urls.append(result["url"])
+        success_count = sum(1 for r in crawl_stats if r.get("success"))
+        cleaned_lookup = {
+            r.get("url"): r for r in crawl_stats if r.get("success")
+        }
 
-                cleaning_stats.append({
-                    "url": result["url"],
-                    "quality_score": clean_result.quality_score,
-                    "quality_level": clean_result.quality_level.value,
-                    "relevance_score": clean_result.relevance_score,
-                    "word_count": clean_result.word_count,
-                    "processing_time": clean_result.processing_time,
-                })
+        attempted_count = len(crawl_stats)
+        success_rate = (success_count / attempted_count * 100) if attempted_count else 0.0
 
         if cleaned_content_list:
             # Step 5: Format results for orchestrator
@@ -742,9 +1056,9 @@ async def search_crawl_and_clean_direct(
 - **Search Type**: {optimal_search_type}
 - **Results Found**: {len(search_results)}
 - **URLs Selected**: {len(urls_to_crawl)}
-- **Successfully Scraped**: {len([s for s in escalation_stats if s['success']])}
+- **Successfully Scraped**: {success_count}
 - **Successfully Cleaned**: {len(cleaned_content_list)}
-- **Processing Mode**: ⚡ Immediate (Concurrent Scrape+Clean)
+- **Processing Mode**: ⚡ SimpleCrawler parallel crawl+clean
 
 ## Search Results Summary
 
@@ -773,20 +1087,18 @@ async def search_crawl_and_clean_direct(
                     else "Unknown"
                 )
 
-                # Get cleaning stats for this URL
-                clean_stat = next(
-                    (cs for cs in cleaning_stats if cs["url"] == url), None
-                )
-                quality_info = (
-                    f"{clean_stat['quality_score']}/100 ({clean_stat['quality_level']})"
-                    if clean_stat
-                    else "N/A"
-                )
+                # Get crawl stats for this URL
+                clean_stat = cleaned_lookup.get(url)
+                quality_info = "cleaned"
+                if clean_stat:
+                    char_count = clean_stat.get("char_count", len(content))
+                    cleaned_flag = clean_stat.get("content_cleaned", True)
+                    quality_info = f"{char_count} chars{' (LLM cleaned)' if cleaned_flag else ''}"
 
                 orchestrator_data += f"""### Cleaned Article {i}: {title}
 **URL**: {url}
 **Source**: {source}
-**Quality Score**: {quality_info}
+**Content Summary**: {quality_info}
 **Content Length**: {len(content)} characters
 **Processing**: ✅ Immediate scrape→clean
 
@@ -802,20 +1114,27 @@ async def search_crawl_and_clean_direct(
 ## PROCESSING SUMMARY
 
 - **Search executed**: {optimal_search_type} search for "{query}"
-- **Results found**: {len(search_results)} search results
-- **URLs selected for crawling**: {len(urls_to_crawl)} (threshold: {crawl_threshold})
-- **Successful scrapes**: {len([s for s in escalation_stats if s['success']])}
-- **Successful cleans**: {len(cleaned_content_list)}
+- **Search queries executed**: {selection_stats.get("search_queries_executed", 1)} (Orthogonal: {len(selection_stats.get("orthogonal_queries", []))})
+- **Search results retrieved**: {len(search_results)} (threshold: {crawl_threshold})
+- **Candidates selected**: {selection_stats.get("filtered_candidates", len(urls_to_crawl))} (Pool: {selection_stats.get("pool_size")}, Target: {selection_stats.get("pool_target", selection_stats.get("pool_size"))}, Trimmed: {selection_stats.get("trimmed_for_limit", 0)})
+- **Crawl attempts**: {attempted_count}
+- **Successful crawls**: {success_count}
+- **Crawl success rate**: {success_rate:.1f}%
+- **Fallback applied**: {'Yes' if selection_stats.get("fallback_applied") else 'No'}
+- **Unique domains in pool**: {len(selection_stats.get("domain_counts", {}))}
 - **Total execution time**: {total_duration:.2f}s
-- **Anti-bot level used**: {anti_bot_level}
-- **Processing mode**: Immediate cleaning (no waiting between scrape and clean stages)
+- **Crawler profile**: SimpleCrawler (parallel crawl+clean)
 
-### Escalation Statistics
+### Crawl Statistics
 """
-            for stat in escalation_stats:
-                if stat["success"]:
-                    orchestrator_data += f"""- {stat['url']}: L{stat['final_level']}, {stat['attempts']} attempts, {stat['duration']:.1f}s, {stat['char_count']} chars
-"""
+            for stat in crawl_stats:
+                status = "✅" if stat.get("success") else "❌"
+                orchestrator_data += (
+                    f"- {status} {stat.get('url')}: "
+                    f"{stat.get('char_count', 0)} chars, "
+                    f"{stat.get('duration', 0):.1f}s"
+                    f"{' (cleaned)' if stat.get('content_cleaned') else ''}\n"
+                )
 
             # Save work product
             work_product_path = save_work_product(
@@ -823,6 +1142,9 @@ async def search_crawl_and_clean_direct(
                 crawled_content=cleaned_content_list,
                 urls=cleaned_urls,
                 query=query,
+                selection_stats=selection_stats,
+                attempted_crawls=attempted_count,
+                successful_crawls=success_count,
                 session_id=session_id,
                 workproduct_dir=workproduct_dir,
                 workproduct_prefix=workproduct_prefix,
@@ -843,6 +1165,9 @@ async def search_crawl_and_clean_direct(
                 crawled_content=[],
                 urls=[],
                 query=query,
+                selection_stats=selection_stats,
+                attempted_crawls=attempted_count,
+                successful_crawls=0,
                 session_id=session_id,
                 workproduct_dir=workproduct_dir,
                 workproduct_prefix=workproduct_prefix,
@@ -853,7 +1178,12 @@ async def search_crawl_and_clean_direct(
 ---
 
 **Note**: Content extraction and cleaning failed for all selected URLs. Only search results available.
-**Anti-Bot Level**: {anti_bot_level}
+**Search Queries Executed**: {selection_stats.get("search_queries_executed", 1)} (Orthogonal: {len(selection_stats.get("orthogonal_queries", []))})
+**Candidates Selected**: {selection_stats.get("filtered_candidates", 0)} (Pool: {selection_stats.get("pool_size")}, Target: {selection_stats.get("pool_target", selection_stats.get("pool_size"))})
+**Crawl Attempts**: {attempted_count}
+**Successful Crawls**: 0
+**Crawl Success Rate**: 0.0%
+**Unique Domains**: {len(selection_stats.get("domain_counts", {}))}
 **Execution Time**: {total_duration:.2f}s
 **Work Product Saved**: {work_product_path}
 """

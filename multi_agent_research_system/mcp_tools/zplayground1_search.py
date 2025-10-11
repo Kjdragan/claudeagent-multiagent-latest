@@ -202,28 +202,18 @@ def create_zplayground1_mcp_server():
 
                     return result
 
-                # Apply normalization to all numeric parameters
-                num_results = normalize_int_param(num_results_raw, 15, 1, 50, "num_results")
-                auto_crawl_top = normalize_int_param(auto_crawl_top_raw, 10, 0, 20, "auto_crawl_top")
-                max_concurrent = normalize_int_param(max_concurrent_raw, 15, 1, 20, "max_concurrent")
-                anti_bot_level = normalize_int_param(anti_bot_level_raw, 1, 0, 3, "anti_bot_level")
-                crawl_threshold = normalize_float_param(crawl_threshold_raw, 0.3, 0.0, 1.0, "crawl_threshold")
+                # Handle anti_bot_level string mapping BEFORE numeric normalization
+                anti_bot_level = None
+                anti_bot_level_error = None
 
-                # Extract non-numeric parameters
-                search_mode = args.get("search_mode", "web")
-                if search_mode not in ["web", "news"]:
-                    raise ValueError(
-                        f"Invalid search_mode '{search_mode}'. Must be 'web' or 'news'"
-                    )
-
-                # Additional validation for anti_bot_level to allow named levels
+                # Try named string mapping for anti_bot_level first
                 if isinstance(anti_bot_level_raw, str) and not anti_bot_level_raw.isdigit():
-                    # Try named string mapping for anti_bot_level
                     level_mapping = {
                         "basic": 0,
                         "enhanced": 1,
                         "advanced": 2,
                         "stealth": 3,
+                        "standard": 1,  # Map "standard" to enhanced level
                         "low": 0,
                         "medium": 1,
                         "high": 2,
@@ -236,9 +226,29 @@ def create_zplayground1_mcp_server():
                             f"🔄 Converted named string '{anti_bot_level_raw}' to integer {anti_bot_level}"
                         )
                     else:
-                        error_msg = f"FAIL-FAST PARAMETER ERROR: ❌ **CRITICAL PARAMETER VALIDATION ERROR**: Invalid anti_bot_level parameter '{anti_bot_level_raw}' (type: {type(anti_bot_level_raw)}). Must be an integer between 0 and 3, or one of: {list(level_mapping.keys())}"
-                        logger.error(f"❌ {error_msg}")
-                        raise ValueError(error_msg)
+                        anti_bot_level_error = f"FAIL-FAST PARAMETER ERROR: ❌ **CRITICAL PARAMETER VALIDATION ERROR**: Invalid anti_bot_level parameter '{anti_bot_level_raw}' (type: {type(anti_bot_level_raw)}). Must be an integer between 0 and 3, or one of: {list(level_mapping.keys())}"
+
+                # Apply normalization to all numeric parameters (except anti_bot_level if already handled)
+                num_results = normalize_int_param(num_results_raw, 15, 1, 50, "num_results")
+                auto_crawl_top = normalize_int_param(auto_crawl_top_raw, 10, 0, 20, "auto_crawl_top")
+                max_concurrent = normalize_int_param(max_concurrent_raw, 15, 1, 20, "max_concurrent")
+                crawl_threshold = normalize_float_param(crawl_threshold_raw, 0.3, 0.0, 1.0, "crawl_threshold")
+
+                # Handle anti_bot_level numeric normalization if not already handled as string
+                if anti_bot_level is None:
+                    anti_bot_level = normalize_int_param(anti_bot_level_raw, 1, 0, 3, "anti_bot_level")
+
+                # Extract non-numeric parameters
+                search_mode = args.get("search_mode", "web")
+                if search_mode not in ["web", "news"]:
+                    raise ValueError(
+                        f"Invalid search_mode '{search_mode}'. Must be 'web' or 'news'"
+                    )
+
+                # Raise error if anti_bot_level string validation failed
+                if anti_bot_level_error:
+                    logger.error(f"❌ {anti_bot_level_error}")
+                    raise ValueError(anti_bot_level_error)
 
                 session_id = args.get("session_id", "default")
                 workproduct_prefix = args.get("workproduct_prefix", "")

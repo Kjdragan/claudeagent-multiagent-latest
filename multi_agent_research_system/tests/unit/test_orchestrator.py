@@ -11,7 +11,39 @@ import pytest
 # Add parent directory to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from core.orchestrator import ResearchOrchestrator
+from core.orchestrator import ResearchOrchestrator, SessionSearchBudget
+
+
+@pytest.mark.unit
+def test_session_budget_attempt_limits_enforced():
+    """Ensure attempt limits restrict additional processing once exhausted."""
+    budget = SessionSearchBudget("attempt-limit-session")
+
+    # Simulate attempts just below the limit with no successes required for this test
+    primary_attempt_limit = budget.primary_max_attempts
+    assert primary_attempt_limit > 0
+
+    budget.record_primary_research(urls_processed=primary_attempt_limit - 1, successful_scrapes=0, search_queries=0)
+
+    can_proceed, _ = budget.can_primary_research_proceed(1)
+    assert can_proceed is True
+
+    can_proceed, message = budget.can_primary_research_proceed(2)
+    assert can_proceed is False
+    assert "attempt limit" in message.lower()
+
+    # Editorial attempt checks
+    editorial_attempt_limit = budget.editorial_max_attempts
+    assert editorial_attempt_limit > 0
+
+    budget.record_editorial_research(urls_processed=editorial_attempt_limit - 1, successful_scrapes=0, search_queries=0)
+
+    can_proceed, _ = budget.can_editorial_research_proceed(1)
+    assert can_proceed is True
+
+    can_proceed, message = budget.can_editorial_research_proceed(2)
+    assert can_proceed is False
+    assert "attempt limit" in message.lower()
 
 
 class TestResearchOrchestrator:

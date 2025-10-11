@@ -328,6 +328,11 @@ def create_enhanced_search_mcp_server():
                 "default": "",
                 "description": "Optional prefix for work product filenames (e.g., 'editor research' for editorial work)",
             },
+            "allow_expansion": {
+                "type": "boolean",
+                "default": True,
+                "description": "Whether to generate orthogonal queries (disable for tightly scoped editor gap research)",
+            },
         },
     )
     async def enhanced_search_scrape_clean(args: dict[str, Any]) -> dict[str, Any]:
@@ -723,7 +728,21 @@ def create_enhanced_search_mcp_server():
             auto_crawl_top = int(args.get("auto_crawl_top", 10))
             crawl_threshold = float(args.get("crawl_threshold", 0.3))
             session_id = args.get("session_id", "default")
-            max_expanded_queries = int(args.get("max_expanded_queries", 3))
+            raw_max_expanded = args.get("max_expanded_queries", 3)
+            try:
+                max_expanded_queries = max(1, int(raw_max_expanded))
+            except (TypeError, ValueError):
+                max_expanded_queries = 3
+
+            workproduct_prefix = args.get("workproduct_prefix", "")
+            allow_expansion_param = args.get("allow_expansion", None)
+            if allow_expansion_param is None:
+                allow_expansion = not (isinstance(workproduct_prefix, str) and workproduct_prefix.lower().startswith("editor"))
+            else:
+                if isinstance(allow_expansion_param, str):
+                    allow_expansion = allow_expansion_param.lower() not in {"false", "0", "no"}
+                else:
+                    allow_expansion = bool(allow_expansion_param)
 
             # Set up work product directory
             workproduct_dir = os.environ.get("KEVIN_WORKPRODUCTS_DIR")
@@ -744,7 +763,8 @@ def create_enhanced_search_mcp_server():
             Path(workproduct_dir).mkdir(parents=True, exist_ok=True)
 
             logger.info(
-                f"Executing expanded query search: query='{query}', max_expanded_queries={max_expanded_queries}"
+                f"Executing expanded query search: query='{query}', "
+                f"max_expanded_queries={max_expanded_queries}, allow_expansion={allow_expansion}"
             )
 
             # Execute the corrected expanded query search and extract functionality
@@ -761,7 +781,14 @@ def create_enhanced_search_mcp_server():
                 session_id=session_id,
                 kevin_dir=kevin_root,
                 max_expanded_queries=max_expanded_queries,
+                allow_expansion=allow_expansion,
             )
+
+            extra_metadata: dict[str, Any] = {}
+            if isinstance(result, tuple):
+                result_text, extra_metadata = result
+            else:
+                result_text = result
 
             # Extract scrape count from result text for budget tracking
             import re
@@ -770,26 +797,26 @@ def create_enhanced_search_mcp_server():
             queries_executed = max_expanded_queries
 
             # Pattern 1: "Successfully Crawled: X"
-            match = re.search(r'\*\*Successfully Crawled\*\*:\s*(\d+)', result)
+            match = re.search(r'\*\*Successfully Crawled\*\*:\s*(\d+)', result_text)
             if match:
                 successful_scrapes = int(match.group(1))
 
             # Pattern 2: "URLs Extracted: X successfully processed"
             if not successful_scrapes:
-                match = re.search(r'\*\*URLs Extracted\*\*:\s*(\d+)\s+successfully', result)
+                match = re.search(r'\*\*URLs Extracted\*\*:\s*(\d+)\s+successfully', result_text)
                 if match:
                     successful_scrapes = int(match.group(1))
 
             # Pattern 3: "Total Queries Executed: X"
-            match = re.search(r'Total Queries Executed:\s*(\d+)', result)
+            match = re.search(r'Total Queries Executed:\s*(\d+)', result_text)
             if match:
                 queries_executed = int(match.group(1))
 
             # Check result length for token management
-            actual_chunking_needed = len(result) > 20000
+            actual_chunking_needed = len(result_text) > 20000
             if actual_chunking_needed:  # Leave room for other content
                 # Use adaptive chunking to split content into multiple blocks
-                content_blocks = create_adaptive_chunks(result, query)
+                content_blocks = create_adaptive_chunks(result_text, query)
                 logger.info(
                     f"Content split into {len(content_blocks)} chunks for token management"
                 )
@@ -811,11 +838,17 @@ def create_enhanced_search_mcp_server():
                         "successful_scrapes": successful_scrapes,
                         "urls_attempted": urls_attempted,
                         "search_queries_executed": queries_executed,
+                        "allow_expansion": allow_expansion,
+                        "workproduct_prefix": workproduct_prefix,
+                        "planner_metadata": extra_metadata.get("planner"),
+                        "domain_stats": extra_metadata.get("domain_stats"),
+                        "selection_stats": extra_metadata.get("selection_stats"),
+                        "summary": extra_metadata.get("summary"),
                     },
                 }
             else:
                 return {
-                    "content": [{"type": "text", "text": result}],
+                    "content": [{"type": "text", "text": result_text}],
                     "metadata": {
                         "query": query,
                         "search_type": search_type,
@@ -826,6 +859,12 @@ def create_enhanced_search_mcp_server():
                         "successful_scrapes": successful_scrapes,
                         "urls_attempted": urls_attempted,
                         "search_queries_executed": queries_executed,
+                        "allow_expansion": allow_expansion,
+                        "workproduct_prefix": workproduct_prefix,
+                        "planner_metadata": extra_metadata.get("planner"),
+                        "domain_stats": extra_metadata.get("domain_stats"),
+                        "selection_stats": extra_metadata.get("selection_stats"),
+                        "summary": extra_metadata.get("summary"),
                     },
                 }
 

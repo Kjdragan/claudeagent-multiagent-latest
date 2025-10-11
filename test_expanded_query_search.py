@@ -122,13 +122,19 @@ async def test_expanded_query_search():
             max_expanded_queries=3
         )
 
+        if isinstance(result, tuple):
+            result_text, metadata = result
+        else:
+            result_text = result
+            metadata = {}
+
         print(f"\n📊 Results Summary:")
-        print(f"Result length: {len(result)} characters")
+        print(f"Result length: {len(result_text)} characters")
 
         # Check if result was chunked (it will be a dict if chunked)
-        if isinstance(result, dict) and "content" in result:
+        if isinstance(result_text, dict) and "content" in result_text:
             print("📦 Result was chunked into multiple content blocks:")
-            content_blocks = result["content"]
+            content_blocks = result_text["content"]
             print(f"   Total chunks: {len(content_blocks)}")
 
             for i, chunk in enumerate(content_blocks):
@@ -174,7 +180,7 @@ async def test_expanded_query_search():
 
             found_sections = []
             for section in key_sections:
-                if section in result:
+                if section in result_text:
                     found_sections.append(section)
                     print(f"✅ Found section: {section}")
                 else:
@@ -183,7 +189,7 @@ async def test_expanded_query_search():
             print(f"\n📋 Sections found: {len(found_sections)}/{len(key_sections)}")
 
             # Extract key metrics
-            lines = result.split('\n')
+            lines = result_text.split('\n')
             print("\n📈 Key Metrics:")
             for line in lines:
                 if "Total Master Results" in line:

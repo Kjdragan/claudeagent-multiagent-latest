@@ -137,27 +137,42 @@ class URLTracker:
         self.url_records: dict[str, URLRecord] = {}
         self.session_urls: set[str] = set()
 
+        # Domain exclusion list - domains known to have scraping issues
+        self.excluded_domains: set[str] = {
+            "understandingwar.org",  # ISW - content extraction issues (navigation only)
+            # Add more problematic domains here as needed
+        }
+
         # Load existing tracking data
         self._load_tracking_data()
 
         logger.info(f"URLTracker initialized with {len(self.url_records)} existing URLs")
+        logger.info(f"Domain exclusion list: {self.excluded_domains}")
 
     def _load_tracking_data(self):
         """Load existing URL tracking data from storage."""
+        tracking_file = self.storage_dir / "url_tracking.json"
+        if not tracking_file.exists():
+            return
+
         try:
-            tracking_file = self.storage_dir / "url_tracking.json"
-            if tracking_file.exists():
-                with open(tracking_file, encoding='utf-8') as f:
-                    data = json.load(f)
+            with open(tracking_file, encoding='utf-8') as f:
+                data = json.load(f)
 
-                for url_data in data.get('url_records', []):
-                    url_record = self._deserialize_url_record(url_data)
-                    self.url_records[url_record.url] = url_record
+            for url_data in data.get('url_records', []):
+                url_record = self._deserialize_url_record(url_data)
+                self.url_records[url_record.url] = url_record
 
-                logger.info(f"Loaded {len(self.url_records)} URL records from storage")
+            logger.info(f"Loaded {len(self.url_records)} URL records from storage")
 
         except Exception as e:
             logger.warning(f"Error loading URL tracking data: {e}")
+            try:
+                backup_path = tracking_file.with_suffix(tracking_file.suffix + ".corrupt")
+                tracking_file.rename(backup_path)
+                logger.warning(f"Backed up corrupt URL tracker to {backup_path}")
+            except Exception as backup_error:
+                logger.debug(f"Failed to backup corrupt tracker file: {backup_error}")
 
     def _save_tracking_data(self):
         """Save URL tracking data to storage."""
@@ -230,7 +245,7 @@ class URLTracker:
 
     def filter_urls(self, urls: list[str], session_id: str = None) -> tuple[list[str], list[str]]:
         """
-        Filter URLs to remove duplicates and already successful URLs.
+        Filter URLs to remove duplicates, excluded domains, and already successful URLs.
 
         Args:
             urls: List of URLs to filter
@@ -241,17 +256,28 @@ class URLTracker:
         """
         urls_to_crawl = []
         skipped_urls = []
+        domain_excluded_urls = []
+        duplicate_urls = []
+        successful_urls = []
 
         for url in urls:
+            domain = self._get_domain(url)
+
+            # Check if domain is excluded
+            if domain in self.excluded_domains:
+                domain_excluded_urls.append(url)
+                logger.info(f"🚫 Excluding URL from blocked domain '{domain}': {url}")
+                continue
+
             # Check if URL is already successful
             if url in self.url_records and self.url_records[url].is_successful:
-                skipped_urls.append(url)
+                successful_urls.append(url)
                 logger.debug(f"Skipping already successful URL: {url}")
                 continue
 
             # Check if URL was already attempted in current session
             if url in self.session_urls:
-                skipped_urls.append(url)
+                duplicate_urls.append(url)
                 logger.debug(f"Skipping URL already attempted in session: {url}")
                 continue
 
@@ -261,8 +287,35 @@ class URLTracker:
             # Track as session URL
             self.session_urls.add(url)
 
-        logger.info(f"URL filtering: {len(urls_to_crawl)} to crawl, {len(skipped_urls)} skipped")
+        # Combine all skipped URLs for detailed reporting
+        skipped_urls = domain_excluded_urls + successful_urls + duplicate_urls
+
+        # Detailed logging
+        logger.info(f"URL filtering results:")
+        logger.info(f"  - Total input URLs: {len(urls)}")
+        logger.info(f"  - Domain excluded: {len(domain_excluded_urls)} (blocked domains)")
+        logger.info(f"  - Already successful: {len(successful_urls)} (previous success)")
+        logger.info(f"  - Session duplicates: {len(duplicate_urls)} (current session)")
+        logger.info(f"  - Final URLs to crawl: {len(urls_to_crawl)}")
+
+        if domain_excluded_urls:
+            logger.warning(f"⚠️  Excluded {len(domain_excluded_urls)} URLs from problematic domains")
+
         return urls_to_crawl, skipped_urls
+
+    def add_excluded_domain(self, domain: str):
+        """Add a domain to the exclusion list."""
+        self.excluded_domains.add(domain.lower())
+        logger.info(f"Added domain to exclusion list: {domain}")
+
+    def remove_excluded_domain(self, domain: str):
+        """Remove a domain from the exclusion list."""
+        self.excluded_domains.discard(domain.lower())
+        logger.info(f"Removed domain from exclusion list: {domain}")
+
+    def get_excluded_domains(self) -> set[str]:
+        """Get the current exclusion list."""
+        return self.excluded_domains.copy()
 
     def record_attempt(
         self,

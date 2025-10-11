@@ -117,44 +117,54 @@ async def clean_content_with_gpt5_nano(content: str, url: str, search_query: str
         # Create enhanced cleaning prompt with search query context
         query_context = f"**Search Query Context**: {search_query}\n" if search_query else ""
 
-        cleaning_prompt = f"""You are an expert content extractor specializing in removing web clutter and filtering for relevance. Clean this scraped content by preserving ONLY the main article content that is directly relevant to the search query.
+        cleaning_prompt = f"""You are an expert content extractor specializing in removing web clutter while preserving valuable article content. Clean this scraped content by removing navigation, ads, and page furniture while preserving the full article content including context and analysis.
 
 {query_context}**Source URL**: {url}
 
-**CRITICAL: REMOVE ALL UNRELATED ARTICLES**
-If this page contains multiple articles or stories, extract ONLY the article most relevant to the search query above. Remove any unrelated news stories, breaking news sections, or "other articles" that don't match the search topic.
+**REMOVE COMPLETELY (Web Page Furniture):**
+1. **Navigation**: Menus, breadcrumbs, category links, site navigation, header/footer
+2. **Social Media**: Follow buttons, sharing widgets, social platform links, social media feeds
+3. **Video/Media Controls**: Player interfaces, timers, modal dialogs, captions settings, video embeds
+4. **Advertisement**: "AD Loading", promotional banners, subscription prompts, sponsored content
+5. **Author Clutter**: Detailed bios, contact info, "Writers Page" links (keep author name and credentials)
+6. **Site Branding**: Logos, taglines, "Skip to content", newsletter signups, site notices
+7. **Related Articles Section**: "You might also like", trending stories, suggested articles sidebar
+8. **Interactive Elements**: Language dropdowns, AI translation disclaimers, accessibility controls
+9. **Comments/User Content**: User comments, review sections, user-generated content
+10. **Legal/Privacy**: Cookie notices, privacy policy links, terms of service, disclaimers
+11. **Technical HTML**: Scripts, stylesheets, meta tags, HTML artifacts
 
-**REMOVE COMPLETELY:**
-1. **Navigation**: Menus, breadcrumbs, category links, site navigation
-2. **Social Media**: Follow buttons, sharing widgets, social platform links
-3. **Video/Media Controls**: Player interfaces, timers, modal dialogs, captions settings
-4. **Advertisement**: "AD Loading", promotional banners, subscription prompts
-5. **Author Clutter**: Detailed bios, contact info, "Writers Page" links (keep only name)
-6. **Site Branding**: Logos, taglines, "Skip to content", newsletter signups
-7. **Related Content**: "You might also like", trending stories, suggested articles
-8. **Translation/Accessibility**: Language dropdowns, AI translation disclaimers
-9. **Comments/User Content**: User comments, review sections
-10. **Legal/Privacy**: Cookie notices, privacy policy links, terms of service
-11. **UNRELATED ARTICLES**: Any complete articles or news stories not related to the search query
+**PRESERVE FULL ARTICLE CONTENT:**
+1. **Main Article**: Complete article text, including all paragraphs and sections
+2. **Headline & Subheadings**: All article headings and subheadings
+3. **Context & Background**: Relevant background information, historical context
+4. **Analysis & Insights**: Expert analysis, commentary, strategic assessments
+5. **Data & Facts**: Statistics, figures, data points, timelines
+6. **Quotes & Sources**: Direct quotes, source attributions, references
+7. **Publication Info**: Publication date, author name, source attribution
+8. **Related Context**: Brief mentions of related events that provide understanding
 
-**PRESERVE ONLY:**
-1. Main article headline (most relevant to search query)
-2. Publication date and source name
-3. Article body content directly related to the search query
-4. Key facts, quotes, and data points from the main story
-5. Essential context that helps understand the main article
+**IMPORTANT CONSERVATION GUIDELINES:**
+- **Preserve 80-90% of original article content**
+- **Remove only web page furniture, not substantive content**
+- **Keep analysis, context, and background information**
+- **Maintain article's full narrative and analytical flow**
+- **Don't cut content just because it's not directly about the search query**
+- **Preserve valuable context that helps understanding**
 
 **OUTPUT FORMAT:**
 Return clean markdown with:
-- Clear article title
-- Clean paragraph structure
-- Essential quotes and facts
-- No HTML artifacts, navigation elements, or unrelated content
+- Complete article title and all subheadings
+- Full article body with paragraph structure
+- All analysis, context, and background information preserved
+- Essential quotes, facts, and data points
+- Publication date and source information
+- No HTML artifacts, navigation, or promotional content
 
 **Raw Content to Clean**:
 {content}
 
-**Clean Article Content (relevant to search query only):**"""
+**Clean Article Content (preserving full article with context):**"""
 
         # Use gpt-5-nano for fast content cleaning
         from pydantic_ai import Agent
@@ -175,12 +185,29 @@ Return clean markdown with:
         else:
             cleaned_content = str(result)
 
-        # Validate cleaned content isn't too short (indicating over-cleaning)
-        if len(cleaned_content.strip()) < 200:
-            logger.warning(f"LLM cleaning resulted in very short content for {url}, using original")
+        # Validate cleaned content quality
+        original_length = len(content)
+        cleaned_length = len(cleaned_content.strip())
+        compression_ratio = cleaned_length / original_length if original_length > 0 else 1.0
+
+        # Check for over-aggressive cleaning (too much content removed)
+        if cleaned_length < 200:
+            logger.warning(f"LLM cleaning resulted in very short content for {url} ({cleaned_length} chars), using original")
             return content
 
-        logger.info(f"Successfully cleaned content for {url}: {len(content)} -> {len(cleaned_content)} chars")
+        # Check for excessive compression (more than 80% removed)
+        if compression_ratio < 0.2 and original_length > 1000:
+            logger.warning(f"LLM cleaning was too aggressive for {url}: {original_length} -> {cleaned_length} chars ({compression_ratio:.1%}), using original")
+            return content
+
+        # Check for suspiciously low compression on long content (suggests good cleaning)
+        if original_length > 5000 and compression_ratio > 0.95:
+            logger.info(f"LLM cleaning had minimal effect for {url} ({compression_ratio:.1%} preserved), content was already clean")
+        elif compression_ratio < 0.5:
+            logger.info(f"LLM cleaning significantly reduced content for {url}: {original_length} -> {cleaned_length} chars ({compression_ratio:.1%})")
+        else:
+            logger.info(f"LLM cleaning moderately reduced content for {url}: {original_length} -> {cleaned_length} chars ({compression_ratio:.1%})")
+
         return cleaned_content.strip()
 
     except Exception as e:

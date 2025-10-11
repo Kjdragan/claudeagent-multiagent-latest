@@ -66,17 +66,22 @@ async def test_serp_search_with_advanced_extraction():
         kevin_dir=kevin_dir
     )
 
+    if isinstance(result, tuple):
+        result_text, _ = result
+    else:
+        result_text = result
+
     print("\n📊 Result:")
-    print(f"  - Length: {len(result)} characters")
-    print(f"  - Contains extracted content: {'EXTRACTED CONTENT' in result}")
+    print(f"  - Length: {len(result_text)} characters")
+    print(f"  - Contains extracted content: {'EXTRACTED CONTENT' in result_text}")
 
     # Show preview
     print("\n📄 Content Preview (first 800 chars):")
-    print(result[:800])
+    print(result_text[:800])
     print("...")
 
     # Verify improvement over old 2K limit
-    assert len(result) > 5000, f"Should extract much more content than old 2K limit (got {len(result)} chars)"
+    assert len(result_text) > 5000, f"Should extract much more content than old 2K limit (got {len(result_text)} chars)"
 
     print("\n✅ SERP search with advanced extraction test PASSED")
     return True

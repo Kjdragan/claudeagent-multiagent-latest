@@ -59,8 +59,16 @@ async def serp_search(args):
             session_id=session_id,
             kevin_dir=kevin_dir
         )
+        extra_metadata = {}
+        if isinstance(result, tuple):
+            result_text, extra_metadata = result
+        else:
+            result_text = result
 
-        return {"content": [{"type": "text", "text": result}]}
+        return {
+            "content": [{"type": "text", "text": result_text}],
+            "metadata": extra_metadata
+        }
 
     except Exception as e:
         error_msg = f"SERP API search failed: {str(e)}"

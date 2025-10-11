@@ -6,6 +6,7 @@ the built-in WebSearch and WebFetch capabilities directly.
 
 import json
 import os
+import re
 
 # Import from parent directory structure
 import sys
@@ -40,6 +41,55 @@ except ImportError:
             return func
         return decorator
     print("Warning: claude_agent_sdk not found. Using fallback tool decorator.")
+
+_workproduct_cache: dict[str, str] = {}
+
+
+def _resolve_candidate_paths(session_id: str, file_path: str | None = None) -> tuple[Path, list[Path]]:
+    """Return the session directory and a list of workproduct paths to search."""
+    session_dir = Path.cwd() / "KEVIN" / "sessions" / session_id
+    session_dir = session_dir.resolve()
+
+    if not session_dir.exists():
+        raise FileNotFoundError(f"Session directory not found: {session_dir}")
+
+    if file_path:
+        candidate = Path(file_path)
+        if not candidate.is_absolute():
+            candidate = session_dir / candidate
+        candidate = candidate.resolve()
+        if session_dir not in candidate.parents and candidate != session_dir:
+            raise ValueError("file_path must reside within the session directory")
+        if not candidate.is_file():
+            raise FileNotFoundError(f"Workproduct not found: {candidate}")
+        return session_dir, [candidate]
+
+    candidates: list[Path] = []
+    for subdir in ("research", "working"):
+        dir_path = (session_dir / subdir).resolve()
+        if dir_path.exists():
+            candidates.extend(sorted(dir_path.glob("*.md")))
+
+    if not candidates:
+        raise FileNotFoundError("No workproduct markdown files found for this session")
+
+    return session_dir, candidates
+
+
+def _get_cached_workproduct(path: Path, refresh: bool = False) -> str:
+    key = str(path.resolve())
+    if refresh or key not in _workproduct_cache:
+        _workproduct_cache[key] = path.read_text(encoding="utf-8")
+    return _workproduct_cache[key]
+
+
+def _build_snippet(text: str, match_start: int, context_lines: int) -> tuple[int, str]:
+    lines = text.splitlines()
+    start_line = text[:match_start].count("\n")
+    line_start = max(0, start_line - context_lines)
+    line_end = min(len(lines), start_line + context_lines + 1)
+    snippet = "\n".join(lines[line_start:line_end])
+    return start_line + 1, snippet
 
 
 @tool("save_research_findings", "Save research findings to session storage", {

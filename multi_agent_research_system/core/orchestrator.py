@@ -195,11 +195,11 @@ class SessionSearchBudget:
         """Fallback to legacy target values if configuration system fails."""
         self.logger.warning("Using legacy fallback targets")
 
-        # Default fallback values (same as configuration defaults)
+        # Default fallback values (optimized for efficiency)
         self.primary_successful_scrapes_limit = 15
         self.primary_max_attempts = 22  # 15 * 1.5 = 22.5, rounded down
-        self.editorial_successful_scrapes_limit = 6
-        self.editorial_max_attempts = 9   # 6 * 1.5 = 9
+        self.editorial_successful_scrapes_limit = 3  # Reduced from 6 to prevent excessive editorial searches
+        self.editorial_max_attempts = 5   # Reduced from 9 to 3 * 1.5 + 0.5 = 5
 
         self.logger.info(f"Using fallback targets:")
         self.logger.info(f"  Primary: {self.primary_successful_scrapes_limit} successful → {self.primary_max_attempts} max attempts")
@@ -228,6 +228,13 @@ class SessionSearchBudget:
         if self.primary_successful_scrapes >= self.primary_successful_scrapes_limit:
             return False, f"Primary research limit reached: {self.primary_successful_scrapes}/{self.primary_successful_scrapes_limit} successful scrapes"
 
+        # Check attempt limit (treated as URLs processed)
+        if self.primary_max_attempts and (self.primary_urls_processed + urls_to_process) > self.primary_max_attempts:
+            return False, (
+                f"Primary attempt limit would be exceeded: "
+                f"{self.primary_urls_processed}/{self.primary_max_attempts} attempts used"
+            )
+
         # Check total URL limit
         if self.total_urls_processed + urls_to_process > self.total_urls_processed_limit:
             return False, f"Session URL limit would be exceeded: {self.total_urls_processed + urls_to_process}/{self.total_urls_processed_limit}"
@@ -248,6 +255,13 @@ class SessionSearchBudget:
         if self.editorial_successful_scrapes >= self.editorial_successful_scrapes_limit:
             return False, f"Editorial scrape limit reached: {self.editorial_successful_scrapes}/{self.editorial_successful_scrapes_limit} successful scrapes"
 
+        # Check attempt limit (treated as URLs processed)
+        if self.editorial_max_attempts and (self.editorial_urls_processed + urls_to_process) > self.editorial_max_attempts:
+            return False, (
+                f"Editorial attempt limit would be exceeded: "
+                f"{self.editorial_urls_processed}/{self.editorial_max_attempts} attempts used"
+            )
+
         # Check total URL limit
         if self.total_urls_processed + urls_to_process > self.total_urls_processed_limit:
             return False, f"Session URL limit would be exceeded: {self.total_urls_processed + urls_to_process}/{self.total_urls_processed_limit}"
@@ -255,7 +269,7 @@ class SessionSearchBudget:
         return True, "Editorial research can proceed"
 
     def record_primary_research(self, urls_processed: int, successful_scrapes: int, search_queries: int = 1, quality_indicators: dict[str, Any] = None):
-        """Record primary research activity."""
+        """Record primary research activity (urls_processed represents attempted URLs)."""
         self.primary_urls_processed += urls_processed
         self.primary_successful_scrapes += successful_scrapes
         self.primary_search_queries += search_queries
@@ -271,7 +285,7 @@ class SessionSearchBudget:
         self.logger.info(f"Primary research recorded: {urls_processed} URLs, {successful_scrapes} successful scrapes")
 
     def record_editorial_research(self, urls_processed: int, successful_scrapes: int, search_queries: int = 1):
-        """Record editorial research activity."""
+        """Record editorial research activity (urls_processed represents attempted URLs)."""
         self.editorial_urls_processed += urls_processed
         self.editorial_successful_scrapes += successful_scrapes
         self.editorial_search_queries += search_queries
@@ -338,7 +352,7 @@ class SessionSearchBudget:
             "primary": {
                 "successful_scrapes": f"{self.primary_successful_scrapes}/{self.primary_successful_scrapes_limit}",
                 "max_attempts": self.primary_max_attempts,
-                "urls_processed": self.primary_urls_processed,
+                "attempts": f"{self.primary_urls_processed}/{self.primary_max_attempts}",
                 "search_queries": self.primary_search_queries,
                 "search_queries_remaining": 0,  # Primary research doesn't use query limits the same way
                 "can_proceed": self.can_primary_research_proceed()[0]
@@ -349,7 +363,7 @@ class SessionSearchBudget:
                 "search_queries": f"{self.editorial_search_queries}/{self.editorial_search_queries_limit}",
                 "search_queries_remaining": self.editorial_search_queries_limit - self.editorial_search_queries,
                 "search_queries_reached_limit": self.editorial_search_queries >= self.editorial_search_queries_limit,
-                "urls_processed": self.editorial_urls_processed,
+                "attempts": f"{self.editorial_urls_processed}/{self.editorial_max_attempts}",
                 "can_proceed": self.can_editorial_research_proceed()[0]
             },
             "global": {
@@ -475,6 +489,10 @@ class ResearchOrchestrator:
         self.quality_framework = QualityFramework()
         self.quality_gate_manager = QualityGateManager(logger=self.logger)
         self.progressive_enhancement_pipeline = ProgressiveEnhancementPipeline()
+
+        # Simple scrape counting system
+        self._session_scrape_counts: dict[str, dict] = {}
+        self.logger.info("Simple scrape counting system initialized")
         self.logger.info("Core workflow components initialized")
 
         self.agent_definitions = get_all_agent_definitions()
@@ -816,6 +834,34 @@ class ResearchOrchestrator:
     # Previous hook system (_get_simplified_hooks, _create_essential_tool_hook, _create_essential_completion_hook)
     # was removed as it provided minimal value while generating 250+ "Found 0 hook matchers" debug messages
     # and causing 59 unnecessary hook checks per session.
+
+    def _increment_scrape_count(self, session_id: str, agent_type: str, count: int = 1):
+        """Simple incrementing counter for scrapes.
+
+        Args:
+            session_id: Session identifier
+            agent_type: "primary" or "editorial"
+            count: Number of scrapes to increment (default: 1)
+        """
+        if session_id not in self._session_scrape_counts:
+            self._session_scrape_counts[session_id] = {"primary": 0, "editorial": 0}
+
+        self._session_scrape_counts[session_id][agent_type] += count
+        self.logger.info(f"🔢 Real-time scrape count: {session_id} {agent_type} = {self._session_scrape_counts[session_id][agent_type]} (+{count})")
+
+    def _get_scrape_count(self, session_id: str, agent_type: str) -> int:
+        """Get current scrape count for session and agent type.
+
+        Args:
+            session_id: Session identifier
+            agent_type: "primary" or "editorial"
+
+        Returns:
+            Current scrape count or 0 if not found
+        """
+        if session_id not in self._session_scrape_counts:
+            return 0
+        return self._session_scrape_counts[session_id].get(agent_type, 0)
 
     def _initialize_agent_loggers(self):
         """Initialize agent-specific loggers for each agent type."""
@@ -1308,14 +1354,60 @@ class ResearchOrchestrator:
                     self.logger.debug("ResultMessage received, stopping collection")
                     break
 
-                # Safety limit to prevent infinite loops
-                if len(query_result["messages_collected"]) >= 50:
-                    self.logger.warning(f"Message limit reached for {agent_name} query")
+                # Safety limit to prevent infinite loops (lowered for efficiency)
+                max_messages = 25  # Reduced from 50 to prevent excessive agent loops
+                if len(query_result["messages_collected"]) >= max_messages:
+                    self.logger.warning(f"Message limit reached for {agent_name} query: {len(query_result['messages_collected'])}/{max_messages}")
+                    self.logger.warning(f"Agent {agent_name} may be stuck in a loop - forcing termination")
+                    query_result["message_limit_reached"] = True
                     break
 
             query_result["success"] = True
             query_result["query_end_time"] = datetime.now().isoformat()
-            self.logger.info(f"✅ {agent_name} query completed: {len(query_result['messages_collected'])} messages")
+
+            # Performance monitoring and anomaly detection
+            query_duration = (datetime.now() - datetime.fromisoformat(query_result["query_start_time"])).total_seconds()
+            message_count = len(query_result['messages_collected'])
+            tool_count = len(query_result['tool_executions'])
+
+            # Log performance metrics
+            self.logger.info(f"✅ {agent_name} query completed: {message_count} messages, {tool_count} tools, {query_duration:.1f}s")
+
+            # Detect performance anomalies
+            if message_count > 20:
+                self.logger.warning(f"⚠️ High message count detected: {message_count} messages for {agent_name}")
+                self.logger.warning(f"   This may indicate inefficient agent behavior or loops")
+
+            if tool_count > 10:
+                self.logger.warning(f"⚠️ High tool usage detected: {tool_count} tools for {agent_name}")
+                self.logger.warning(f"   Consider optimizing tool usage patterns")
+
+            if query_duration > 180:  # 3 minutes
+                self.logger.warning(f"⚠️ Long query duration: {query_duration:.1f}s for {agent_name}")
+                self.logger.warning(f"   This may indicate performance issues or complex tasks")
+
+            # Calculate efficiency metrics
+            if message_count > 0:
+                tools_per_message = tool_count / message_count
+                if tools_per_message > 0.5:  # More than half messages involve tools
+                    self.logger.info(f"📊 High tool intensity: {tools_per_message:.2f} tools/message for {agent_name}")
+
+            # Store performance data for session tracking
+            if session_id and session_id in self.active_sessions:
+                session_data = self.active_sessions[session_id]
+                if "performance_metrics" not in session_data:
+                    session_data["performance_metrics"] = []
+
+                session_data["performance_metrics"].append({
+                    "agent_name": agent_name,
+                    "timestamp": query_result["query_end_time"],
+                    "duration_seconds": query_duration,
+                    "message_count": message_count,
+                    "tool_count": tool_count,
+                    "tools_per_message": tool_count / message_count if message_count > 0 else 0,
+                    "message_limit_reached": query_result.get("message_limit_reached", False)
+                })
+
             return query_result
 
         except Exception as e:
@@ -1514,11 +1606,19 @@ class ResearchOrchestrator:
                         # Store in pending tools for result attachment
                         pending_tools[block.id] = tool_info
 
-                        # Check if this is an editorial search and update statistics
+                        # SIMPLE REAL-TIME SCRAPE COUNTING
                         if session_id and "search" in block.name.lower():
+                            # Determine if this is editorial or primary research
                             workproduct_prefix = block.input.get("workproduct_prefix", "")
                             if workproduct_prefix == "editor research":
+                                agent_type = "editorial"
                                 self._update_editorial_search_stats(session_id, block.name, block.input)
+                            else:
+                                agent_type = "primary"
+
+                            # Simple heuristic: increment counter for each search tool call
+                            # Later we can extract actual counts from tool results
+                            self._increment_scrape_count(session_id, agent_type, 1)
 
                         tool_executions.append(tool_info)
                         self.logger.info(f"{agent_name} executed tool: {block.name}")
@@ -1645,7 +1745,7 @@ class ResearchOrchestrator:
             self.logger.error(f"Error updating editorial search stats: {e}")
 
     def _extract_successful_scrapes_from_result(self, tool_result: dict[str, Any]) -> int:
-        """Extract successful scrape count from tool result.
+        """Extract successful scrape count using simple counter when possible.
 
         Args:
             tool_result: Result from tool execution
@@ -1654,32 +1754,14 @@ class ResearchOrchestrator:
             Number of successful scrapes
         """
         try:
-            # Method 1: Check metadata from tool result
-            if isinstance(tool_result, dict):
-                # Direct metadata check
-                metadata = tool_result.get("metadata", {})
-                if "successful_scrapes" in metadata:
-                    return metadata["successful_scrapes"]
-
-                # Check if result contains content with scrape information
-                content = tool_result.get("content", [])
-                if isinstance(content, list):
-                    # Count non-empty content items as successful scrapes
-                    return len([item for item in content if item and isinstance(item, dict) and item.get("content", "").strip()])
-
-                # Check for text content that indicates successful scraping
-                text_content = tool_result.get("content", "")
-                if isinstance(text_content, str) and text_content.strip():
-                    # Look for patterns indicating successful content extraction
-                    import re
-                    # Look for "found X results" or similar patterns
-                    match = re.search(r'found\s+(\d+)\s+(?:results|sources|items)', text_content.lower())
-                    if match:
-                        return int(match.group(1))
-
-                    # If there's substantial content, count it as at least 1 successful scrape
-                    if len(text_content.strip()) > 100:
-                        return 1
+            # For editorial searches, try to use simple counter if we can determine session
+            # This is a simplified approach - we'll increment by 1 per successful tool call
+            if isinstance(tool_result, dict) and tool_result.get("success"):
+                # Check if this looks like a successful search result
+                if (tool_result.get("content") or
+                    tool_result.get("text_output") or
+                    "successful_scrapes" in tool_result.get("metadata", {})):
+                    return 1  # Simple heuristic: 1 successful scrape per successful tool call
 
             return 0
 
@@ -1730,38 +1812,115 @@ class ResearchOrchestrator:
             self.logger.error(f"Error updating editorial successful scrapes: {e}")
 
     def _extract_scrape_count(self, research_result: dict[str, Any]) -> int:
-        """Extract actual scrape count from research results.
+        """Extract scrape count using simple real-time counter.
 
         Args:
             research_result: Result from execute_agent_query
 
         Returns:
-            Number of successful scrapes extracted from metadata or text
+            Number of successful scrapes from simple counter
+        """
+        session_id = research_result.get("session_id")
+        if session_id:
+            # Use the simple real-time counter
+            count = self._get_scrape_count(session_id, "primary")
+            if count > 0:
+                self.logger.info(f"✅ Using simple real-time counter: {count} primary scrapes")
+                return count
+
+        # Fallback: conservative estimate if counter not available
+        tool_count = len(research_result.get("tool_executions", []))
+        estimated = min(10, tool_count * 2) if tool_count > 0 else 0  # More conservative estimate
+        self.logger.warning(f"Simple counter not available, using conservative estimate: {estimated}")
+        return estimated
+
+    def _extract_target_system_stats(self, research_result: dict[str, Any]) -> dict[str, Any]:
+        """Extract target-system metadata (planner, selection, domain stats) from tool executions."""
+        try:
+            tool_executions = research_result.get("tool_executions", []) or []
+            for tool_exec in tool_executions:
+                if not isinstance(tool_exec, dict):
+                    continue
+
+                metadata = tool_exec.get("metadata")
+                if not metadata and isinstance(tool_exec.get("result"), dict):
+                    metadata = tool_exec["result"].get("metadata")
+
+                if not metadata:
+                    continue
+
+                planner_meta = metadata.get("planner_metadata") or metadata.get("planner")
+                selection_meta = metadata.get("selection_stats")
+                domain_meta = metadata.get("domain_stats")
+                summary_meta = metadata.get("summary")
+
+                if not (planner_meta or selection_meta or domain_meta or summary_meta):
+                    continue
+
+                sanitized_selection = {}
+                if isinstance(selection_meta, dict):
+                    sanitized_selection = {k: v for k, v in selection_meta.items() if k not in {"attempted_urls", "skipped_urls", "retry_candidates"}}
+
+                    attempted_urls = selection_meta.get("attempted_urls", [])
+                    sanitized_selection["attempted_url_count"] = len(attempted_urls)
+                    if attempted_urls:
+                        sanitized_selection["attempted_urls_sample"] = attempted_urls[:5]
+
+                    skipped_urls = selection_meta.get("skipped_urls", [])
+                    sanitized_selection["skipped_url_count"] = len(skipped_urls)
+                    if skipped_urls:
+                        sanitized_selection["skipped_urls_sample"] = skipped_urls[:5]
+
+                    retry_candidates = selection_meta.get("retry_candidates", [])
+                    sanitized_selection["retry_candidate_count"] = len(retry_candidates)
+
+                    sanitized_selection["per_query_counts"] = selection_meta.get("per_query_counts", {})
+                    sanitized_selection["domain_counts"] = selection_meta.get("domain_counts", {})
+
+                stats = {
+                    "planner": planner_meta,
+                    "selection": sanitized_selection,
+                    "domain_stats": domain_meta,
+                    "summary": summary_meta,
+                }
+
+                return stats
+
+        except Exception as exc:
+            self.logger.warning(f"Failed to extract target system stats: {exc}")
+
+        return {}
+
+    def _extract_attempt_count(self, research_result: dict[str, Any]) -> int:
+        """
+        Extract attempted URL count from research results.
+
+        Args:
+            research_result: Result from execute_agent_query
+
+        Returns:
+            Number of URLs attempted for scraping (includes successes and failures)
         """
         import re
-        from pathlib import Path
 
-        # Method 1: Check metadata from tool executions
         for tool_exec in research_result.get("tool_executions", []):
-            # Check if tool has result with metadata
-            if isinstance(tool_exec, dict):
-                # Direct metadata check
-                metadata = tool_exec.get("metadata", {})
-                if "successful_scrapes" in metadata:
-                    count = metadata["successful_scrapes"]
-                    self.logger.info(f"Extracted scrape count from tool metadata: {count}")
+            if not isinstance(tool_exec, dict):
+                continue
+
+            metadata = tool_exec.get("metadata", {})
+            if isinstance(metadata, dict) and metadata.get("urls_attempted"):
+                count = int(metadata["urls_attempted"])
+                self.logger.info(f"Extracted attempt count from tool metadata: {count}")
+                return count
+
+            result = tool_exec.get("result", {})
+            if isinstance(result, dict):
+                result_meta = result.get("metadata", {})
+                if isinstance(result_meta, dict) and result_meta.get("urls_attempted"):
+                    count = int(result_meta["urls_attempted"])
+                    self.logger.info(f"Extracted attempt count from tool result metadata: {count}")
                     return count
 
-                # Check result metadata
-                result = tool_exec.get("result", {})
-                if isinstance(result, dict) and "metadata" in result:
-                    metadata = result["metadata"]
-                    if "successful_scrapes" in metadata:
-                        count = metadata["successful_scrapes"]
-                        self.logger.info(f"Extracted scrape count from tool result metadata: {count}")
-                        return count
-
-        # Method 2: Extract from text responses using regex patterns
         for response in research_result.get("responses", []):
             if isinstance(response, dict):
                 text = response.get("text", "")
@@ -1770,56 +1929,29 @@ class ResearchOrchestrator:
             else:
                 continue
 
-            # Pattern 1: "Successfully Crawled: 20"
-            match = re.search(r'\*\*Successfully Crawled\*\*:\s*(\d+)', text)
+            if not text:
+                continue
+
+            match = re.search(r'URLs selected for crawling:\s*(\d+)', text, re.IGNORECASE)
             if match:
                 count = int(match.group(1))
-                self.logger.info(f"Extracted scrape count from text pattern 1: {count}")
+                self.logger.info(f"Extracted attempt count from text pattern 1: {count}")
                 return count
 
-            # Pattern 2: "URLs Extracted: 20 successfully processed"
-            match = re.search(r'\*\*URLs Extracted\*\*:\s*(\d+)', text)
+            match = re.search(r'URLs attempted:\s*(\d+)', text, re.IGNORECASE)
             if match:
                 count = int(match.group(1))
-                self.logger.info(f"Extracted scrape count from text pattern 2: {count}")
+                self.logger.info(f"Extracted attempt count from text pattern 2: {count}")
                 return count
 
-            # Pattern 3: "URLs Crawled: 20 successfully"
-            match = re.search(r'\*\*URLs Crawled\*\*:\s*(\d+)', text)
+            match = re.search(r'Total URLs (?:processed|attempted):\s*(\d+)', text, re.IGNORECASE)
             if match:
                 count = int(match.group(1))
-                self.logger.info(f"Extracted scrape count from text pattern 3: {count}")
+                self.logger.info(f"Extracted attempt count from text pattern 3: {count}")
                 return count
 
-        # Method 3: Check most recent work product file
-        session_id = research_result.get("session_id")
-        if session_id:
-            # Use environment-aware path detection
-            current_repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            if "claudeagent-multiagent-latest" in current_repo:
-                # Running from claudeagent-multiagent-latest
-                research_dir = Path(f"{current_repo}/KEVIN/sessions/{session_id}/research")
-            else:
-                # Fallback to new repository structure
-                research_dir = Path(f"/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN/sessions/{session_id}/research")
-            if research_dir.exists():
-                files = sorted(research_dir.glob("*.md"), key=lambda x: x.stat().st_mtime, reverse=True)
-                if files:
-                    try:
-                        content = files[0].read_text()
-                        match = re.search(r'\*\*Successfully Crawled\*\*:\s*(\d+)', content)
-                        if match:
-                            count = int(match.group(1))
-                            self.logger.info(f"Extracted scrape count from work product file: {count}")
-                            return count
-                    except Exception as e:
-                        self.logger.warning(f"Could not read work product file: {e}")
-
-        # Last resort: estimate from tool count (conservative)
-        tool_count = len(research_result.get("tool_executions", []))
-        estimated = min(10, tool_count * 5) if tool_count > 0 else 0
-        self.logger.warning(f"Could not extract exact scrape count, using conservative estimate: {estimated}")
-        return estimated
+        self.logger.debug("Attempt count not found in results metadata; defaulting to 0")
+        return 0
 
     def _validate_report_completion(self, report_result: dict[str, Any]) -> bool:
         """Validate that report generation stage completed successfully.
@@ -3200,16 +3332,30 @@ class ResearchOrchestrator:
 
                 # ✅ Extract actual scrape count from this attempt
                 attempt_scrapes = self._extract_scrape_count(research_result)
+                attempted_urls = self._extract_attempt_count(research_result)
+                if not attempted_urls or attempted_urls < attempt_scrapes:
+                    attempted_urls = max(attempt_scrapes, attempted_urls or 0)
                 cumulative_scrapes += attempt_scrapes
 
                 # Record scrapes for budget tracking
                 search_budget.record_primary_research(
-                    urls_processed=attempt_scrapes,
+                    urls_processed=attempted_urls,
                     successful_scrapes=attempt_scrapes,
                     search_queries=1
                 )
 
-                self.logger.info(f"Attempt {attempt + 1} scraped {attempt_scrapes} URLs, cumulative: {cumulative_scrapes}/{search_budget.primary_successful_scrapes_limit}")
+                self.logger.info(
+                    f"Attempt {attempt + 1}: {attempt_scrapes} successful scrapes "
+                    f"from {attempted_urls} attempted URLs "
+                    f"(cumulative: {cumulative_scrapes}/{search_budget.primary_successful_scrapes_limit})"
+                )
+
+                target_stats = self._extract_target_system_stats(research_result)
+                if target_stats:
+                    target_stats["stage"] = "primary"
+                    session_data.setdefault("target_system_stats", []).append(target_stats)
+                    session_data["target_system_latest"] = target_stats
+                    await self.save_session_state(session_id)
 
                 # Check if minimum source requirement is met (8 successful scrapes)
                 minimum_required_sources = 8
@@ -3248,15 +3394,28 @@ Session ID: {session_id}
                             )
 
                             supplementary_scrapes = self._extract_scrape_count(supplementary_result)
+                            supplementary_attempts = self._extract_attempt_count(supplementary_result)
+                            if not supplementary_attempts or supplementary_attempts < supplementary_scrapes:
+                                supplementary_attempts = max(supplementary_scrapes, supplementary_attempts or 0)
                             cumulative_scrapes += supplementary_scrapes
 
                             search_budget.record_primary_research(
-                                urls_processed=supplementary_scrapes,
+                                urls_processed=supplementary_attempts,
                                 successful_scrapes=supplementary_scrapes,
                                 search_queries=1
                             )
 
-                            self.logger.info(f"✅ Supplementary search added {supplementary_scrapes} sources, total: {cumulative_scrapes}")
+                            self.logger.info(
+                                f"✅ Supplementary search added {supplementary_scrapes} sources "
+                                f"from {supplementary_attempts} attempts, total: {cumulative_scrapes}"
+                            )
+
+                            supplementary_stats = self._extract_target_system_stats(supplementary_result)
+                            if supplementary_stats:
+                                supplementary_stats["stage"] = "supplementary"
+                                session_data.setdefault("target_system_stats", []).append(supplementary_stats)
+                                session_data["target_system_latest"] = supplementary_stats
+                                await self.save_session_state(session_id)
                         except Exception as e:
                             self.logger.error(f"❌ Supplementary search failed: {e}")
                             self.logger.warning(f"Continuing with {cumulative_scrapes} sources despite failure")
@@ -3299,6 +3458,14 @@ Session ID: {session_id}
 
         # Store research results
         session_data = self.active_sessions[session_id]
+
+        target_stats_list = session_data.get("target_system_stats")
+        if target_stats_list:
+            session_data["target_system_summary"] = {
+                "latest": target_stats_list[-1],
+                "total_runs": len(target_stats_list)
+            }
+
         session_data["research_results"] = research_result
         session_data["current_stage"] = "report_generation"
         session_data["workflow_history"].append({
@@ -3375,7 +3542,7 @@ Session ID: {session_id}
 
                 Research results have been collected and are available in the session data.
 
-                **MANDATORY FIRST STEP**: Use mcp__research_tools__get_session_data tool with data_type="research" to access ALL research work products
+                **MANDATORY FIRST STEP**: Use mcp__research_tools__get_session_data tool with session_id="{session_id}" and data_type="research" to access ALL research work products
 
                 **RESEARCH DATA INCORPORATION REQUIREMENTS**:
                 1. **READ ALL RESEARCH FILES**: You MUST read the complete content of ALL research work products available in the session data
@@ -3403,8 +3570,9 @@ Session ID: {session_id}
 
                 **CRITICAL REQUIREMENTS**:
                 - Execute the create_research_report tool to generate the report
-                - Use the Write tool to save the report to the exact filepath provided
-                - Do not just describe the report - actually create and save it
+                - The tool will automatically save the report to the correct working directory
+                - Do NOT use the Write tool separately - the create_research_report tool handles file saving
+                - Do not just describe the report - actually create and save it using the tool
                 - Ensure the report is comprehensive and well-structured
                 - FAILURE TO INCORPORATE RESEARCH DATA WILL RESULT IN EDITIAL REJECTION AND REVISION REQUIREMENTS
 
@@ -3531,7 +3699,7 @@ Session ID: {session_id}
                 **CRITICAL RESEARCH CONTEXT REQUIREMENTS**:
 
                 **STEP 1 - ACCESS ORIGINAL RESEARCH DATA**:
-                - Use get_session_data with data_type="research" to access the original research work product
+                - Use get_session_data with session_id="{session_id}" and data_type="research" to access the original research work product
                 - Examine the search_workproduct_*.md files to understand what research data was available to the report generation agent
                 - Assess whether the original report properly incorporated the available research data
 
@@ -3617,14 +3785,14 @@ Session ID: {session_id}
 **RESEARCH DATA ACCESS REQUIREMENTS**:
 
 **Original Research Context**:
-1. **FIRST STEP - CRITICAL**: Use get_session_data with data_type="research" to access the original research work product that was available when the initial report was created
+1. **FIRST STEP - CRITICAL**: Use get_session_data with session_id="{session_id}" and data_type="research" to access the original research work product that was available when the initial report was created
 2. **REVIEW ORIGINAL RESEARCH**: Examine the search_workproduct_*.md files to understand what data was available to the report generation agent
 3. **ASSESS DATA UTILIZATION**: Evaluate whether the original report properly incorporated the available research data
 
 **Gap Research Results:**
 - Gaps researched: {gap_research_result.get('gaps_researched', [])}
 - Scrapes completed: {gap_research_result.get('scrapes_completed', 0)}
-- Gap research results available in session data (use get_session_data with data_type="all" to access both original and new research)
+- Gap research results available in session data (use get_session_data with session_id="{session_id}" and data_type="all" to access both original and new research)
 
 **EDITORIAL REVIEW REQUIREMENTS**:
 1. **CONTEXTUAL ASSESSMENT**: Evaluate the original report in the context of what research data was available when it was created
@@ -3687,6 +3855,15 @@ Please complete your editorial review with both the original research context an
                 successful_scrapes=search_stats.get("successful_scrapes", 0),
                 search_queries=search_stats.get("search_attempts", 0)
             )
+
+            gap_result_meta = locals().get("gap_research_result")
+            if gap_result_meta:
+                gap_stats = self._extract_target_system_stats(gap_result_meta)
+                if gap_stats:
+                    gap_stats["stage"] = "editor_gap"
+                    session_data.setdefault("target_system_gap_stats", []).append(gap_stats)
+                    session_data["target_system_latest_gap"] = gap_stats
+                    await self.save_session_state(session_id)
 
         # Extract and update successful scrapes from editorial search results
         if search_stats.get("search_attempts", 0) > 0:
@@ -3832,16 +4009,29 @@ Please complete your editorial review with both the original research context an
         self.logger.info(f"✅ [STEP {execution_step}] Budget check passed - research can proceed")
         execution_step += 1
 
-        # **ENHANCED DEBUGGING**: Step 6 - Topic preparation
-        self.logger.info(f"🔍 [STEP {execution_step}] Preparing gap research topics")
+        # **ENHANCED DEBUGGING**: Step 6 - Gap research pre-validation and filtering
+        self.logger.info(f"🔍 [STEP {execution_step}] Pre-validating and filtering research gaps")
 
-        gap_topics = research_gaps[:2]  # Limit to top 2 for focused research
+        # Pre-validate and filter gap research entries
+        validated_gaps = self._pre_validate_research_gaps(research_gaps, session_id)
+
+        if not validated_gaps:
+            self.logger.warning(f"❌ [STEP {execution_step}] No valid research gaps after validation")
+            return {
+                "success": False,
+                "error": "No valid research gaps after validation",
+                "original_gaps": research_gaps,
+                "validation_issues": ["All gaps filtered out as duplicates or invalid"]
+            }
+
+        gap_topics = validated_gaps[:2]  # Limit to top 2 for focused research
         combined_topic = " AND ".join(gap_topics)
 
         self.logger.info(f"   Original gaps ({len(research_gaps)}): {research_gaps}")
+        self.logger.info(f"   Validated gaps ({len(validated_gaps)}): {validated_gaps}")
         self.logger.info(f"   Selected gaps ({len(gap_topics)}): {gap_topics}")
         self.logger.info(f"   Combined topic: '{combined_topic}'")
-        self.logger.info(f"✅ [STEP {execution_step}] Topic preparation complete")
+        self.logger.info(f"✅ [STEP {execution_step}] Gap validation and topic preparation complete")
 
         execution_step += 1
 
@@ -4460,6 +4650,140 @@ You must complete gap research before finalizing your editorial review."""
             self.logger.warning(f"Could not extract documented research gaps: {e}")
             return []
 
+    def _pre_validate_research_gaps(self, research_gaps: list[str], session_id: str) -> list[str]:
+        """
+        Pre-validate and filter research gaps to remove duplicates and invalid entries.
+
+        This method addresses the issue where editorial agents generate excessive gap research
+        requests (438 gap strings in the problematic case) that waste budget and cause loops.
+
+        Args:
+            research_gaps: List of research gap strings from editorial agent
+            session_id: Current session ID for tracking previously researched gaps
+
+        Returns:
+            Filtered list of valid, unique research gaps
+        """
+        if not research_gaps:
+            self.logger.info("🔍 No research gaps to validate")
+            return []
+
+        self.logger.info(f"🔍 Pre-validating {len(research_gaps)} research gaps for session {session_id}")
+
+        # Step 1: Clean and normalize gap strings
+        cleaned_gaps = []
+        for gap in research_gaps:
+            if not isinstance(gap, str):
+                continue
+
+            gap_clean = gap.strip()
+
+            # Filter out invalid or low-quality gaps
+            if len(gap_clean) < 10:  # Too short to be meaningful
+                self.logger.debug(f"   ❌ Gap too short: '{gap_clean}'")
+                continue
+
+            if gap_clean.lower() in ["research", "information", "data", "details", "more research", "further research"]:
+                self.logger.debug(f"   ❌ Gap too generic: '{gap_clean}'")
+                continue
+
+            # Filter out gaps that are actually questions rather than research topics
+            if gap_clean.endswith('?'):
+                self.logger.debug(f"   ❌ Gap is a question, not research topic: '{gap_clean}'")
+                continue
+
+            cleaned_gaps.append(gap_clean)
+
+        self.logger.info(f"   Step 1 - Cleaning: {len(research_gaps)} → {len(cleaned_gaps)} gaps")
+
+        # Step 2: Remove duplicates using fuzzy matching
+        unique_gaps = []
+        for gap in cleaned_gaps:
+            # Check for similarity with existing gaps
+            is_duplicate = False
+            for existing_gap in unique_gaps:
+                # Simple similarity check - can be enhanced with fuzzy matching later
+                if (gap.lower() == existing_gap.lower() or
+                    gap.lower() in existing_gap.lower() or
+                    existing_gap.lower() in gap.lower()):
+                    self.logger.debug(f"   🔄 Duplicate found: '{gap}' ~ '{existing_gap}'")
+                    is_duplicate = True
+                    break
+
+            if not is_duplicate:
+                unique_gaps.append(gap)
+
+        self.logger.info(f"   Step 2 - Deduplication: {len(cleaned_gaps)} → {len(unique_gaps)} gaps")
+
+        # Step 3: Check against previously researched gaps in this session
+        session_data = self.active_sessions.get(session_id, {})
+        previous_gaps = session_data.get("researched_gaps", [])
+
+        if previous_gaps:
+            final_gaps = []
+            for gap in unique_gaps:
+                is_previously_researched = False
+                for prev_gap in previous_gaps:
+                    if (gap.lower() == prev_gap.lower() or
+                        gap.lower() in prev_gap.lower() or
+                        prev_gap.lower() in gap.lower()):
+                        self.logger.debug(f"   📋 Previously researched: '{gap}' (was: '{prev_gap}')")
+                        is_previously_researched = True
+                        break
+
+                if not is_previously_researched:
+                    final_gaps.append(gap)
+
+            self.logger.info(f"   Step 3 - Previous research filter: {len(unique_gaps)} → {len(final_gaps)} gaps")
+        else:
+            final_gaps = unique_gaps
+            self.logger.info(f"   Step 3 - No previous gaps found, keeping all {len(final_gaps)} gaps")
+
+        # Step 4: Quality scoring and prioritization
+        scored_gaps = []
+        for gap in final_gaps:
+            score = 0
+
+            # Higher score for specific, actionable gaps
+            if any(keyword in gap.lower() for keyword in ["specific", "data", "statistics", "examples", "details"]):
+                score += 2
+
+            # Lower score for vague gaps
+            if any(keyword in gap.lower() for keyword in ["more", "additional", "further", "general"]):
+                score -= 1
+
+            # Higher score for longer, more descriptive gaps
+            if len(gap) > 50:
+                score += 1
+
+            scored_gaps.append((score, gap))
+
+        # Sort by score (descending) and take top gaps
+        scored_gaps.sort(key=lambda x: x[0], reverse=True)
+        prioritized_gaps = [gap for score, gap in scored_gaps if score >= 0]  # Only keep non-negative scores
+
+        # Limit to maximum number of gaps to prevent excessive research
+        max_gaps = 5  # Configurable limit
+        if len(prioritized_gaps) > max_gaps:
+            prioritized_gaps = prioritized_gaps[:max_gaps]
+            self.logger.info(f"   Step 4a - Limiting gaps: {len(scored_gaps)} → {len(prioritized_gaps)} (max: {max_gaps})")
+        else:
+            self.logger.info(f"   Step 4 - Quality prioritization: {len(final_gaps)} → {len(prioritized_gaps)} gaps")
+
+        # Update session data with researched gaps
+        if session_id in self.active_sessions:
+            self.active_sessions[session_id]["researched_gaps"] = previous_gaps + prioritized_gaps
+
+        # Log final results
+        if prioritized_gaps:
+            self.logger.info(f"✅ Gap validation complete: {len(research_gaps)} → {len(prioritized_gaps)} valid gaps")
+            for i, gap in enumerate(prioritized_gaps, 1):
+                self.logger.info(f"   Validated Gap {i}: {gap}")
+        else:
+            self.logger.warning(f"❌ All gaps filtered out: {len(research_gaps)} original gaps → 0 valid gaps")
+
+        return prioritized_gaps
+
     async def stage_decoupled_editorial_review(self, session_id: str) -> dict:
         """
         Decoupled editorial review that works independently of research success.
@@ -4705,7 +5029,7 @@ This session had limited research output available. The editorial agent has proc
         **RESEARCH DATA INTEGRATION REQUIREMENTS**:
 
         **STEP 1 - ACCESS ALL RESEARCH DATA**:
-        - Use get_session_data with data_type="all" to access both original research and editorial gap research
+        - Use get_session_data with session_id="{session_id}" and data_type="all" to access both original research and editorial gap research
         - Read ALL research work products to ensure comprehensive data integration
         - Review editorial feedback to understand specific data integration issues identified
 
@@ -4722,8 +5046,9 @@ This session had limited research output available. The editorial agent has proc
         - Validate that research data has been properly integrated throughout
 
         **STEP 4 - FINALIZE REPORT**:
-        - Use the Write tool to save the improved report
-        - CRITICAL: Add "3-" prefix to your revised report title to indicate this is Stage 3 output
+        - Use the create_research_report tool with report_type="final_enhanced" to save the improved report
+        - The tool will automatically save to the correct working directory with proper naming
+        - CRITICAL: The tool will handle the "3-" prefix automatically for Stage 3 output
         - Ensure the revised report demonstrates comprehensive research data integration
 
         **CRITICAL REQUIREMENTS**:

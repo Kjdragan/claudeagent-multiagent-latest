@@ -490,9 +490,40 @@ async def get_session_data(args: dict[str, Any]) -> dict[str, Any]:
         session_path = kevin_dir / "sessions" / session_id
 
         if not session_path.exists():
+            # Enhanced error handling for stale sessions
+            if _logger:
+                _logger.warning(f"STALE SESSION DETECTED: Session {session_id} no longer exists")
+                _logger.warning(f"Session path attempted: {session_path}")
+                _logger.warning("This indicates a session context corruption issue - agent is using an old session ID")
+
+            # Check if there are any recent sessions that might be what the agent intended
+            if kevin_dir.exists():
+                sessions_dir = kevin_dir / "sessions"
+                if sessions_dir.exists():
+                    recent_sessions = []
+                    for session_dir in sessions_dir.iterdir():
+                        if session_dir.is_dir():
+                            try:
+                                # Try to read session state to get timestamp
+                                state_file = session_dir / "session_state.json"
+                                if state_file.exists():
+                                    state_data = json.loads(state_file.read_text(encoding='utf-8'))
+                                    if "start_time" in state_data:
+                                        recent_sessions.append((session_dir.name, state_data["start_time"]))
+                            except:
+                                pass
+
+                    if recent_sessions:
+                        recent_sessions.sort(key=lambda x: x[1], reverse=True)
+                        if _logger:
+                            _logger.info(f"Available recent sessions:")
+                            for session_name, start_time in recent_sessions[:5]:  # Show top 5
+                                _logger.info(f"  - {session_name} (started: {start_time})")
+
             return {
                 "success": False,
-                "error": f"Session directory not found: {session_path}",
+                "error": f"Session directory not found: {session_path}. This may be a stale session ID.",
+                "suggestion": "Check if the agent is using an outdated session ID from previous runs",
                 "data": {}
             }
 
