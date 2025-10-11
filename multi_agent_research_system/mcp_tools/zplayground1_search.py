@@ -94,10 +94,10 @@ def create_zplayground1_mcp_server():
             },
             "max_concurrent": {
                 "type": "integer",
-                "default": 15,
-                "minimum": 1,
+                "default": 0,
+                "minimum": 0,
                 "maximum": 20,
-                "description": "Maximum concurrent crawling operations",
+                "description": "Maximum concurrent crawling operations (0 for unbounded)",
             },
             "session_id": {
                 "type": "string",
@@ -149,7 +149,7 @@ def create_zplayground1_mcp_server():
                 # Normalize numeric inputs to ensure consistent types
                 num_results_raw = args.get("num_results", 15)
                 auto_crawl_top_raw = args.get("auto_crawl_top", 10)
-                max_concurrent_raw = args.get("max_concurrent", 15)
+                max_concurrent_raw = args.get("max_concurrent", 0)
                 anti_bot_level_raw = args.get("anti_bot_level", 1)
                 crawl_threshold_raw = args.get("crawl_threshold", 0.3)
 
@@ -205,7 +205,8 @@ def create_zplayground1_mcp_server():
                 # Apply normalization to all numeric parameters
                 num_results = normalize_int_param(num_results_raw, 15, 1, 50, "num_results")
                 auto_crawl_top = normalize_int_param(auto_crawl_top_raw, 10, 0, 20, "auto_crawl_top")
-                max_concurrent = normalize_int_param(max_concurrent_raw, 15, 1, 20, "max_concurrent")
+                max_concurrent_value = normalize_int_param(max_concurrent_raw, 0, 0, 20, "max_concurrent")
+                max_concurrent = None if max_concurrent_value == 0 else max_concurrent_value
                 anti_bot_level = normalize_int_param(anti_bot_level_raw, 1, 0, 3, "anti_bot_level")
                 crawl_threshold = normalize_float_param(crawl_threshold_raw, 0.3, 0.0, 1.0, "crawl_threshold")
 

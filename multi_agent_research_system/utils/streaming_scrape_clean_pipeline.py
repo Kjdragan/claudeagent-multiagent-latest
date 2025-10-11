@@ -53,16 +53,31 @@ class StreamingScrapeCleanPipeline:
     eliminating the sequential bottleneck between stages.
     """
 
-    def __init__(self, max_concurrent_scrapes: int = 15, max_concurrent_cleans: int = 5):
+    def __init__(self, max_concurrent_scrapes: int | None = None, max_concurrent_cleans: int | None = None):
         """
         Initialize streaming pipeline.
 
         Args:
-            max_concurrent_scrapes: Maximum concurrent scraping operations
-            max_concurrent_cleans: Maximum concurrent cleaning operations
+            max_concurrent_scrapes: Maximum concurrent scraping operations (None for unbounded)
+            max_concurrent_cleans: Maximum concurrent cleaning operations (None for unbounded)
         """
-        self.scrape_semaphore = asyncio.Semaphore(max_concurrent_scrapes)
-        self.clean_semaphore = asyncio.Semaphore(max_concurrent_cleans)
+        self.scrape_semaphore = (
+            asyncio.Semaphore(max_concurrent_scrapes)
+            if max_concurrent_scrapes and max_concurrent_scrapes > 0
+            else None
+        )
+        self.clean_semaphore = (
+            asyncio.Semaphore(max_concurrent_cleans)
+            if max_concurrent_cleans and max_concurrent_cleans > 0
+            else None
+        )
+
+        self.scrape_concurrency = (
+            max_concurrent_scrapes if max_concurrent_scrapes and max_concurrent_scrapes > 0 else None
+        )
+        self.clean_concurrency = (
+            max_concurrent_cleans if max_concurrent_cleans and max_concurrent_cleans > 0 else None
+        )
 
         # Statistics tracking
         self.stats = {
@@ -106,7 +121,11 @@ class StreamingScrapeCleanPipeline:
 
         self.stats["total_urls"] = len(urls)
         logger.info(f"🚀 Starting streaming pipeline for {len(urls)} URLs")
-        logger.info(f"Scrape concurrency: {self.scrape_semaphore._value}, Clean concurrency: {self.clean_semaphore._value}")
+        logger.info(
+            "Scrape concurrency: %s, Clean concurrency: %s",
+            self.scrape_concurrency if self.scrape_concurrency else "unbounded",
+            self.clean_concurrency if self.clean_concurrency else "unbounded",
+        )
 
         pipeline_start = time.time()
 
@@ -117,10 +136,10 @@ class StreamingScrapeCleanPipeline:
 
             try:
                 # STEP 1: Scrape with anti-bot escalation
-                async with self.scrape_semaphore:
-                    from .anti_bot_escalation import get_escalation_manager
+                from .anti_bot_escalation import get_escalation_manager
 
-                    escalation_manager = get_escalation_manager()
+                escalation_manager = get_escalation_manager()
+                if self.scrape_semaphore is None:
                     scrape_result = await escalation_manager.crawl_with_escalation(
                         url=url,
                         initial_level=initial_level,
@@ -128,6 +147,15 @@ class StreamingScrapeCleanPipeline:
                         use_content_filter=False,
                         session_id=session_id
                     )
+                else:
+                    async with self.scrape_semaphore:
+                        scrape_result = await escalation_manager.crawl_with_escalation(
+                            url=url,
+                            initial_level=initial_level,
+                            max_level=max_level,
+                            use_content_filter=False,
+                            session_id=session_id
+                        )
 
                 scrape_time = time.time() - scrape_start
                 self.stats["total_scrape_time"] += scrape_time
@@ -169,18 +197,23 @@ class StreamingScrapeCleanPipeline:
 
                 # STEP 3: IMMEDIATE cleaning (streaming!)
                 clean_start = time.time()
-                async with self.clean_semaphore:
-                    from ..agents.content_cleaner_agent import (
-                        ContentCleaningContext,
-                        get_content_cleaner
-                    )
+                from ..agents.content_cleaner_agent import (
+                    ContentCleaningContext,
+                    get_content_cleaner
+                )
 
-                    content_cleaner = get_content_cleaner()
-                    context = self._create_cleaning_context(url, search_query, session_id)
+                content_cleaner = get_content_cleaner()
+                context = self._create_cleaning_context(url, search_query, session_id)
 
+                if self.clean_semaphore is None:
                     clean_result = await content_cleaner.clean_content(
                         scrape_result.content, context
                     )
+                else:
+                    async with self.clean_semaphore:
+                        clean_result = await content_cleaner.clean_content(
+                            scrape_result.content, context
+                        )
 
                 clean_time = time.time() - clean_start
                 self.stats["total_clean_time"] += clean_time

@@ -80,7 +80,7 @@ except ImportError:
         default_auto_crawl_top = 10
         default_crawl_threshold = 0.3
         default_anti_bot_level = 1
-        default_max_concurrent = 15
+        default_max_concurrent = 0
 
         # Target-based scraping settings
         target_successful_scrapes = 10
@@ -102,7 +102,7 @@ except ImportError:
 
         # Crawl settings
         default_crawl_timeout = 30000
-        max_concurrent_crawls = 15
+        max_concurrent_crawls = 0
         crawl_retry_attempts = 2
 
         # Anti-bot levels
@@ -518,7 +518,7 @@ async def target_based_scraping(
     session_id: str,
     target_successful_scrapes: int = 10,
     crawl_threshold: float = 0.3,
-    max_concurrent: int = 10
+    max_concurrent: int | None = None
 ) -> tuple[list[str], list[str]]:
     """
     Perform target-based scraping to achieve desired number of successful extractions.
@@ -531,7 +531,7 @@ async def target_based_scraping(
         session_id: Session identifier for URL tracking
         target_successful_scrapes: Target number of successful content extractions
         crawl_threshold: Initial relevance threshold (fixed at 0.3)
-        max_concurrent: Maximum concurrent crawling operations
+        max_concurrent: Maximum concurrent crawling operations (None for unbounded)
 
     Returns:
         Tuple of (successful_content, attempted_urls)

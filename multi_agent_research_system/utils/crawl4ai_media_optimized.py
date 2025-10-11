@@ -263,7 +263,7 @@ class MediaOptimizedCrawler:
         urls: list[str],
         anti_bot_level: int = 1,
         use_content_filter: bool = False,
-        max_concurrent: int = 5,
+        max_concurrent: int | None = None,
         cache_mode: CacheMode = CacheMode.ENABLED
     ) -> list[MediaOptimizedCrawlResult]:
         """
@@ -273,7 +273,7 @@ class MediaOptimizedCrawler:
             urls: List of URLs to crawl
             anti_bot_level: Progressive anti-bot level
             use_content_filter: Apply content filtering
-            max_concurrent: Maximum concurrent crawls
+            max_concurrent: Maximum concurrent crawls (None for unbounded)
             cache_mode: Cache mode for crawling
 
         Returns:
@@ -288,10 +288,19 @@ class MediaOptimizedCrawler:
                          max_concurrent=max_concurrent,
                          media_optimization=True):
 
-            # Create semaphore to limit concurrent operations
-            semaphore = asyncio.Semaphore(max_concurrent)
+            # Create semaphore to limit concurrent operations (optional)
+            semaphore = (
+                asyncio.Semaphore(max_concurrent)
+                if max_concurrent and max_concurrent > 0
+                else None
+            )
 
             async def crawl_with_semaphore(url: str) -> MediaOptimizedCrawlResult:
+                if semaphore is None:
+                    return await self.crawl_url_media_optimized(
+                        url, anti_bot_level, use_content_filter, cache_mode
+                    )
+
                 async with semaphore:
                     return await self.crawl_url_media_optimized(
                         url, anti_bot_level, use_content_filter, cache_mode
@@ -366,7 +375,7 @@ def get_media_optimized_crawler(browser_configs: dict | None = None) -> MediaOpt
 async def crawl_multiple_urls_media_optimized(
     urls: list[str],
     session_id: str,
-    max_concurrent: int = 10,
+    max_concurrent: int | None = None,
     extraction_mode: str = "article",
     include_metadata: bool = True,
     base_config=None,
@@ -407,11 +416,13 @@ async def crawl_multiple_urls_media_optimized(
                      media_optimization=True):
 
         # Perform media optimized crawling
+        effective_concurrency = max_concurrent if max_concurrent and max_concurrent > 0 else None
+
         results = await crawler.crawl_multiple_media_optimized(
             urls=urls,
             anti_bot_level=anti_bot_level,
             use_content_filter=use_content_filter,
-            max_concurrent=min(max_concurrent, 10)  # Cap concurrency
+            max_concurrent=effective_concurrency
         )
 
         # Convert to legacy format with media optimization metadata

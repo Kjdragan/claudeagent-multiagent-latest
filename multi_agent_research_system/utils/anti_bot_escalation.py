@@ -410,7 +410,7 @@ class AntiBotEscalationManager:
         urls: list[str],
         initial_level: int = 0,
         max_level: int = 3,
-        max_concurrent: int = 5,
+        max_concurrent: int | None = None,
         use_content_filter: bool = False,
         session_id: str = "default",
     ) -> list[EscalationResult]:
@@ -421,7 +421,7 @@ class AntiBotEscalationManager:
             urls: List of URLs to crawl
             initial_level: Starting anti-bot level
             max_level: Maximum escalation level
-            max_concurrent: Maximum concurrent crawls
+            max_concurrent: Maximum concurrent crawls (None for unbounded)
             use_content_filter: Apply content filtering
             session_id: Session identifier
 
@@ -431,15 +431,28 @@ class AntiBotEscalationManager:
         if not urls:
             return []
 
-        logger.info(
-            f"Starting batch crawl with escalation: {len(urls)} URLs, "
-            f"level {initial_level}-{max_level}, max_concurrent={max_concurrent}"
+        concurrency_label = (
+            str(max_concurrent) if max_concurrent and max_concurrent > 0 else "unbounded"
         )
 
-        # Create semaphore to limit concurrent operations
-        semaphore = asyncio.Semaphore(max_concurrent)
+        logger.info(
+            f"Starting batch crawl with escalation: {len(urls)} URLs, "
+            f"level {initial_level}-{max_level}, max_concurrent={concurrency_label}"
+        )
+
+        # Create semaphore to limit concurrent operations (optional)
+        semaphore = (
+            asyncio.Semaphore(max_concurrent)
+            if max_concurrent and max_concurrent > 0
+            else None
+        )
 
         async def crawl_with_semaphore(url: str) -> EscalationResult:
+            if semaphore is None:
+                return await self.crawl_with_escalation(
+                    url, initial_level, max_level, use_content_filter, session_id
+                )
+
             async with semaphore:
                 return await self.crawl_with_escalation(
                     url, initial_level, max_level, use_content_filter, session_id

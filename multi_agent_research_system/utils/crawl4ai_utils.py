@@ -208,7 +208,7 @@ class SimpleCrawler:
         urls: list[str],
         anti_bot_level: int = 1,
         use_content_filter: bool = False,
-        max_concurrent: int = 5
+        max_concurrent: int | None = None
     ) -> list[CrawlResult]:
         """
         Crawl multiple URLs concurrently with progressive anti-bot.
@@ -226,10 +226,19 @@ class SimpleCrawler:
             return []
 
         with logfire.span("crawl_multiple_urls", url_count=len(urls), anti_bot_level=anti_bot_level, max_concurrent=max_concurrent):
-            # Create semaphore to limit concurrent operations
-            semaphore = asyncio.Semaphore(max_concurrent)
+            # Create semaphore to limit concurrent operations (optional)
+            semaphore = (
+                asyncio.Semaphore(max_concurrent)
+                if max_concurrent and max_concurrent > 0
+                else None
+            )
 
             async def crawl_with_semaphore(url: str) -> CrawlResult:
+                if semaphore is None:
+                    return await self.crawl_url(
+                        url, anti_bot_level, use_content_filter
+                    )
+
                 async with semaphore:
                     return await self.crawl_url(url, anti_bot_level, use_content_filter)
 
@@ -281,7 +290,7 @@ def get_crawler(browser_configs: dict | None = None) -> SimpleCrawler:
 async def crawl_multiple_urls_with_results(
     urls: list[str],
     session_id: str,
-    max_concurrent: int = 10,
+    max_concurrent: int | None = None,
     extraction_mode: str = "article",
     include_metadata: bool = True,
     base_config=None,
@@ -316,11 +325,12 @@ async def crawl_multiple_urls_with_results(
 
     with logfire.span("crawl_multiple_urls_with_results", session_id=session_id, url_count=len(urls), extraction_mode=extraction_mode, max_concurrent=max_concurrent):
         # Perform crawling
+        effective_concurrency = max_concurrent if max_concurrent and max_concurrent > 0 else None
         results = await crawler.crawl_multiple(
             urls=urls,
             anti_bot_level=anti_bot_level,
             use_content_filter=use_content_filter,
-            max_concurrent=min(max_concurrent, 10)  # Cap concurrency
+            max_concurrent=effective_concurrency
         )
 
         # Convert to legacy format
@@ -356,7 +366,7 @@ async def crawl_multiple_urls_with_results(
 async def crawl_multiple_urls_direct(
     urls: list[str],
     session_id: str,
-    max_concurrent: int = 10,
+    max_concurrent: int | None = None,
     extraction_mode: str = "article"
 ) -> str:
     """
@@ -404,7 +414,7 @@ async def crawl_multiple_urls_with_cleaning(
     urls: list[str],
     session_id: str,
     search_query: str,
-    max_concurrent: int = 10,
+    max_concurrent: int | None = None,
     extraction_mode: str = "article",
     include_metadata: bool = True
 ) -> list[dict]:

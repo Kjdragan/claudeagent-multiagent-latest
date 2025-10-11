@@ -147,7 +147,7 @@ class EnhancedSearchConfig:
     default_auto_crawl_top: int = 10
     default_crawl_threshold: float = 0.3  # Fixed for better success rates
     default_anti_bot_level: int = 1
-    default_max_concurrent: int = 15
+    default_max_concurrent: int = 0  # 0 => unbounded concurrency
 
     # Anti-Bot Levels (0-3)
     anti_bot_levels = {

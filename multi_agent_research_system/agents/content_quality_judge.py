@@ -180,7 +180,7 @@ class ContentQualityJudge:
     async def assess_multiple_contents(
         self,
         contexts: list[QualityJudgmentContext],
-        max_concurrent: int = 3
+        max_concurrent: int | None = None
     ) -> list[QualityAssessment]:
         """
         Assess multiple contents concurrently.
@@ -196,12 +196,19 @@ class ContentQualityJudge:
             return []
 
         logger.info(f"Starting batch quality assessment: {len(contexts)} items, "
-                   f"max_concurrent={max_concurrent}")
+                   f"max_concurrent={max_concurrent if max_concurrent and max_concurrent > 0 else 'unbounded'}")
 
-        # Create semaphore to limit concurrent operations
-        semaphore = asyncio.Semaphore(max_concurrent)
+        # Create semaphore to limit concurrent operations (optional)
+        semaphore = (
+            asyncio.Semaphore(max_concurrent)
+            if max_concurrent and max_concurrent > 0
+            else None
+        )
 
         async def assess_with_semaphore(ctx: QualityJudgmentContext) -> QualityAssessment:
+            if semaphore is None:
+                return await self.assess_content_quality(ctx)
+
             async with semaphore:
                 return await self.assess_content_quality(ctx)
 

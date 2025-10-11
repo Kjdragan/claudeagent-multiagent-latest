@@ -503,7 +503,7 @@ async def search_crawl_and_clean_direct(
     num_results: int = 15,
     auto_crawl_top: int = 10,
     crawl_threshold: float = 0.3,
-    max_concurrent: int = 15,
+    max_concurrent: int | None = None,
     session_id: str = "default",
     anti_bot_level: int = 1,
     workproduct_dir: str = None,
@@ -524,7 +524,7 @@ async def search_crawl_and_clean_direct(
         num_results: Number of search results to retrieve
         auto_crawl_top: Maximum number of URLs to crawl
         crawl_threshold: Minimum relevance threshold for crawling
-        max_concurrent: Maximum concurrent crawling operations
+        max_concurrent: Maximum concurrent crawling operations (None for unbounded)
         session_id: Session identifier
         anti_bot_level: Progressive anti-bot level (0-3)
         workproduct_dir: Directory for work products
@@ -603,16 +603,24 @@ async def search_crawl_and_clean_direct(
         content_cleaner = get_content_cleaner()
         query_terms = query.split()
 
-        # Semaphores for concurrency control
-        scrape_semaphore = asyncio.Semaphore(max_concurrent)
-        clean_semaphore = asyncio.Semaphore(max_concurrent)  # No rate limiting restrictions
+        # Semaphores for concurrency control (optional to allow unbounded concurrency)
+        scrape_semaphore = (
+            asyncio.Semaphore(max_concurrent)
+            if max_concurrent and max_concurrent > 0
+            else None
+        )
+        clean_semaphore = (
+            asyncio.Semaphore(max_concurrent)
+            if max_concurrent and max_concurrent > 0
+            else None
+        )  # No rate limiting restrictions
 
         # Process each URL: scrape then immediately clean
         async def process_url_immediately(url: str):
             """Scrape URL, then immediately clean it without waiting for others."""
 
             # Scrape with anti-bot escalation
-            async with scrape_semaphore:
+            if scrape_semaphore is None:
                 scrape_result = await escalation_manager.crawl_with_escalation(
                     url=url,
                     initial_level=anti_bot_level,
@@ -620,6 +628,15 @@ async def search_crawl_and_clean_direct(
                     use_content_filter=False,
                     session_id=session_id,
                 )
+            else:
+                async with scrape_semaphore:
+                    scrape_result = await escalation_manager.crawl_with_escalation(
+                        url=url,
+                        initial_level=anti_bot_level,
+                        max_level=3,
+                        use_content_filter=False,
+                        session_id=session_id,
+                    )
 
             # Check if scraping succeeded
             if not scrape_result.success or not scrape_result.content or len(scrape_result.content.strip()) < 200:
@@ -641,21 +658,26 @@ async def search_crawl_and_clean_direct(
             )
 
             # IMMEDIATELY clean the scraped content (don't wait for other URLs!)
-            async with clean_semaphore:
-                domain = urlparse(url).netloc.lower()
-                context = ContentCleaningContext(
-                    search_query=query,
-                    query_terms=query_terms,
-                    url=url,
-                    source_domain=domain,
-                    session_id=session_id,
-                    min_quality_threshold=50,
-                    max_content_length=50000,
-                )
+            domain = urlparse(url).netloc.lower()
+            context = ContentCleaningContext(
+                search_query=query,
+                query_terms=query_terms,
+                url=url,
+                source_domain=domain,
+                session_id=session_id,
+                min_quality_threshold=50,
+                max_content_length=50000,
+            )
 
+            if clean_semaphore is None:
                 clean_result = await content_cleaner.clean_content(
                     scrape_result.content.strip(), context
                 )
+            else:
+                async with clean_semaphore:
+                    clean_result = await content_cleaner.clean_content(
+                        scrape_result.content.strip(), context
+                    )
 
             return {
                 "success": True,

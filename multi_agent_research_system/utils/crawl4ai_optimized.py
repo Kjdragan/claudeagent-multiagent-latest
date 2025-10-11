@@ -371,7 +371,7 @@ class OptimizedCrawler:
     async def crawl_multiple_optimized(
         self,
         urls: list[str],
-        max_concurrent: int = 5
+        max_concurrent: int | None = None
     ) -> list[OptimizedCrawlResult]:
         """
         Optimized parallel crawling with intelligent fallback for each URL.
@@ -382,10 +382,17 @@ class OptimizedCrawler:
             return []
 
         with logfire.span("crawl_multiple_optimized", url_count=len(urls), max_concurrent=max_concurrent):
-            # Create semaphore to limit concurrent operations
-            semaphore = asyncio.Semaphore(max_concurrent)
+            # Create semaphore to limit concurrent operations (optional)
+            semaphore = (
+                asyncio.Semaphore(max_concurrent)
+                if max_concurrent and max_concurrent > 0
+                else None
+            )
 
             async def crawl_with_semaphore(url: str) -> OptimizedCrawlResult:
+                if semaphore is None:
+                    return await self.crawl_with_intelligent_fallback(url)
+
                 async with semaphore:
                     return await self.crawl_with_intelligent_fallback(url)
 
@@ -602,7 +609,7 @@ async def optimized_crawl_multiple_urls_with_cleaning(
     urls: list[str],
     session_id: str,
     search_query: str,
-    max_concurrent: int = 10,
+    max_concurrent: int | None = None,
     extraction_mode: str = "article",
     include_metadata: bool = True
 ) -> list[dict]:

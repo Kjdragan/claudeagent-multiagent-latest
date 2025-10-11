@@ -20,7 +20,7 @@ class EnhancedSearchConfig:
     default_auto_crawl_top: int = 10
     default_crawl_threshold: float = 0.3  # Fixed at 0.3 for better success rates
     default_anti_bot_level: int = 1
-    default_max_concurrent: int = 15
+    default_max_concurrent: int = 0  # 0 => unbounded concurrency
 
     # Anti-bot levels
     anti_bot_levels = {
@@ -120,7 +120,7 @@ class EnhancedSearchConfig:
 
     # Crawl settings
     default_crawl_timeout: int = 30000
-    max_concurrent_crawls: int = 15
+    max_concurrent_crawls: int = 0  # 0 => unbounded concurrency
     crawl_retry_attempts: int = 2
 
     def __post_init__(self):

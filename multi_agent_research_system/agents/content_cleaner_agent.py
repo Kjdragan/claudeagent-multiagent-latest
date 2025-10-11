@@ -220,7 +220,7 @@ class ContentCleanerAgent:
     async def clean_multiple_contents(
         self,
         contents: list[tuple[str, ContentCleaningContext]],
-        max_concurrent: int = 5
+        max_concurrent: int | None = None
     ) -> list[CleanedContent]:
         """
         Clean multiple contents concurrently.
@@ -236,14 +236,21 @@ class ContentCleanerAgent:
             return []
 
         logger.info(f"Starting batch content cleaning: {len(contents)} items, "
-                   f"max_concurrent={max_concurrent}")
+                   f"max_concurrent={max_concurrent if max_concurrent and max_concurrent > 0 else 'unbounded'}")
 
-        # Create semaphore to limit concurrent operations
-        semaphore = asyncio.Semaphore(max_concurrent)
+        # Create semaphore to limit concurrent operations (optional)
+        semaphore = (
+            asyncio.Semaphore(max_concurrent)
+            if max_concurrent and max_concurrent > 0
+            else None
+        )
 
         async def clean_with_semaphore(content: tuple[str, ContentCleaningContext]) -> CleanedContent:
+            raw_content, context = content
+            if semaphore is None:
+                return await self.clean_content(raw_content, context)
+
             async with semaphore:
-                raw_content, context = content
                 return await self.clean_content(raw_content, context)
 
         # Execute cleaning concurrently
