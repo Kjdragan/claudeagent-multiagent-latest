@@ -15,6 +15,14 @@ The agents directory provides a comprehensive suite of specialized AI agents, ea
 - **`content_cleaner_agent.py`** - AI-powered content processing agent with GPT-5-nano integration and quality assessment (29KB)
 - **`content_quality_judge.py`** - Comprehensive quality assessment agent with judge scoring and feedback loops (25KB)
 
+### Enhanced Editorial Workflow Agents (Phase 3.2)
+- **`enhanced_editorial_engine.py`** - **NEW** Advanced editorial decision engine with multi-dimensional confidence scoring, gap analysis, and evidence-based decision making (3,200+ lines)
+- **`gap_research_decisions.py`** - **NEW** Sophisticated gap research decision system with confidence thresholds, cost-benefit analysis, and intelligent decision logic (2,800+ lines)
+- **`research_corpus_analyzer.py`** - **NEW** Comprehensive research corpus analyzer with multi-dimensional quality assessment, coverage evaluation, and sufficiency determination (4,500+ lines)
+- **`editorial_recommendations.py`** - **NEW** Intelligent editorial recommendations system with evidence-based prioritization, comprehensive action planning, and workflow organization (3,800+ lines)
+- **`sub_session_manager.py`** - **NEW** Advanced sub-session management system with parent-child linking, resource management, and coordination strategies (3,200+ lines)
+- **`editorial_workflow_integration.py`** - **NEW** Comprehensive integration layer connecting enhanced editorial components with orchestrator, hooks, and quality systems (2,500+ lines)
+
 ## Agent Architecture & Implementation Patterns
 
 ### Base Agent Pattern
