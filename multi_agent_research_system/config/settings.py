@@ -1,371 +1,240 @@
 """
-Configuration settings for the multi-agent research system.
+Configuration Settings for Pydantic AI Multi-Agent System
 
-This module contains configuration for enhanced search, crawling,
-and content cleaning functionality.
+This module handles all configuration settings including environment variables,
+API keys, agent configurations, and system parameters.
+
+Key Features:
+- Environment variable management
+- API key validation
+- Agent-specific configurations
+- Development/production settings
+- Logging configuration
 """
 
 import os
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
+from typing import Optional, Dict, Any, List
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings
+import logging
 
 
-@dataclass
-class EnhancedSearchConfig:
-    """Configuration for enhanced search functionality."""
+class Settings(BaseSettings):
+    """Application settings with environment variable support."""
 
-    # Search settings
-    default_num_results: int = 15
-    default_auto_crawl_top: int = 10
-    default_crawl_threshold: float = 0.3  # Fixed at 0.3 for better success rates
-    default_anti_bot_level: int = 1
-    default_max_concurrent: int = 0  # 0 => unbounded concurrency
+    # AI Model APIs
+    openai_api_key: str = Field(..., env="OPENAI_API_KEY", description="OpenAI API key")
+    anthropic_api_key: Optional[str] = Field(None, env="ANTHROPIC_API_KEY", description="Anthropic API key")
+    google_api_key: Optional[str] = Field(None, env="GOOGLE_API_KEY", description="Google AI API key")
 
-    # Anti-bot levels
-    anti_bot_levels = {
-        0: "basic",      # 6/10 sites success
-        1: "enhanced",   # 8/10 sites success
-        2: "advanced",   # 9/10 sites success
-        3: "stealth"     # 9.5/10 sites success
-    }
+    # External Services
+    serper_api_key: str = Field(..., env="SERPER_API_KEY", description="Serper search API key")
+    youtube_api_key: Optional[str] = Field(None, env="YOUTUBE_API_KEY", description="YouTube Data API key")
 
-    # Target-based scraping settings
-    target_successful_scrapes: int = 15  # Target number of successful scrapes per search
-    url_deduplication_enabled: bool = True  # Prevent duplicate URL crawling
-    progressive_retry_enabled: bool = True  # Retry failed URLs with higher anti-bot levels
+    # System Settings
+    log_level: str = Field("INFO", env="LOG_LEVEL", description="Logging level")
+    max_tokens: int = Field(8192, env="MAX_TOKENS", description="Maximum tokens per request")
+    temperature: float = Field(0.7, env="TEMPERATURE", description="Default model temperature")
 
-    # Retry logic settings
-    max_retry_attempts: int = 3
-    progressive_timeout_multiplier: float = 1.5
+    # Agent Configuration
+    orchestrator_model: str = Field("openai:gpt-5-mini", env="ORCHESTRATOR_MODEL", description="Orchestrator agent model")
+    youtube_model: str = Field("openai:gpt-5-mini", env="YOUTUBE_MODEL", description="YouTube agent model")
+    tool_specialty_model: str = Field("openai:gpt-5-mini", env="TOOL_SPECIALTY_MODEL", description="Tool specialist model")
+    search_model: str = Field("openai:gpt-5-mini", env="SEARCH_MODEL", description="Search agent model")
+    crawl4ai_model: str = Field("openai:gpt-5-mini", env="CRAWL4AI_MODEL", description="Crawl4AI agent model")
 
-    # Token management
-    max_response_tokens: int = 20000
-    content_summary_threshold: int = 20000
+    # Crawling Configuration (from our enhancements)
+    target_successful_scrapes: int = Field(15, env="TARGET_SUCCESSFUL_SCRAPES", description="Target number of successful scrapes")
+    max_total_urls_to_process: int = Field(50, env="MAX_TOTAL_URLS_TO_PROCESS", description="Maximum total URLs to process")
+    enable_success_based_termination: bool = Field(True, env="ENABLE_SUCCESS_BASED_TERMINATION", description="Use success-based termination")
+    primary_batch_size: int = Field(16, env="PRIMARY_BATCH_SIZE", description="Primary batch size for concurrent scraping")
+    secondary_batch_size: int = Field(16, env="SECONDARY_BATCH_SIZE", description="Secondary batch size for concurrent scraping")
+    pdf_processing_enabled: bool = Field(True, env="PDF_PROCESSING_ENABLED", description="Enable PDF processing")
 
-    # Centralized Path Configuration
-    def _get_base_repo_dir(self) -> str:
-        """Get base repository directory with environment-aware detection."""
-        current_repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        if "claudeagent-multiagent-latest" in current_repo:
-            return current_repo
-        else:
-            return "/home/kjdragan/lrepos/claudeagent-multiagent-latest"
+    # Original z-playground1 settings
+    auto_crawl_top_default: int = Field(10, env="AUTO_CRAWL_TOP_DEFAULT", description="Default number of URLs to auto-crawl per round")
+    crawl_relevance_threshold: float = Field(0.15, env="CRAWL_RELEVANCE_THRESHOLD", description="Minimum relevance score for crawling")
+    concurrent_crawl_limit: int = Field(16, env="CONCURRENT_CRAWL_LIMIT", description="Maximum concurrent crawling operations")  # Updated to 16
+    crawl_success_target: int = Field(15, env="CRAWL_SUCCESS_TARGET", description="Target number of successful crawls before early termination")  # Updated to 15
+    crawl_timeout_seconds: float = Field(180.0, env="CRAWL_TIMEOUT_SECONDS", description="Timeout for crawling operations")
+    crawl_max_retries: int = Field(1, env="CRAWL_MAX_RETRIES", description="Maximum retry attempts per URL")  # Updated to 1 per user directive
+    url_selection_limit_default: int = Field(10, env="URL_SELECTION_LIMIT_DEFAULT", description="Default limit for URL selection")
 
-    @property
-    def kevin_base_dir(self) -> str:
-        """Get KEVIN base directory with environment override support."""
-        if hasattr(self, '_kevin_base_dir_override') and self._kevin_base_dir_override:
-            return self._kevin_base_dir_override
-        return f"{self._get_base_repo_dir()}/KEVIN"
+    # Rate Limiting
+    max_requests_per_minute: int = Field(5000, env="MAX_REQUESTS_PER_MINUTE", description="Rate limit per minute")
+    max_tokens_per_minute: int = Field(4000000, env="MAX_TOKENS_PER_MINUTE", description="Token limit per minute")
 
-    @property
-    def kevin_sessions_dir(self) -> str:
-        """Get KEVIN sessions directory."""
-        return f"{self.kevin_base_dir}/sessions"
+    # Cache Settings
+    cache_ttl: int = Field(300, env="CACHE_TTL", description="Cache TTL in seconds")
+    enable_caching: bool = Field(True, env="ENABLE_CACHING", description="Enable response caching")
 
-    @property
-    def kevin_logs_dir(self) -> str:
-        """Get KEVIN logs directory."""
-        return f"{self.kevin_base_dir}/logs"
+    # HTTP Client Settings
+    http_timeout: float = Field(30.0, env="HTTP_TIMEOUT", description="HTTP request timeout")
+    http_max_retries: int = Field(3, env="HTTP_MAX_RETRIES", description="Maximum HTTP retries")
+    http_rate_limit: float = Field(83.3, env="HTTP_RATE_LIMIT", description="HTTP requests per second")
 
-    @property
-    def kevin_workproducts_dir(self) -> str:
-        """Get KEVIN work products directory with environment override support."""
-        if hasattr(self, '_kevin_workproducts_dir_override') and self._kevin_workproducts_dir_override:
-            return self._kevin_workproducts_dir_override
-        return f"{self.kevin_base_dir}/work_products"
+    # Development Settings
+    debug_mode: bool = Field(False, env="DEBUG_MODE", description="Enable debug mode")
+    development_mode: bool = Field(False, env="DEVELOPMENT_MODE", description="Enable development features")
+    enable_metrics: bool = Field(True, env="ENABLE_METRICS", description="Enable performance metrics")
 
-    def get_session_dir(self, session_id: str) -> str:
-        """Get session directory path."""
-        return f"{self.kevin_sessions_dir}/{session_id}"
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        case_sensitive = False
+        extra = "ignore"
 
-    def get_session_working_dir(self, session_id: str) -> str:
-        """Get session working directory path."""
-        return f"{self.get_session_dir(session_id)}/working"
+    @field_validator("log_level")
+    @classmethod
+    def validate_log_level(cls, v):
+        """Validate log level."""
+        valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+        if v.upper() not in valid_levels:
+            raise ValueError(f"Log level must be one of: {valid_levels}")
+        return v.upper()
 
-    def get_session_research_dir(self, session_id: str) -> str:
-        """Get session research directory path."""
-        return f"{self.get_session_dir(session_id)}/research"
+    @field_validator("temperature")
+    @classmethod
+    def validate_temperature(cls, v):
+        """Validate model temperature."""
+        if not 0.0 <= v <= 2.0:
+            raise ValueError("Temperature must be between 0.0 and 2.0")
+        return v
 
-    def get_session_final_dir(self, session_id: str) -> str:
-        """Get session final directory path."""
-        return f"{self.get_session_dir(session_id)}/final"
+    @field_validator("max_tokens")
+    @classmethod
+    def validate_max_tokens(cls, v):
+        """Validate max tokens."""
+        if v <= 0:
+            raise ValueError("Max tokens must be positive")
+        return v
 
-    def get_final_report_path(self, session_id: str, filename: str) -> str:
-        """Get final report path - CRITICAL: Always use session working directory."""
-        return f"{self.get_session_working_dir(session_id)}/{filename}"
-
-    def validate_session_path(self, session_id: str, file_path: str) -> bool:
-        """Validate that file path belongs to session directory."""
-        session_dir = self.get_session_dir(session_id)
-        return file_path.startswith(session_dir)
-
-    # Legacy work product directories - use environment-aware path detection
-    def _get_default_workproduct_dir(self) -> str:
-        current_repo = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        if "claudeagent-multiagent-latest" in current_repo:
-            return f"{current_repo}/KEVIN/work_products"
-        else:
-            return "/home/kjdragan/lrepos/claudeagent-multiagent-latest/KEVIN/work_products"
-
-    @property
-    def default_workproduct_dir(self) -> str:
-        return self._get_default_workproduct_dir()
-
-    # Content cleaning settings
-    default_cleanliness_threshold: float = 0.7
-    min_content_length_for_cleaning: int = 500
-    min_cleaned_content_length: int = 200
-
-    # Crawl settings
-    default_crawl_timeout: int = 30000
-    max_concurrent_crawls: int = 0  # 0 => unbounded concurrency
-    crawl_retry_attempts: int = 2
-
-    def __post_init__(self):
-        """Initialize derived settings with environment variable overrides."""
-        # Set KEVIN directory paths from environment if available
-        if os.getenv('KEVIN_BASE_DIR'):
-            self._kevin_base_dir_override = os.getenv('KEVIN_BASE_DIR')
-        else:
-            self._kevin_base_dir_override = None
-
-        # Legacy support for workproducts directory override
-        if os.getenv('KEVIN_WORKPRODUCTS_DIR'):
-            self._kevin_workproducts_dir_override = os.getenv('KEVIN_WORKPRODUCTS_DIR')
-        else:
-            self._kevin_workproducts_dir_override = None
-
-
-class SettingsManager:
-    """Manages configuration settings for the research system."""
-
-    def __init__(self):
-        self._enhanced_search_config = EnhancedSearchConfig()
-        self._load_environment_overrides()
-
-    def _load_environment_overrides(self):
-        """Load configuration overrides from environment variables."""
-
-        # Enhanced search settings
-        if os.getenv('ENHANCED_SEARCH_NUM_RESULTS'):
-            try:
-                self._enhanced_search_config.default_num_results = int(os.getenv('ENHANCED_SEARCH_NUM_RESULTS'))
-            except ValueError:
-                pass
-
-        if os.getenv('ENHANCED_SEARCH_AUTO_CRAWL_TOP'):
-            try:
-                self._enhanced_search_config.default_auto_crawl_top = int(os.getenv('ENHANCED_SEARCH_AUTO_CRAWL_TOP'))
-            except ValueError:
-                pass
-
-        if os.getenv('ENHANCED_SEARCH_CRAWL_THRESHOLD'):
-            try:
-                self._enhanced_search_config.default_crawl_threshold = float(os.getenv('ENHANCED_SEARCH_CRAWL_THRESHOLD'))
-            except ValueError:
-                pass
-
-        if os.getenv('ENHANCED_SEARCH_ANTI_BOT_LEVEL'):
-            try:
-                level = int(os.getenv('ENHANCED_SEARCH_ANTI_BOT_LEVEL'))
-                if 0 <= level <= 3:
-                    self._enhanced_search_config.default_anti_bot_level = level
-            except ValueError:
-                pass
-
-        if os.getenv('ENHANCED_SEARCH_MAX_CONCURRENT'):
-            try:
-                self._enhanced_search_config.default_max_concurrent = int(os.getenv('ENHANCED_SEARCH_MAX_CONCURRENT'))
-            except ValueError:
-                pass
-
-        # Path configuration settings
-        self._load_path_environment_overrides()
-
-    def _load_path_environment_overrides(self):
-        """Load path configuration overrides from environment variables."""
-
-        # KEVIN directory path overrides
-        if os.getenv('KEVIN_BASE_DIR'):
-            self._enhanced_search_config._kevin_base_dir_override = os.getenv('KEVIN_BASE_DIR')
-
-        if os.getenv('KEVIN_WORKPRODUCTS_DIR'):
-            self._enhanced_search_config._kevin_workproducts_dir_override = os.getenv('KEVIN_WORKPRODUCTS_DIR')
-
-        # Session directory overrides
-        if os.getenv('KEVIN_SESSIONS_DIR'):
-            self._kevin_sessions_dir_override = os.getenv('KEVIN_SESSIONS_DIR')
-
-        if os.getenv('KEVIN_LOGS_DIR'):
-            self._kevin_logs_dir_override = os.getenv('KEVIN_LOGS_DIR')
-
-    # Path configuration management
-    def get_kevin_base_dir(self) -> str:
-        """Get KEVIN base directory with environment override support."""
-        return self._enhanced_search_config.kevin_base_dir
-
-    def get_kevin_sessions_dir(self) -> str:
-        """Get KEVIN sessions directory with environment override support."""
-        if hasattr(self, '_kevin_sessions_dir_override'):
-            return self._kevin_sessions_dir_override
-        return self._enhanced_search_config.kevin_sessions_dir
-
-    def get_kevin_logs_dir(self) -> str:
-        """Get KEVIN logs directory with environment override support."""
-        if hasattr(self, '_kevin_logs_dir_override'):
-            return self._kevin_logs_dir_override
-        return self._enhanced_search_config.kevin_logs_dir
-
-    def get_session_dir(self, session_id: str) -> str:
-        """Get session directory path."""
-        return f"{self.get_kevin_sessions_dir()}/{session_id}"
-
-    def get_session_working_dir(self, session_id: str) -> str:
-        """Get session working directory path."""
-        return f"{self.get_session_dir(session_id)}/working"
-
-    def get_session_research_dir(self, session_id: str) -> str:
-        """Get session research directory path."""
-        return f"{self.get_session_dir(session_id)}/research"
-
-    def get_session_final_dir(self, session_id: str) -> str:
-        """Get session final directory path."""
-        return f"{self.get_session_dir(session_id)}/final"
-
-    def get_final_report_path(self, session_id: str, filename: str) -> str:
-        """Get final report path - CRITICAL: Always use session working directory."""
-        return f"{self.get_session_working_dir(session_id)}/{filename}"
-
-    def validate_session_path(self, session_id: str, file_path: str) -> bool:
-        """Validate that file path belongs to session directory."""
-        session_dir = self.get_session_dir(session_id)
-        return file_path.startswith(session_dir)
-
-    def ensure_session_directory(self, session_id: str) -> dict[str, Path]:
-        """Ensure all session directories exist and return paths."""
-        base_dir = Path(self.get_session_dir(session_id))
-        working_dir = Path(self.get_session_working_dir(session_id))
-        research_dir = Path(self.get_session_research_dir(session_id))
-        final_dir = Path(self.get_session_final_dir(session_id))
-
-        # Create all directories
-        base_dir.mkdir(parents=True, exist_ok=True)
-        working_dir.mkdir(parents=True, exist_ok=True)
-        research_dir.mkdir(parents=True, exist_ok=True)
-        final_dir.mkdir(parents=True, exist_ok=True)
-
-        return {
-            "session": base_dir,
-            "working": working_dir,
-            "research": research_dir,
-            "final": final_dir
+    def get_model_for_agent(self, agent_name: str) -> str:
+        """Get the configured model for a specific agent."""
+        model_mapping = {
+            "orchestrator": self.orchestrator_model,
+            "youtube": self.youtube_model,
+            "tool_specialty": self.tool_specialty_model,
+            "search": self.search_model,
+            "crawl4ai": self.crawl4ai_model
         }
+        return model_mapping.get(agent_name, self.orchestrator_model)
 
-    @property
-    def enhanced_search(self) -> EnhancedSearchConfig:
-        """Get enhanced search configuration."""
-        return self._enhanced_search_config
-
-    def get_anti_bot_description(self, level: int) -> str:
-        """Get description for anti-bot level."""
-        return self._enhanced_search_config.anti_bot_levels.get(level, "unknown")
-
-    def validate_anti_bot_level(self, level: int) -> int:
-        """Validate and clamp anti-bot level to valid range."""
-        return max(0, min(3, level))
-
-    def validate_crawl_threshold(self, threshold: float) -> float:
-        """Validate and clamp crawl threshold to valid range."""
-        return max(0.0, min(1.0, threshold))
-
-    def ensure_workproduct_directory(self, custom_dir: str = None, session_id: str = None, category: str = "research") -> Path:
-        """Ensure workproduct directory exists and return path with centralized session-based organization."""
-        if custom_dir:
-            workproduct_dir = Path(custom_dir)
-        elif session_id:
-            # Use centralized session-based directory structure
-            session_dir = Path(self.get_session_dir(session_id))
-            workproduct_dir = session_dir / category
-        elif hasattr(self, '_kevin_workproducts_dir_override') and self._kevin_workproducts_dir_override:
-            workproduct_dir = Path(self._kevin_workproducts_dir_override)
+    def get_api_key_for_model(self, model: str) -> Optional[str]:
+        """Get the appropriate API key for a model."""
+        if model.startswith("openai:"):
+            return self.openai_api_key
+        elif model.startswith("anthropic:"):
+            return self.anthropic_api_key
+        elif model.startswith("google:"):
+            return self.google_api_key
         else:
-            workproduct_dir = Path(self._enhanced_search_config.kevin_workproducts_dir)
+            # Default to OpenAI for unknown providers
+            return self.openai_api_key
 
-        workproduct_dir.mkdir(parents=True, exist_ok=True)
-        return workproduct_dir
-
-    def get_default_search_params(self) -> dict[str, Any]:
-        """Get default search parameters."""
-        return {
-            "num_results": self._enhanced_search_config.default_num_results,
-            "auto_crawl_top": self._enhanced_search_config.default_auto_crawl_top,
-            "crawl_threshold": self._enhanced_search_config.default_crawl_threshold,
-            "anti_bot_level": self._enhanced_search_config.default_anti_bot_level,
-            "max_concurrent": self._enhanced_search_config.default_max_concurrent,
-            "session_id": "default"
+    def is_api_key_available(self, service: str) -> bool:
+        """Check if an API key is available for a service."""
+        key_mapping = {
+            "openai": self.openai_api_key,
+            "anthropic": self.anthropic_api_key,
+            "google": self.google_api_key,
+            "serper": self.serper_api_key,
+            "youtube": self.youtube_api_key
         }
+        key = key_mapping.get(service.lower())
+        return key is not None and key.strip() != ""
 
-    def get_debug_info(self) -> dict[str, Any]:
-        """Get debug information about current configuration."""
-        return {
-            "enhanced_search_config": {
-                "default_num_results": self._enhanced_search_config.default_num_results,
-                "default_auto_crawl_top": self._enhanced_search_config.default_auto_crawl_top,
-                "default_crawl_threshold": self._enhanced_search_config.default_crawl_threshold,
-                "default_anti_bot_level": self._enhanced_search_config.default_anti_bot_level,
-                "default_max_concurrent": self._enhanced_search_config.default_max_concurrent,
-                "workproduct_dir": self._enhanced_search_config.default_workproduct_dir,
-                "kevin_workproducts_dir": self._enhanced_search_config.kevin_workproducts_dir
-            },
-            "path_configuration": {
-                "kevin_base_dir": self.get_kevin_base_dir(),
-                "kevin_sessions_dir": self.get_kevin_sessions_dir(),
-                "kevin_logs_dir": self.get_kevin_logs_dir(),
-                "kevin_workproducts_dir": self._enhanced_search_config.kevin_workproducts_dir,
-                "session_working_dir_example": self.get_session_working_dir("example-session-id"),
-                "final_report_path_example": self.get_final_report_path("example-session-id", "FINAL_report.md")
-            },
-            "environment_variables": {
-                "SERP_API_KEY": "SET" if os.getenv('SERP_API_KEY') else "NOT_SET",
-                "OPENAI_API_KEY": "SET" if os.getenv('OPENAI_API_KEY') else "NOT_SET",
-                "ANTHROPIC_API_KEY": "SET" if os.getenv('ANTHROPIC_API_KEY') else "NOT_SET",
-                "KEVIN_BASE_DIR": os.getenv('KEVIN_BASE_DIR', 'NOT_SET'),
-                "KEVIN_SESSIONS_DIR": os.getenv('KEVIN_SESSIONS_DIR', 'NOT_SET'),
-                "KEVIN_LOGS_DIR": os.getenv('KEVIN_LOGS_DIR', 'NOT_SET'),
-                "KEVIN_WORKPRODUCTS_DIR": os.getenv('KEVIN_WORKPRODUCTS_DIR', 'NOT_SET')
-            },
-            "path_validation": {
-                "kevin_base_exists": Path(self.get_kevin_base_dir()).exists(),
-                "sessions_dir_exists": Path(self.get_kevin_sessions_dir()).exists(),
-                "logs_dir_exists": Path(self.get_kevin_logs_dir()).exists(),
-                "workproducts_dir_exists": Path(self._enhanced_search_config.kevin_workproducts_dir).exists()
-            }
-        }
+    def get_missing_api_keys(self) -> List[str]:
+        """Get list of missing required API keys."""
+        missing = []
+
+        # Required keys
+        if not self.openai_api_key or self.openai_api_key.strip() == "your_openai_key_here":
+            missing.append("OPENAI_API_KEY")
+
+        if not self.serper_api_key or self.serper_api_key.strip() == "your_serper_key_here":
+            missing.append("SERPER_API_KEY")
+
+        return missing
+
+    def setup_logging(self) -> None:
+        """Setup logging configuration with timestamped log files."""
+        import os
+        from datetime import datetime
+
+        # Create Logs directory if it doesn't exist
+        logs_dir = os.path.join(os.getcwd(), 'Logs')
+        os.makedirs(logs_dir, exist_ok=True)
+
+        # Generate timestamped log filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_filename = f"multi_agent_system_{timestamp}.log"
+        log_path = os.path.join(logs_dir, log_filename)
+
+        # Configure logging with fresh file for each run
+        logging.basicConfig(
+            level=getattr(logging, self.log_level),
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.StreamHandler(),
+                logging.FileHandler(log_path, mode='w') if not self.development_mode else logging.NullHandler()
+            ],
+            force=True  # Force reconfiguration to ensure fresh setup
+        )
+
+        # Log the log file location for reference
+        logger = logging.getLogger(__name__)
+        if not self.development_mode:
+            logger.info(f"📝 Session log file: {log_path}")
+
+        # Set specific logger levels
+        if self.debug_mode:
+            logging.getLogger("agents").setLevel(logging.DEBUG)
+            logging.getLogger("utils").setLevel(logging.DEBUG)
+        else:
+            logging.getLogger("httpx").setLevel(logging.WARNING)
+            logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 # Global settings instance
-_settings_manager = None
+try:
+    settings = Settings()
+    settings.setup_logging()
+
+    # Log configuration status
+    logger = logging.getLogger(__name__)
+    logger.info("Settings loaded successfully")
+
+    missing_keys = settings.get_missing_api_keys()
+    if missing_keys:
+        logger.warning(f"Missing required API keys: {missing_keys}")
+    else:
+        logger.info("All required API keys are configured")
+
+except Exception as e:
+    # Fallback settings for development
+    print(f"Warning: Could not load settings from environment: {e}")
+    print("Using default settings. Please configure your .env file.")
+
+    class DefaultSettings:
+        openai_api_key = "not_configured"
+        serper_api_key = "not_configured"
+        log_level = "INFO"
+        debug_mode = True
+        development_mode = True
+        target_successful_scrapes = 15
+        concurrent_crawl_limit = 16
+
+        def setup_logging(self):
+            logging.basicConfig(level=logging.INFO)
+
+        def get_missing_api_keys(self):
+            return ["OPENAI_API_KEY", "SERPER_API_KEY"]
+
+    settings = DefaultSettings()
+    settings.setup_logging()
 
 
-def get_settings() -> SettingsManager:
-    """Get the global settings manager instance."""
-    global _settings_manager
-    if _settings_manager is None:
-        _settings_manager = SettingsManager()
-    return _settings_manager
-
-
-def get_enhanced_search_config() -> EnhancedSearchConfig:
-    """Get enhanced search configuration."""
-    return get_settings().enhanced_search
-
-
-# Export functions
-__all__ = [
-    'EnhancedSearchConfig',
-    'SettingsManager',
-    'get_settings',
-    'get_enhanced_search_config'
-]
+def get_settings() -> Settings:
+    """Get the global settings instance."""
+    return settings

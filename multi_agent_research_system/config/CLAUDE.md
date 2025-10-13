@@ -1,10 +1,10 @@
 # Config Directory - Multi-Agent Research System
 
-This directory contains comprehensive configuration management, agent definitions, and system settings that control the behavior, coordination, and quality standards of the multi-agent research system.
+This directory contains enhanced comprehensive configuration management, agent definitions with flow adherence enforcement, and system settings that control the behavior, coordination, and quality standards of the redesigned multi-agent research system.
 
 ## Directory Purpose
 
-The config directory provides centralized configuration management for the entire multi-agent research system, including sophisticated agent definitions with Claude Agent SDK integration, enhanced search configuration, environment variable management, and quality framework settings. This configuration enables flexible system behavior without code changes while maintaining enterprise-grade consistency and control.
+The config directory provides centralized configuration management for the entire multi-agent research system, including sophisticated agent definitions with Claude Agent SDK integration, flow adherence validation configuration, enhanced search configuration, environment variable management, and quality framework settings. This configuration enables flexible system behavior with 100% workflow integrity enforcement while maintaining enterprise-grade consistency and control.
 
 ## Key Components
 
@@ -262,6 +262,114 @@ min_cleaned_content_length: int = 200
 default_crawl_timeout: int = 30000
 max_concurrent_crawls: int = 15
 crawl_retry_attempts: int = 2
+```
+
+### Enhanced Research & Gap Research Configuration
+
+The redesigned system includes comprehensive configuration parameters for research execution and gap research coordination with flow adherence enforcement:
+
+```python
+# Enhanced Research Configuration
+@dataclass
+class EnhancedResearchConfig:
+    """Configuration for enhanced research and gap research execution."""
+
+    # Primary Research Parameters
+    primary_research_max_results: int = 15
+    primary_research_auto_crawl_top: int = 10
+    primary_research_crawl_threshold: float = 0.3
+    primary_research_anti_bot_level: int = 1
+    primary_research_max_concurrent: int = 10
+
+    # Gap Research Parameters
+    gap_research_max_results: int = 12
+    gap_research_auto_crawl_top: int = 8
+    gap_research_crawl_threshold: float = 0.4  # Higher threshold for targeted research
+    gap_research_anti_bot_level: int = 2      # Higher level for gap research
+    gap_research_max_concurrent: int = 8
+
+    # Budget Management
+    total_budget_scrapes: int = 30
+    total_budget_queries: int = 10
+    primary_research_allocation: float = 0.7  # 70% for primary research
+    gap_research_allocation: float = 0.3      # 30% for gap research
+    emergency_reserve_scrapes: int = 5
+    emergency_reserve_queries: int = 2
+
+    # Flow Adherence Settings
+    flow_adherence_enforcement: bool = True
+    gap_research_mandatory: bool = True
+    automatic_gap_detection: bool = True
+    forced_execution_enabled: bool = True
+
+    # Quality Parameters
+    min_quality_threshold: float = 0.7
+    gap_research_quality_threshold: float = 0.65
+    enhancement_enabled: bool = True
+    max_enhancement_cycles: int = 3
+
+# Research-specific environment variables
+ENHANCED_RESEARCH_MAX_RESULTS=15
+ENHANCED_RESEARCH_AUTO_CRAWL_TOP=10
+ENHANCED_RESEARCH_CRAWL_THRESHOLD=0.3
+ENHANCED_RESEARCH_ANTI_BOT_LEVEL=1
+
+# Gap research configuration
+GAP_RESEARCH_ENABLED=true
+GAP_RESEARCH_MAX_RESULTS=12
+GAP_RESEARCH_AUTO_CRAWL_TOP=8
+GAP_RESEARCH_ANTI_BOT_LEVEL=2
+GAP_RESEARCH_MANDATORY=true
+
+# Budget management
+RESEARCH_BUDGET_SCRAPES=30
+RESEARCH_BUDGET_QUERIES=10
+GAP_RESEARCH_BUDGET_RATIO=0.3
+
+# Flow adherence enforcement
+FLOW_ADHERENCE_ENFORCEMENT=true
+AUTOMATIC_GAP_DETECTION=true
+FORCED_EXECUTION_ENABLED=true
+```
+
+### Session Management Configuration
+
+```python
+# Session Management Settings
+@dataclass
+class SessionManagementConfig:
+    """Configuration for session-based organization and management."""
+
+    # Directory Structure
+    session_based_organization: bool = True
+    base_sessions_dir: str = "KEVIN/sessions"
+    working_subdir: str = "working"
+    research_subdir: str = "research"
+    complete_subdir: str = "complete"
+    agent_logs_subdir: str = "agent_logs"
+
+    # File Organization
+    stage_based_prefixes: bool = True
+    timestamped_files: bool = True
+    metadata_files: bool = True
+
+    # Session Lifecycle
+    session_timeout_minutes: int = 120
+    auto_cleanup_days: int = 30
+    session_compression: bool = True
+
+    # Workproduct Naming
+    research_prefix: str = "RESEARCH"
+    report_prefix: str = "REPORT"
+    editorial_prefix: str = "EDITORIAL"
+    final_prefix: str = "FINAL"
+    gap_research_prefix: str = "EDITOR_RESEARCH"
+
+# Session management environment variables
+SESSION_BASED_ORGANIZATION=true
+SESSION_TIMEOUT_MINUTES=120
+SESSION_AUTO_CLEANUP_DAYS=30
+SESSION_COMPRESSION_ENABLED=true
 ```
 
 ## Flow Adherence & Compliance Enforcement

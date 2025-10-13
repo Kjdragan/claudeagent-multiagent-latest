@@ -18,6 +18,14 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+# CRITICAL: Load environment variables from .env file BEFORE importing modules
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("✅ Environment variables loaded from .env file")
+except ImportError:
+    print("⚠️  python-dotenv not available, using environment variables only")
+
 # Add the multi_agent_research_system to the path
 sys.path.insert(0, str(Path(__file__).parent / "multi_agent_research_system"))
 

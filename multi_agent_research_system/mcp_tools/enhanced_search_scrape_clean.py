@@ -26,8 +26,8 @@ chunking_stats = {
 sys.path.append(str(Path(__file__).parent.parent.resolve()))
 
 # Import the enhanced search functionality
-from utils.serp_search_utils import expanded_query_search_and_extract
-from utils.z_search_crawl_utils import (
+from ..utils.serp_search_utils import expanded_query_search_and_extract
+from ..utils.z_search_crawl_utils import (
     news_search_and_crawl_direct,
     search_crawl_and_clean_direct,
 )

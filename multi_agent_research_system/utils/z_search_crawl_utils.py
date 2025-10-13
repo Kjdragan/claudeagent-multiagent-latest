@@ -83,24 +83,22 @@ async def execute_serper_search(
     try:
         import httpx
 
-        # FAIL-FAST: Check for correct API key name - must match orchestrator expectations
-        serper_api_key = os.getenv(
-            "SERP_API_KEY"
-        )  # Note: SERP_API_KEY, not SERPER_API_KEY
+        # FAIL-FAST: Check for correct API key name - must be SERPER_API_KEY
+        serper_api_key = os.getenv("SERPER_API_KEY")  # Note: SERPER_API_KEY, not SERP_API_KEY
 
         if not serper_api_key:
             # During development, fail hard and fast with clear error message
-            error_msg = "CRITICAL: SERP_API_KEY not found in environment variables!"
+            error_msg = "CRITICAL: SERPER_API_KEY not found in environment variables!"
             logger.error(f"❌ {error_msg}")
-            logger.error("Search functionality cannot work without SERP_API_KEY!")
-            logger.error("Expected environment variable: SERP_API_KEY")
-            logger.error("Set with: export SERP_API_KEY='your-serper-api-key'")
+            logger.error("Search functionality cannot work without SERPER_API_KEY!")
+            logger.error("Expected environment variable: SERPER_API_KEY")
+            logger.error("Set with: export SERPER_API_KEY='your-serper-api-key'")
 
             # Check if user has the wrong API key name
-            if os.getenv("SERPER_API_KEY"):
-                logger.error("🚨 FOUND SERPER_API_KEY but system expects SERP_API_KEY!")
+            if os.getenv("SERP_API_KEY"):
+                logger.error("🚨 FOUND SERP_API_KEY but system expects SERPER_API_KEY!")
                 logger.error(
-                    "Please rename your environment variable from SERPER_API_KEY to SERP_API_KEY"
+                    "Please rename your environment variable from SERP_API_KEY to SERPER_API_KEY"
                 )
 
             # During development, fail immediately instead of returning empty results
@@ -659,25 +657,59 @@ async def search_crawl_and_clean_direct(
 
             # IMMEDIATELY clean the scraped content (don't wait for other URLs!)
             domain = urlparse(url).netloc.lower()
-            context = ContentCleaningContext(
-                search_query=query,
-                query_terms=query_terms,
-                url=url,
-                source_domain=domain,
-                session_id=session_id,
-                min_quality_threshold=50,
-                max_content_length=50000,
-            )
 
-            if clean_semaphore is None:
-                clean_result = await content_cleaner.clean_content(
-                    scrape_result.content.strip(), context
+            # Validate scrape_result content before cleaning
+            if not scrape_result or not scrape_result.content or len(scrape_result.content.strip()) < 50:
+                logger.warning(f"Content too short or empty for {url}, skipping cleaning")
+                return {
+                    "success": False,
+                    "url": url,
+                    "scrape_result": scrape_result,
+                    "error": "Content too short or empty for cleaning"
+                }
+
+            try:
+                context = ContentCleaningContext(
+                    search_query=query,
+                    query_terms=query_terms,
+                    url=url,
+                    source_domain=domain,
+                    session_id=session_id,
+                    min_quality_threshold=50,
+                    max_content_length=50000,
                 )
-            else:
-                async with clean_semaphore:
+
+                # Perform content cleaning with error handling
+                if clean_semaphore is None:
                     clean_result = await content_cleaner.clean_content(
                         scrape_result.content.strip(), context
                     )
+                else:
+                    async with clean_semaphore:
+                        clean_result = await content_cleaner.clean_content(
+                            scrape_result.content.strip(), context
+                        )
+
+                # Validate clean_result structure
+                if not clean_result:
+                    logger.warning(f"Content cleaning returned None for {url} - treating as garbage content")
+                    return {
+                        "success": False,
+                        "url": url,
+                        "scrape_result": scrape_result,
+                        "error": "Content cleaning returned None - likely garbage content"
+                    }
+
+            except Exception as e:
+                logger.error(f"Content cleaning failed for {url}: {e}")
+                # Return failed overall - garbage content is not useful
+                return {
+                    "success": False,
+                    "url": url,
+                    "scrape_result": scrape_result,
+                    "clean_result": None,
+                    "error": f"Content cleaning failed - garbage content: {str(e)}"
+                }
 
             return {
                 "success": True,
@@ -709,16 +741,21 @@ async def search_crawl_and_clean_direct(
                 continue
 
             if not result["success"]:
-                # Track failed scrape
+                # Track failed scrape (including cleaning failures/garbage content)
+                failure_reason = "Scraping failed"
+                if "error" in result and "cleaning" in result["error"].lower():
+                    failure_reason = "Cleaning failed - garbage content"
+
                 escalation_stats.append({
                     "url": result["url"],
                     "success": False,
-                    "attempts": result["scrape_result"].attempts_made,
-                    "final_level": result["scrape_result"].final_level,
-                    "escalation_used": result["scrape_result"].escalation_used,
-                    "duration": result["scrape_result"].duration,
+                    "attempts": result["scrape_result"].attempts_made if result.get("scrape_result") else 0,
+                    "final_level": result["scrape_result"].final_level if result.get("scrape_result") else 0,
+                    "escalation_used": result["scrape_result"].escalation_used if result.get("scrape_result") else False,
+                    "duration": result["scrape_result"].duration if result.get("scrape_result") else 0.0,
                     "word_count": 0,
                     "char_count": 0,
+                    "failure_reason": failure_reason
                 })
                 continue
 
@@ -736,19 +773,52 @@ async def search_crawl_and_clean_direct(
             })
 
             # Track cleaning result (accept all content regardless of quality score)
-            clean_result = result["clean_result"]
-            if clean_result.quality_score >= 0:
+            clean_result = result.get("clean_result")
+
+            # Handle cases where cleaning failed but scraping succeeded
+            if "error" in result and result.get("success", False):
+                # Scraping succeeded but cleaning failed - SKIP this garbage content
+                logger.warning(f"SKIPPING garbage content from {result['url']}: {result.get('error', 'Unknown error')}")
+                # Don't add to cleaned_content_list - this content is likely garbage
+                cleaning_stats.append({
+                    "url": result["url"],
+                    "quality_score": 0,  # Zero score for garbage content
+                    "quality_level": "Skipped - Garbage",
+                    "relevance_score": 0.0,
+                    "word_count": 0,
+                    "processing_time": 0.0,
+                    "cleaning_error": result.get("error", "Unknown cleaning error"),
+                    "skipped": True  # Mark as skipped
+                })
+
+            # Validate clean_result structure to prevent data structure mismatches
+            elif clean_result and hasattr(clean_result, 'quality_score') and clean_result.quality_score >= 0:
                 cleaned_content_list.append(clean_result.cleaned_content)
                 cleaned_urls.append(result["url"])
+
+                # Safely extract quality level (handle both enum and string types)
+                quality_level = "Unknown"
+                if hasattr(clean_result, 'quality_level'):
+                    if hasattr(clean_result.quality_level, 'value'):
+                        quality_level = clean_result.quality_level.value
+                    else:
+                        quality_level = str(clean_result.quality_level)
 
                 cleaning_stats.append({
                     "url": result["url"],
                     "quality_score": clean_result.quality_score,
-                    "quality_level": clean_result.quality_level.value,
-                    "relevance_score": clean_result.relevance_score,
-                    "word_count": clean_result.word_count,
-                    "processing_time": clean_result.processing_time,
+                    "quality_level": quality_level,
+                    "relevance_score": getattr(clean_result, 'relevance_score', 0.0),
+                    "word_count": getattr(clean_result, 'word_count', 0),
+                    "processing_time": getattr(clean_result, 'processing_time', 0.0),
                 })
+            elif clean_result:
+                # Log structure of clean_result for debugging
+                logger.warning(f"Unexpected clean_result structure for {result['url']}: {type(clean_result)} - {dir(clean_result)}")
+                # Try to extract content anyway if possible
+                if hasattr(clean_result, 'cleaned_content'):
+                    cleaned_content_list.append(clean_result.cleaned_content)
+                    cleaned_urls.append(result["url"])
 
         if cleaned_content_list:
             # Step 5: Format results for orchestrator

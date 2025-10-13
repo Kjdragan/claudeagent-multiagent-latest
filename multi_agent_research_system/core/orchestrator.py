@@ -701,8 +701,8 @@ class ResearchOrchestrator:
             self.logger.info(f"   Server Name: {self.mcp_server.get('name', 'Unknown')}")
             self.logger.info(f"   Available Tools: {len([save_research_findings, create_research_report, get_session_data, request_gap_research, save_webfetch_content, create_search_verification_report, serp_search])} tools")
 
-            # Debug SERP API configuration
-            serper_key = os.getenv('SERP_API_KEY', 'NOT_SET')
+            # Debug SERPER API configuration - using SERPER_API_KEY as confirmed by user
+            serper_key = os.getenv('SERPER_API_KEY', 'NOT_SET')
             serper_status = 'SET' if serper_key != 'NOT_SET' else 'NOT_SET'
             openai_key = os.getenv('OPENAI_API_KEY', 'NOT_SET')
             openai_status = 'SET' if openai_key != 'NOT_SET' else 'NOT_SET'
@@ -711,20 +711,20 @@ class ResearchOrchestrator:
             critical_errors = []
 
             if serper_key == 'NOT_SET':
-                critical_errors.append("CRITICAL: SERP_API_KEY is missing! Web search functionality will not work.")
-                self.logger.error("❌ CRITICAL FAILURE: SERP_API_KEY is NOT SET!")
+                critical_errors.append("CRITICAL: SERPER_API_KEY is missing! Web search functionality will not work.")
+                self.logger.error("❌ CRITICAL FAILURE: SERPER_API_KEY is NOT SET!")
 
             if openai_key == 'NOT_SET':
                 critical_errors.append("CRITICAL: OPENAI_API_KEY is missing! Content processing will fail.")
                 self.logger.error("❌ CRITICAL FAILURE: OPENAI_API_KEY is NOT SET!")
 
-            # Check for SERPER_API_KEY vs SERP_API_KEY discrepancy
-            serper_key_alt = os.getenv('SERPER_API_KEY', 'NOT_SET')
-            if serper_key_alt != 'NOT_SET' and serper_key == 'NOT_SET':
-                critical_errors.append("CRITICAL: Found SERPER_API_KEY but system expects SERP_API_KEY - API key name mismatch!")
-                self.logger.error("❌ CRITICAL FAILURE: API key name mismatch! Found SERPER_API_KEY but expect SERP_API_KEY")
-            elif serper_key == 'NOT_SET' and serper_key_alt == 'NOT_SET':
-                critical_errors.append("CRITICAL: Neither SERP_API_KEY nor SERPER_API_KEY found in environment!")
+            # Check for SERP_API_KEY vs SERPER_API_KEY discrepancy (reverse check)
+            serp_key_alt = os.getenv('SERP_API_KEY', 'NOT_SET')
+            if serp_key_alt != 'NOT_SET' and serper_key == 'NOT_SET':
+                critical_errors.append("CRITICAL: Found SERP_API_KEY but system expects SERPER_API_KEY - API key name mismatch!")
+                self.logger.error("❌ CRITICAL FAILURE: API key name mismatch! Found SERP_API_KEY but expect SERPER_API_KEY")
+            elif serper_key == 'NOT_SET' and serp_key_alt == 'NOT_SET':
+                critical_errors.append("CRITICAL: Neither SERPER_API_KEY nor SERP_API_KEY found in environment!")
                 self.logger.error("❌ CRITICAL FAILURE: No search API key found!")
 
             # Fail fast and hard if critical API configuration is missing
@@ -735,20 +735,20 @@ class ResearchOrchestrator:
                     self.logger.error(f"  - {error}")
                 self.logger.error("")
                 self.logger.error("To fix these errors:")
-                self.logger.error("1. Set SERP_API_KEY environment variable for search functionality")
+                self.logger.error("1. Set SERPER_API_KEY environment variable for search functionality")
                 self.logger.error("2. Set OPENAI_API_KEY environment variable for content processing")
                 self.logger.error("3. Ensure API keys are valid and have proper permissions")
                 self.logger.error("")
                 self.logger.error("Example:")
-                self.logger.error("export SERP_API_KEY='your-serper-api-key'")
+                self.logger.error("export SERPER_API_KEY='your-serper-api-key'")
                 self.logger.error("export OPENAI_API_KEY='your-openai-api-key'")
                 self.logger.error("")
 
                 # During development, fail hard and fast
                 raise RuntimeError(f"CRITICAL CONFIGURATION FAILURE: {'; '.join(critical_errors)}")
 
-            self.logger.info("   SERP API Search: Enabled (high-performance replacement for WebPrime MCP)")
-            self.logger.info(f"   SERP_API_KEY Status: {serper_status}")
+            self.logger.info("   SERPER API Search: Enabled (high-performance replacement for WebPrime MCP)")
+            self.logger.info(f"   SERPER_API_KEY Status: {serper_status}")
             self.logger.info(f"   OPENAI_API_KEY Status: {openai_status}")
             self.logger.info("   Expected Tools: serp_search, research_tools")
 
@@ -992,27 +992,27 @@ class ResearchOrchestrator:
                 health_report["issues"].append(f"Research Tools MCP: {e}")
                 self.logger.error(f"❌ Research Tools MCP Server: {e}")
 
-        # Check SERP API configuration
-        serper_key = os.getenv('SERP_API_KEY')
+        # Check SERPER API configuration
+        serper_key = os.getenv('SERPER_API_KEY')
         openai_key = os.getenv('OPENAI_API_KEY')
         if serper_key and openai_key:
             health_report["search_system"] = {
                 "status": "configured",
-                "type": "SERP_API",
+                "type": "SERPER_API",
                 "serper_configured": True,
                 "openai_configured": True
             }
-            self.logger.info("✅ SERP API Search: Configured with API keys")
+            self.logger.info("✅ SERPER API Search: Configured with API keys")
         else:
             health_report["search_system"] = {
                 "status": "missing_keys",
-                "type": "SERP_API",
+                "type": "SERPER_API",
                 "serper_configured": bool(serper_key),
                 "openai_configured": bool(openai_key)
             }
             if not serper_key:
-                health_report["issues"].append("SERP API: Missing SERP_API_KEY")
-                self.logger.error("❌ SERP API: Missing SERP_API_KEY")
+                health_report["issues"].append("SERPER API: Missing SERPER_API_KEY")
+                self.logger.error("❌ SERPER API: Missing SERPER_API_KEY")
             if not openai_key:
                 health_report["issues"].append("SERP API: Missing OPENAI_API_KEY")
                 self.logger.error("❌ SERP API: Missing OPENAI_API_KEY")

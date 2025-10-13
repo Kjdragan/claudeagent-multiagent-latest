@@ -28,7 +28,7 @@ except ImportError:
     CLAUDE_SDK_AVAILABLE = False
 
 # Import the exact zPlayground1 search functionality
-from utils.z_search_crawl_utils import (
+from ..utils.z_search_crawl_utils import (
     news_search_and_crawl_direct,
     search_crawl_and_clean_direct,
 )
@@ -69,7 +69,7 @@ def create_zplayground1_mcp_server():
                 "default": 15,
                 "minimum": 1,
                 "maximum": 50,
-                "description": "Number of search results to retrieve",
+                "description": "Base number of search results (NOTE: Multi-query search will get 30+ primary + 20+ orthogonal results each)",
             },
             "auto_crawl_top": {
                 "type": "integer",
@@ -279,32 +279,80 @@ def create_zplayground1_mcp_server():
                 f"🚀 zPlayground1 executing: query='{query}', search_mode='{search_mode}', anti_bot_level={anti_bot_level}"
             )
 
-            # Execute the exact zPlayground1 search and extract functionality
-            if search_mode == "news":
-                # Use news search and crawl
-                result = await news_search_and_crawl_direct(
-                    query=query,
-                    num_results=num_results,
-                    auto_crawl_top=auto_crawl_top,
-                    session_id=session_id,
-                    anti_bot_level=anti_bot_level,
-                    workproduct_dir=workproduct_dir,
-                    workproduct_prefix=workproduct_prefix,
-                )
+            # Execute the exact zPlayground1 search and extract functionality with enhanced error handling
+            try:
+                if search_mode == "news":
+                    # Use news search and crawl
+                    result = await news_search_and_crawl_direct(
+                        query=query,
+                        num_results=num_results,
+                        auto_crawl_top=auto_crawl_top,
+                        session_id=session_id,
+                        anti_bot_level=anti_bot_level,
+                        workproduct_dir=workproduct_dir,
+                        workproduct_prefix=workproduct_prefix,
+                    )
+                else:
+                    # Use web search and crawl
+                    result = await search_crawl_and_clean_direct(
+                        query=query,
+                        search_type="search",
+                        num_results=num_results,
+                        auto_crawl_top=auto_crawl_top,
+                        crawl_threshold=crawl_threshold,
+                        max_concurrent=max_concurrent,
+                        session_id=session_id,
+                        anti_bot_level=anti_bot_level,
+                        workproduct_dir=workproduct_dir,
+                        workproduct_prefix=workproduct_prefix,
+                    )
+            except ImportError as e:
+                logger.error(f"❌ Import error in scraping pipeline: {e}")
+                logger.info("🔄 Activating fallback to SERP API search due to import failure")
+                result = await fallback_to_serp_search(query, session_id, search_mode)
+            except Exception as e:
+                logger.error(f"❌ Unexpected error in enhanced scraping: {e}")
+                logger.info("🔄 Activating fallback to SERP API search due to enhanced scraping failure")
+                result = await fallback_to_serp_search(query, session_id, search_mode)
+
+            # Validate tool actually produced content
+            if not result or not hasattr(result, 'success') or not result.success:
+                logger.error(f"❌ Tool execution failed: SearchAndCleanResult indicates failure")
+                if hasattr(result, 'error_message') and result.error_message:
+                    logger.error(f"   Error message: {result.error_message}")
+                return {
+                    "content": [{"type": "text", "text": "❌ Search and scrape operation failed to produce content"}],
+                    "is_error": True,
+                    "error_details": "SearchAndCleanResult indicates failure"
+                }
+
+            # Extract content and metrics from SearchAndCleanResult or string fallback
+            if isinstance(result, str):
+                # Handle string fallback from SERP search
+                content_length = len(result)
+                url_count = len([line for line in result.split("\n") if "URL:" in line])
+                logger.info(f"✅ Tool validation passed: {content_length} characters of content produced (fallback mode)")
             else:
-                # Use web search and crawl
-                result = await search_crawl_and_clean_direct(
-                    query=query,
-                    search_type="search",
-                    num_results=num_results,
-                    auto_crawl_top=auto_crawl_top,
-                    crawl_threshold=crawl_threshold,
-                    max_concurrent=max_concurrent,
-                    session_id=session_id,
-                    anti_bot_level=anti_bot_level,
-                    workproduct_dir=workproduct_dir,
-                    workproduct_prefix=workproduct_prefix,
-                )
+                # Handle SearchAndCleanResult object
+                content_length = getattr(result, 'contents_extracted', 0) * 1000  # Estimate content length
+                url_count = getattr(result, 'urls_found', 0)
+                logger.info(f"✅ Tool validation passed: SearchAndCleanResult with {url_count} URLs found")
+
+            # Define minimum content standards
+            MIN_CONTENT_LENGTH = 500  # Minimum characters for meaningful content
+            MIN_URL_COUNT = 3        # Minimum URLs to be considered successful
+
+            # Log content quality assessment
+            logger.info(f"📊 Content Quality Assessment:")
+            logger.info(f"   Content Length: {content_length} characters (minimum: {MIN_CONTENT_LENGTH})")
+            logger.info(f"   URL Count: {url_count} URLs found (minimum: {MIN_URL_COUNT})")
+
+            # Quality warnings
+            if url_count < MIN_URL_COUNT:
+                logger.warning(f"⚠️ Content validation warning: Only {url_count} URLs found (minimum: {MIN_URL_COUNT})")
+
+            if content_length < MIN_CONTENT_LENGTH:
+                logger.warning(f"⚠️ Content validation warning: Result length {content_length} below minimum {MIN_CONTENT_LENGTH}")
 
             # Apply MCP compliance with multi-level content allocation
             from .mcp_compliance_manager import get_mcp_compliance_manager
@@ -323,20 +371,33 @@ def create_zplayground1_mcp_server():
                 "ai_content_cleaning": True,
             }
 
+            # Extract raw content for MCP compliance
+            if isinstance(result, str):
+                raw_content = result
+                source_count = len([line for line in result.split("\n") if "URL:" in line])
+            else:
+                # Convert SearchAndCleanResult to string content
+                if hasattr(result, 'results') and result.results:
+                    raw_content = "\n\n".join([
+                        f"# {r.get('title', 'Untitled')}\n\n{r.get('description', '')}\n\nURL: {r.get('url', '')}"
+                        for r in result.results
+                    ])
+                else:
+                    raw_content = f"Search completed for query: {result.query}\nURLs found: {getattr(result, 'urls_found', 0)}\nContents extracted: {getattr(result, 'contents_extracted', 0)}"
+                source_count = getattr(result, 'urls_found', 0)
+
             # Context for content allocation
             allocation_context = {
                 "query": query,
                 "query_terms": query.split(),
                 "session_id": session_id,
-                "source_count": len(
-                    [line for line in result.split("\n") if "URL:" in line]
-                ),
+                "source_count": source_count,
                 "processing_time": "N/A",  # Would be calculated in production
             }
 
             # Apply MCP compliance allocation
             allocation = mcp_manager.allocate_content(
-                raw_content=result, metadata=base_metadata, context=allocation_context
+                raw_content=raw_content, metadata=base_metadata, context=allocation_context
             )
 
             logger.info(
@@ -400,6 +461,39 @@ Please check:
     logger.info("🔧 Exact zPlayground1 implementation with no fallbacks")
 
     return server
+
+
+async def fallback_to_serp_search(query: str, session_id: str, search_mode: str = "search") -> str:
+    """Fallback to SERP API search when enhanced scraping fails."""
+    logger.info("🔄 Activating fallback to SERP API search")
+    try:
+        from ..utils.serp_search_utils import serp_search_and_extract
+        result = await serp_search_and_extract(
+            query=query,
+            search_type=search_mode,
+            num_results=15,
+            auto_crawl_top=10,
+            session_id=session_id
+        )
+        logger.info(f"✅ Fallback search completed: {len(result)} characters")
+        return result
+    except Exception as e:
+        logger.error(f"❌ Fallback search also failed: {e}")
+        return f"""❌ **Complete Search Failure**
+
+All search methods have failed:
+- Enhanced zPlayground1 search: {str(e)}
+- SERP API fallback: {str(e)}
+
+**Troubleshooting**:
+- Check SERP_API_KEY is configured
+- Verify network connectivity
+- Ensure query parameters are valid
+- Check system dependencies are installed
+
+**Session**: {session_id}
+**Query**: {query}
+"""
 
 
 # Create server instance

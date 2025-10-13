@@ -1,10 +1,10 @@
 # Agents Directory - Multi-Agent Research System
 
-This directory contains specialized AI agent implementations that work together to perform comprehensive research tasks through orchestrated workflows with advanced quality management and progressive enhancement capabilities.
+This directory contains enhanced specialized AI agent implementations that work together to perform comprehensive research tasks through orchestrated workflows with advanced flow adherence enforcement, quality management, and gap research coordination.
 
 ## Directory Purpose
 
-The agents directory provides a comprehensive suite of specialized AI agents, each with distinct responsibilities and capabilities, that collaborate through the multi-agent research system to deliver high-quality research outputs. These agents implement sophisticated patterns including decoupled editorial processing, progressive enhancement, quality-gated workflows, and intelligent gap research coordination.
+The agents directory provides a comprehensive suite of specialized AI agents, each with distinct responsibilities and capabilities, that collaborate through the redesigned multi-agent research system to deliver high-quality research outputs with 100% workflow integrity. These agents implement sophisticated patterns including flow adherence validation, decoupled editorial processing, progressive enhancement, quality-gated workflows, and intelligent gap research coordination with mandatory execution enforcement.
 
 ## Key Components
 
@@ -207,23 +207,26 @@ hooks = {
 
 This agent behavior enhancement ensures complete workflow integrity through comprehensive validation and enforcement mechanisms, eliminating the disconnect between agent documentation and actual execution.
 
-### Decoupled Editorial Agent (`decoupled_editorial_agent.py`)
+### Enhanced Decoupled Editorial Agent (`decoupled_editorial_agent.py`)
 
-**Purpose**: Advanced editorial enhancement with decoupled architecture, progressive enhancement, and gap research coordination
+**Purpose**: Advanced editorial enhancement with flow adherence enforcement, decoupled architecture, progressive enhancement, and mandatory gap research coordination
 
 **Core Capabilities**:
+- **Flow Adherence Enforcement**: 100% compliance with mandatory gap research execution through multi-layered validation
 - Process any available content regardless of research success (decoupled architecture)
 - Progressive enhancement through multiple refinement stages with quality-driven improvement
-- Gap research coordination with intelligent control handoff mechanisms
+- Gap research coordination with mandatory execution enforcement and intelligent control handoff mechanisms
 - Content quality assessment with comprehensive multi-dimensional evaluation
 - Style and formatting optimization with consistency checking
 
 **Advanced Features**:
+- **Flow Adherence Validation**: Mandatory three-step workflow with enforced gap research execution
 - **Decoupled Architecture**: Works independently of research stage completion
 - **Progressive Enhancement Pipeline**: Multi-stage content improvement with adaptive selection
-- **Gap Research Coordination**: Intelligent handoff for targeted additional research
+- **Gap Research Coordination**: Intelligent handoff for targeted additional research with mandatory execution
 - **Quality Framework Integration**: Comprehensive assessment with actionable feedback
 - **Multiple Enhancement Agents**: Content enhancer, style editor, and quality optimizer
+- **Compliance Logging**: Detailed tracking of all flow adherence validation and enforcement actions
 
 **Sub-Agent Architecture**:
 ```python
@@ -324,7 +327,183 @@ class QualityAssessment:
     detailed_feedback: dict[str, Any]
 ```
 
-## Agent Workflow Integration
+## Enhanced Agent Interfaces & Data Contracts
+
+### Flow Adherence Data Structures
+
+The redesigned system implements comprehensive data structures for flow adherence validation and enforcement:
+
+```python
+@dataclass
+class FlowAdherenceValidation:
+    """Flow adherence validation result with enforcement details."""
+
+    session_id: str
+    agent_type: str
+    compliance_status: ComplianceStatus  # COMPLIANT, VIOLATION_DETECTED, ENFORCED
+    documented_gaps: list[str]
+    executed_research: list[str]
+    enforcement_actions: list[EnforcementAction]
+    validation_timestamp: datetime
+    quality_impact: dict
+
+@dataclass
+class EnforcementAction:
+    """Record of flow adherence enforcement action."""
+
+    action_type: str  # FORCED_EXECUTION, GUIDANCE_PROVIDED, BLOCKED_COMPLETION
+    triggered_by: str  # CONTENT_ANALYSIS, TOOL_TRACKING, HOOK_VALIDATION
+    gaps_identified: int
+    research_executed: int
+    enforcement_success: bool
+    performance_impact_ms: float
+
+@dataclass
+class GapResearchRequest:
+    """Standardized gap research request data contract."""
+
+    session_id: str
+    requesting_agent: str
+    gap_topics: list[str]
+    priority_level: int  # 1-3, 1 being highest
+    max_scrapes_allowed: int
+    max_queries_allowed: int
+    budget_allocation: dict
+    integration_instructions: str
+    quality_requirements: dict
+```
+
+### Enhanced Agent Communication Protocols
+
+```python
+class EnhancedAgentCommunication:
+    """Enhanced communication protocols with flow adherence validation."""
+
+    async def send_gap_research_request(self,
+                                    session_id: str,
+                                    gap_topics: list[str],
+                                    priority: int = 2) -> GapResearchResult:
+        """Send gap research request with mandatory execution tracking."""
+
+        request = GapResearchRequest(
+            session_id=session_id,
+            requesting_agent="editorial_agent",
+            gap_topics=gap_topics,
+            priority_level=priority,
+            max_scrapes_allowed=self._calculate_scrape_budget(session_id),
+            max_queries_allowed=self._calculate_query_budget(session_id),
+            budget_allocation=self._get_remaining_budget(session_id),
+            integration_instructions="Integrate findings with existing editorial review",
+            quality_requirements={"min_quality_score": 75}
+        )
+
+        # Track request for flow adherence validation
+        await self._track_gap_research_request(request)
+
+        # Execute research with mandatory completion
+        result = await self._execute_mandatory_research(request)
+
+        # Validate execution compliance
+        await self._validate_research_execution(request, result)
+
+        return result
+
+    async def validate_flow_compliance(self,
+                                     session_id: str,
+                                     agent_output: dict) -> ComplianceReport:
+        """Validate agent output for flow adherence compliance."""
+
+        # Extract documented gap research intentions
+        documented_gaps = self._extract_documented_gaps(agent_output)
+
+        # Check for actual research execution
+        executed_research = await self._get_executed_research(session_id)
+
+        # Identify compliance violations
+        violations = []
+        if documented_gaps and not executed_research:
+            violations.append(FlowViolation(
+                type="documented_without_execution",
+                gaps_count=len(documented_gaps),
+                severity="HIGH"
+            ))
+
+        # Generate compliance report
+        return ComplianceReport(
+            session_id=session_id,
+            compliant=len(violations) == 0,
+            violations=violations,
+            enforcement_needed=len(violations) > 0
+        )
+```
+
+### Enhanced Agent Data Contracts
+
+```python
+@dataclass
+class EnhancedSessionContext:
+    """Enhanced session context with flow adherence tracking."""
+
+    session_id: str
+    topic: str
+    user_requirements: dict
+    current_stage: WorkflowStage
+    stage_history: list[StageTransition]
+    flow_adherence_log: list[FlowAdherenceEvent]
+    quality_metrics: dict
+    agent_interactions: list[AgentInteraction]
+    research_budget: BudgetAllocation
+    completion_status: CompletionStatus
+
+@dataclass
+class AgentInteraction:
+    """Record of agent interaction with flow adherence details."""
+
+    from_agent: str
+    to_agent: str
+    interaction_type: str  # HANDOFF, GAP_RESEARCH_REQUEST, QUALITY_VALIDATION
+    timestamp: datetime
+    data_exchanged: dict
+    compliance_validated: bool
+    enforcement_actions: list[str]
+    success: bool
+    error_details: Optional[str]
+
+@dataclass
+class BudgetAllocation:
+    """Research budget allocation with tracking."""
+
+    total_scrapes_allowed: int
+    total_queries_allowed: int
+    scrapes_used: int
+    queries_used: int
+    stage_allocations: dict[str, dict]  # stage -> {scrapes, queries}
+    emergency_reserves: dict
+    usage_efficiency: float
+```
+
+## Enhanced Agent Workflow Integration
+
+### Research Pipeline Architecture with Flow Validation
+```
+User Query → Research Agent → Content Cleaner → Quality Judge → Report Agent →
+Editorial Agent (with Flow Validation) → Gap Research (Mandatory if needed) →
+Progressive Enhancement → Final Output
+```
+
+### Quality-Gated Workflow with Compliance Enforcement
+```
+Research Stage → Quality Assessment → Enhancement Gate → Report Generation →
+Quality Gate → Editorial Review (with Flow Adherence Validation) →
+Gap Research (Enforced if gaps identified) → Final Enhancement → Output
+```
+
+### Gap Research Control Handoff with Mandatory Execution
+```
+Editorial Review → Gap Identification → Flow Validation →
+Control Handoff → Gap Research (Mandatory) → Results Integration →
+Enhanced Editorial Review → Final Output
+```
 
 ### Research Pipeline Architecture
 ```
