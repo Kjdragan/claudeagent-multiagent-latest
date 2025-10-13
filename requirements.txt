@@ -1,0 +1,143 @@
+# Multi-Agent Research System - Enhanced Dependencies
+# Claude Agent SDK Integration Requirements
+# Generated: Phase 1.1.1 - Enhanced Development Environment Setup
+
+# ============================================================================
+# CORE CLAUDE AGENT SDK DEPENDENCIES
+# ============================================================================
+claude-agent-sdk==0.1.1
+mcp>=0.1.0
+
+# ============================================================================
+# AI MODEL APIS & FRAMEWORKS
+# ============================================================================
+anthropic>=0.69.0
+openai>=1.0.0
+pydantic-ai>=1.0.2
+
+# ============================================================================
+# WEB CRAWLING & CONTENT PROCESSING
+# ============================================================================
+crawl4ai>=0.7.4
+playwright>=1.55.0
+beautifulsoup4>=4.12.3
+cssselect>=1.3.0
+httpx>=0.28.1
+
+# ============================================================================
+# DATA PROCESSING & VALIDATION
+# ============================================================================
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+typing-extensions>=4.0.0
+
+# ============================================================================
+# ASYNC & CONCURRENCY
+# ============================================================================
+anyio>=4.0.0
+aiofiles>=24.1.0
+
+# ============================================================================
+# SYSTEM MONITORING & LOGGING
+# ============================================================================
+logfire>=0.1.0
+psutil>=7.1.0
+
+# ============================================================================
+# ENVIRONMENT & CONFIGURATION
+# ============================================================================
+python-dotenv>=1.0.0
+
+# ============================================================================
+# DEVELOPMENT & TESTING DEPENDENCIES
+# ============================================================================
+pytest>=7.0.0
+pytest-asyncio>=0.20.0
+pytest-cov>=4.0.0
+pytest-mock>=3.15.1
+
+# ============================================================================
+# CODE QUALITY & FORMATTING
+# ============================================================================
+mypy>=1.0.0
+ruff>=0.1.0
+
+# ============================================================================
+# USER INTERFACE (OPTIONAL)
+# ============================================================================
+streamlit>=1.50.0
+
+# ============================================================================
+# ADDITIONAL UTILITIES
+# ============================================================================
+requests>=2.28.0
+urllib3>=1.26.0
+certifi>=2022.0.0
+
+# ============================================================================
+# DEVELOPMENT ENHANCEMENTS
+# ============================================================================
+trio>=0.22.0  # For async development patterns
+rich>=13.0.0  # For enhanced terminal output
+typer>=0.7.0  # For CLI enhancements
+
+# ============================================================================
+# NOTES & VERSION RATIONALE
+# ============================================================================
+#
+# Claude Agent SDK Integration:
+# - claude-agent-sdk==0.1.1: Core SDK for Claude integration
+# - mcp>=0.1.0: Model Context Protocol support
+#
+# AI Framework Dependencies:
+# - anthropic>=0.69.0: Latest Anthropic API client with enhanced features
+# - openai>=1.0.0: OpenAI API for GPT models and content cleaning
+# - pydantic-ai>=1.0.2: AI agent framework with Pydantic integration
+#
+# Web Crawling Enhancements:
+# - crawl4ai>=0.7.4: Advanced web crawling with anti-bot features
+# - playwright>=1.55.0: Browser automation for content extraction
+# - beautifulsoup4>=4.12.3: HTML parsing and content extraction
+#
+# Monitoring & Observability:
+# - logfire>=0.1.0: Advanced logging and monitoring
+# - psutil>=7.1.0: System resource monitoring
+#
+# Development Tools:
+# - pytest-asyncio>=0.20.0: Async testing support
+# - streamlit>=1.50.0: Web UI for research system
+#
+# Version Compatibility:
+# All dependencies tested for compatibility with Python 3.10+
+# and designed to support the enhanced multi-agent architecture.
+#
+# ============================================================================
+# INSTALLATION INSTRUCTIONS
+# ============================================================================
+#
+# Standard Installation:
+#   pip install -r requirements.txt
+#
+# Development Installation:
+#   pip install -r requirements.txt
+#   pip install -e .  # Install local package in development mode
+#
+# Optional Dependencies:
+#   For UI development: pip install streamlit>=1.50.0
+#   For advanced debugging: pip install rich>=13.0.0
+#
+# ============================================================================
+# ENVIRONMENT SETUP
+# ============================================================================
+#
+# Required Environment Variables:
+#   export ANTHROPIC_API_KEY="your-anthropic-key"
+#   export OPENAI_API_KEY="your-openai-key"
+#   export SERPER_API_KEY="your-serp-key"
+#
+# Optional Environment Variables:
+#   export LOGFIRE_TOKEN="your-logfire-token"
+#   export DEBUG_MODE="true"
+#   export LOG_LEVEL="INFO"
+#
+# ============================================================================
