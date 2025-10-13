@@ -69,12 +69,49 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0.0",
-    "pytest-asyncio>=0.20.0",
-    "anyio[trio]>=4.0.0",
+    # Testing framework
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
     "pytest-cov>=4.0.0",
-    "mypy>=1.0.0",
-    "ruff>=0.1.0",
+    "pytest-mock>=3.15.1",
+
+    # Code quality and formatting
+    "ruff>=0.13.2",
+    "mypy>=1.18.2",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "pre-commit>=3.0.0",
+
+    # Development tools
+    "ipython>=8.0.0",
+    "jupyter>=1.0.0",
+    "streamlit>=1.50.0",
+
+    # Performance and debugging
+    "memory-profiler>=0.61.0",
+    "py-spy>=0.3.0",
+    "viztracer>=0.16.0",
+
+    # Additional async support
+    "anyio[trio]>=4.0.0",
+    "trio>=0.22.0",
+]
+
+# Optional dependencies for specific features
+monitoring = [
+    "prometheus-client>=0.17.0",
+    "grafana-api>=1.0.3",
+    "psutil>=7.1.0",
+]
+
+visualization = [
+    "matplotlib>=3.7.0",
+    "seaborn>=0.12.0",
+    "plotly>=5.15.0",
+]
+
+all = [
+    "multi-agent-research-system[dev,monitoring,visualization]",
 ]
 
 [project.urls]
@@ -83,22 +120,29 @@ Documentation = "https://docs.anthropic.com/en/docs/claude-code/sdk"
 Issues = "https://github.com/anthropics/claude-agent-sdk-python/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/claude_agent_sdk"]
+packages = ["multi_agent_research_system"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "/src",
+    "/multi_agent_research_system",
     "/tests",
     "/README.md",
     "/LICENSE",
+    "/KEVIN",
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["src"]
+testpaths = ["multi_agent_research_system/tests", "tests"]
+pythonpath = ["."]
 addopts = [
     "--import-mode=importlib",
     "-p", "asyncio",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=multi_agent_research_system",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
 ]
 
 [tool.pytest-asyncio]
@@ -142,7 +186,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["claude_agent_sdk"]
+known-first-party = ["multi_agent_research_system"]
 
 [tool.uv]
 package = true
@@ -155,6 +199,24 @@ dev = [
     "pytest>=8.4.2",
     "pytest-asyncio>=1.2.0",
     "pytest-mock>=3.15.1",
+    "pytest-cov>=4.0.0",
     "ruff>=0.13.2",
+    "black>=23.0.0",
+    "isort>=5.12.0",
     "streamlit>=1.50.0",
+    "ipython>=8.0.0",
+    "jupyter>=1.0.0",
+    "memory-profiler>=0.61.0",
+]
+
+monitoring = [
+    "prometheus-client>=0.17.0",
+    "grafana-api>=1.0.3",
+    "structlog>=23.0.0",
+]
+
+visualization = [
+    "matplotlib>=3.7.0",
+    "seaborn>=0.12.0",
+    "plotly>=5.15.0",
 ]
