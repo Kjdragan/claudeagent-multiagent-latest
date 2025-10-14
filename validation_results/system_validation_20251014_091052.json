@@ -1,0 +1,335 @@
+{
+  "validation_summary": {
+    "start_time": "2025-10-14T09:10:50.873277",
+    "total_checks": 65,
+    "passed_checks": 30,
+    "failed_checks": 35,
+    "warnings": [],
+    "end_time": "2025-10-14T09:10:52.183352",
+    "success_rate": 46.15384615384615
+  },
+  "check_results": {},
+  "system_components": {
+    "main_entry_point": [
+      {
+        "file": "m",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "a",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "i",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "n",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "_",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "c",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "o",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "m",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "p",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "r",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "e",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "h",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "e",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "n",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "s",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "i",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "v",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "e",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "_",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "r",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "e",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "s",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "e",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "a",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "r",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "c",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "h",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": ".",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 4096
+      },
+      {
+        "file": "p",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      },
+      {
+        "file": "y",
+        "exists": false,
+        "readable": false,
+        "size_bytes": 0
+      }
+    ],
+    "agents": [
+      {
+        "file": "agents/comprehensive_research_agent.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 15604
+      }
+    ],
+    "integration": [
+      {
+        "file": "integration/agent_session_manager.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 29375
+      },
+      {
+        "file": "integration/query_processor.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 29925
+      },
+      {
+        "file": "integration/research_orchestrator.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 33681
+      },
+      {
+        "file": "integration/mcp_tool_integration.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 23189
+      },
+      {
+        "file": "integration/kevin_directory_integration.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 24652
+      },
+      {
+        "file": "integration/quality_assurance_integration.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 52715
+      },
+      {
+        "file": "integration/error_handling_integration.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 45199
+      }
+    ],
+    "testing": [
+      {
+        "file": "integration/comprehensive_test_suite.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 39461
+      },
+      {
+        "file": "integration/integration_tests.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 50393
+      },
+      {
+        "file": "integration/performance_tests.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 43132
+      },
+      {
+        "file": "integration/error_scenario_tests.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 54856
+      },
+      {
+        "file": "integration/simple_performance_tests.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 13354
+      }
+    ]
+  },
+  "performance_metrics": {},
+  "recommendations": [
+    {
+      "type": "missing_components",
+      "priority": "high",
+      "message": "Missing 29 file(s) in main_entry_point",
+      "details": [
+        "m",
+        "a",
+        "i",
+        "n",
+        "_",
+        "c",
+        "o",
+        "m",
+        "p",
+        "r",
+        "e",
+        "h",
+        "e",
+        "n",
+        "s",
+        "i",
+        "v",
+        "e",
+        "_",
+        "r",
+        "e",
+        "s",
+        "e",
+        "a",
+        "r",
+        "c",
+        "h",
+        "p",
+        "y"
+      ]
+    },
+    {
+      "type": "testing",
+      "priority": "medium",
+      "message": "Testing framework validation failed",
+      "details": [
+        "Check test suite compatibility and dependencies"
+      ]
+    },
+    {
+      "type": "general",
+      "priority": "high",
+      "message": "System validation success rate is low (46.2%)",
+      "details": [
+        "Address failed validation checks before production deployment"
+      ]
+    }
+  ]
+}

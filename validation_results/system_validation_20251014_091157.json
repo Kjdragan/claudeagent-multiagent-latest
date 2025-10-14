@@ -1,0 +1,117 @@
+{
+  "validation_summary": {
+    "start_time": "2025-10-14T09:11:55.742420",
+    "total_checks": 36,
+    "passed_checks": 30,
+    "failed_checks": 6,
+    "warnings": [],
+    "end_time": "2025-10-14T09:11:57.043119",
+    "success_rate": 83.33333333333334
+  },
+  "check_results": {},
+  "system_components": {
+    "main_entry_point": [
+      {
+        "file": "main_comprehensive_research.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 19499
+      }
+    ],
+    "agents": [
+      {
+        "file": "agents/comprehensive_research_agent.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 15604
+      }
+    ],
+    "integration": [
+      {
+        "file": "integration/agent_session_manager.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 29375
+      },
+      {
+        "file": "integration/query_processor.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 29925
+      },
+      {
+        "file": "integration/research_orchestrator.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 33681
+      },
+      {
+        "file": "integration/mcp_tool_integration.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 23189
+      },
+      {
+        "file": "integration/kevin_directory_integration.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 24652
+      },
+      {
+        "file": "integration/quality_assurance_integration.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 52715
+      },
+      {
+        "file": "integration/error_handling_integration.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 45199
+      }
+    ],
+    "testing": [
+      {
+        "file": "integration/comprehensive_test_suite.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 39461
+      },
+      {
+        "file": "integration/integration_tests.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 50393
+      },
+      {
+        "file": "integration/performance_tests.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 43132
+      },
+      {
+        "file": "integration/error_scenario_tests.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 54856
+      },
+      {
+        "file": "integration/simple_performance_tests.py",
+        "exists": true,
+        "readable": true,
+        "size_bytes": 13354
+      }
+    ]
+  },
+  "performance_metrics": {},
+  "recommendations": [
+    {
+      "type": "testing",
+      "priority": "medium",
+      "message": "Testing framework validation failed",
+      "details": [
+        "Check test suite compatibility and dependencies"
+      ]
+    }
+  ]
+}

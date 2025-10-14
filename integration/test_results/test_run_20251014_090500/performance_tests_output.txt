@@ -1,0 +1,12 @@
+Test Suite: Performance Tests
+Duration: 0.40s
+Success: False
+Exit Code: 1
+
+=== STDOUT ===
+
+=== STDERR ===
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/performance_tests.py", line 272
+    await asyncio.sleep(0.1)  # Simulate minimal processing
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: 'await' outside async function

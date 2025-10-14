@@ -1,0 +1,365 @@
+Test Suite: Integration Tests
+Duration: 0.31s
+Success: False
+Exit Code: 1
+
+=== STDOUT ===
+================================================================================
+INTEGRATION TEST SUITE - AGENT-BASED RESEARCH SYSTEM
+================================================================================
+Started at: 2025-10-14 09:05:00
+
+
+Stdout:
+
+=== Testing MCP-Orchestrator Integration ===
+
+Stdout:
+
+=== Testing MCP-Session Management Integration ===
+
+Stdout:
+
+=== Testing KEVIN-Orchestrator Integration ===
+
+Stdout:
+
+=== Testing KEVIN-Quality Assurance Integration ===
+
+Stdout:
+
+=== Testing Quality-MCP Integration ===
+
+Stdout:
+
+=== Testing Quality-Orchestrator Integration ===
+
+Stdout:
+
+=== Testing Error Handling-MCP Integration ===
+
+Stdout:
+
+=== Testing Error Handling-Orchestrator Integration ===
+
+Stdout:
+
+=== Testing Error Handling-Quality Assurance Integration ===
+
+Stdout:
+
+=== Testing Complete System Integration ===
+✗ Complete system integration test failed: No module named 'pydantic'
+
+Stdout:
+
+=== Testing Error Recovery Integration ===
+✗ Error recovery integration test failed: No module named 'pydantic'
+
+================================================================================
+INTEGRATION TEST SUMMARY REPORT
+================================================================================
+Total Tests: 11
+Successes: 0
+Failures: 10
+Errors: 1
+Success Rate: 0.0%
+Duration: 0.15s
+
+Integration Areas Tested:
+  ✓ MCP Tool Integration
+  ✓ KEVIN Directory Integration
+  ✓ Quality Assurance Integration
+  ✓ Error Handling Integration
+  ✓ End-to-End System Integration
+
+FAILED TESTS:
+  - test_mcp_orchestrator_integration (__main__.MCPToolIntegrationTests.test_mcp_orchestrator_integration): Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 228, in test_mcp_orchestrator_integration
+    self.assertEqual(mapped_params["num_results"], research_params["target_urls"])
+AssertionError: 50 != 5
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 256, in test_mcp_orchestrator_integration
+    self.fail(f"MCP-Orchestrator integration test failed: {str(e)}")
+AssertionError: MCP-Orchestrator integration test failed: 50 != 5
+
+Stdout:
+
+=== Testing MCP-Orchestrator Integration ===
+
+Stderr:
+WARNING:root:MCP tools not available: multi_agent_research_system.mcp_tools.zplayground1_search.__spec__ is not set
+WARNING:root:Legacy session management not available: No module named 'pydantic'
+WARNING:integration.mcp_tool_integration:⚠️  MCP server not available, fallback mode enabled
+
+  - test_mcp_session_management_integration (__main__.MCPToolIntegrationTests.test_mcp_session_management_integration): Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 280, in test_mcp_session_management_integration
+    self.assertIn("session_id", session_data)
+  File "/usr/lib/python3.12/unittest/case.py", line 1149, in assertIn
+    if member not in container:
+       ^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: argument of type 'coroutine' is not iterable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 303, in test_mcp_session_management_integration
+    self.fail(f"MCP-Session Management integration test failed: {str(e)}")
+AssertionError: MCP-Session Management integration test failed: argument of type 'coroutine' is not iterable
+
+Stdout:
+
+=== Testing MCP-Session Management Integration ===
+
+Stderr:
+WARNING:root:MCP tools not available: multi_agent_research_system.mcp_tools.zplayground1_search.__spec__ is not set
+WARNING:root:Legacy session management not available: No module named 'pydantic'
+WARNING:integration.mcp_tool_integration:⚠️  MCP server not available, fallback mode enabled
+
+  - test_kevin_orchestrator_integration (__main__.KevinDirectoryIntegrationTests.test_kevin_orchestrator_integration): Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 341, in test_kevin_orchestrator_integration
+    self.assertIn("logs", session_dirs)
+AssertionError: 'logs' not found in {'session': PosixPath('/tmp/integration_test_esshlbwm/test_sessions/sessions/sessions/test_session_2a427acb'), 'working': PosixPath('/tmp/integration_test_esshlbwm/test_sessions/sessions/sessions/test_session_2a427acb/working'), 'research': PosixPath('/tmp/integration_test_esshlbwm/test_sessions/sessions/sessions/test_session_2a427acb/research'), 'complete': PosixPath('/tmp/integration_test_esshlbwm/test_sessions/sessions/sessions/test_session_2a427acb/complete'), 'agent_logs': PosixPath('/tmp/integration_test_esshlbwm/test_sessions/sessions/sessions/test_session_2a427acb/agent_logs'), 'sub_sessions': PosixPath('/tmp/integration_test_esshlbwm/test_sessions/sessions/sessions/test_session_2a427acb/sub_sessions')}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 376, in test_kevin_orchestrator_integration
+    self.fail(f"KEVIN-Orchestrator integration test failed: {str(e)}")
+AssertionError: KEVIN-Orchestrator integration test failed: 'logs' not found in {'session': PosixPath('/tmp/integration_test_esshlbwm/test_sessions/sessions/sessions/test_session_2a427acb'), 'working': PosixPath('/tmp/integration_test_esshlbwm/test_sessions/sessions/sessions/test_session_2a427acb/working'), 'research': PosixPath('/tmp/integration_test_esshlbwm/test_sessions/sessions/sessions/test_session_2a427acb/research'), 'complete': PosixPath('/tmp/integration_test_esshlbwm/test_sessions/sessions/sessions/test_session_2a427acb/complete'), 'agent_logs': PosixPath('/tmp/integration_test_esshlbwm/test_sessions/sessions/sessions/test_session_2a427acb/agent_logs'), 'sub_sessions': PosixPath('/tmp/integration_test_esshlbwm/test_sessions/sessions/sessions/test_session_2a427acb/sub_sessions')}
+
+Stdout:
+
+=== Testing KEVIN-Orchestrator Integration ===
+
+Stderr:
+/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py:324: RuntimeWarning: coroutine 'AgentSessionManager.create_session' was never awaited
+  from integration.research_orchestrator import ResearchOrchestrator
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+WARNING:root:Legacy session management not available: No module named 'pydantic'
+
+  - test_kevin_quality_assurance_integration (__main__.KevinDirectoryIntegrationTests.test_kevin_quality_assurance_integration): Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 384, in test_kevin_quality_assurance_integration
+    from integration.quality_assurance_integration import QualityAssuranceIntegration
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/quality_assurance_integration.py", line 18, in <module>
+    from multi_agent_research_system.core.quality_framework import (
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/__init__.py", line 11, in <module>
+    from .config.agents import get_all_agent_definitions
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/config/__init__.py", line 3, in <module>
+    from .settings import Settings, get_settings
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/config/settings.py", line 17, in <module>
+    from pydantic import Field, field_validator
+ModuleNotFoundError: No module named 'pydantic'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 460, in test_kevin_quality_assurance_integration
+    self.fail(f"KEVIN-Quality Assurance integration test failed: {str(e)}")
+AssertionError: KEVIN-Quality Assurance integration test failed: No module named 'pydantic'
+
+Stdout:
+
+=== Testing KEVIN-Quality Assurance Integration ===
+
+  - test_quality_mcp_integration (__main__.QualityAssuranceIntegrationTests.test_quality_mcp_integration): Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 545, in test_quality_mcp_integration
+    from integration.quality_assurance_integration import QualityAssuranceIntegration
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/quality_assurance_integration.py", line 18, in <module>
+    from multi_agent_research_system.core.quality_framework import (
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/__init__.py", line 11, in <module>
+    from .config.agents import get_all_agent_definitions
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/config/__init__.py", line 3, in <module>
+    from .settings import Settings, get_settings
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/config/settings.py", line 17, in <module>
+    from pydantic import Field, field_validator
+ModuleNotFoundError: No module named 'pydantic'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 601, in test_quality_mcp_integration
+    self.fail(f"Quality-MCP integration test failed: {str(e)}")
+AssertionError: Quality-MCP integration test failed: No module named 'pydantic'
+
+Stdout:
+
+=== Testing Quality-MCP Integration ===
+
+  - test_quality_orchestrator_integration (__main__.QualityAssuranceIntegrationTests.test_quality_orchestrator_integration): Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 480, in test_quality_orchestrator_integration
+    from integration.quality_assurance_integration import QualityAssuranceIntegration
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/quality_assurance_integration.py", line 18, in <module>
+    from multi_agent_research_system.core.quality_framework import (
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/__init__.py", line 11, in <module>
+    from .config.agents import get_all_agent_definitions
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/config/__init__.py", line 3, in <module>
+    from .settings import Settings, get_settings
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/config/settings.py", line 17, in <module>
+    from pydantic import Field, field_validator
+ModuleNotFoundError: No module named 'pydantic'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 535, in test_quality_orchestrator_integration
+    self.fail(f"Quality-Orchestrator integration test failed: {str(e)}")
+AssertionError: Quality-Orchestrator integration test failed: No module named 'pydantic'
+
+Stdout:
+
+=== Testing Quality-Orchestrator Integration ===
+
+  - test_error_handling_mcp_integration (__main__.ErrorHandlingIntegrationTests.test_error_handling_mcp_integration): Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 675, in test_error_handling_mcp_integration
+    from integration.error_handling_integration import (
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/error_handling_integration.py", line 24, in <module>
+    from integration.quality_assurance_integration import QualityAssuranceIntegration
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/quality_assurance_integration.py", line 18, in <module>
+    from multi_agent_research_system.core.quality_framework import (
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/__init__.py", line 11, in <module>
+    from .config.agents import get_all_agent_definitions
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/config/__init__.py", line 3, in <module>
+    from .settings import Settings, get_settings
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/config/settings.py", line 17, in <module>
+    from pydantic import Field, field_validator
+ModuleNotFoundError: No module named 'pydantic'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 723, in test_error_handling_mcp_integration
+    self.fail(f"Error Handling-MCP integration test failed: {str(e)}")
+AssertionError: Error Handling-MCP integration test failed: No module named 'pydantic'
+
+Stdout:
+
+=== Testing Error Handling-MCP Integration ===
+
+Stderr:
+WARNING:root:MCP tools not available: multi_agent_research_system.mcp_tools.zplayground1_search.__spec__ is not set
+
+  - test_error_handling_orchestrator_integration (__main__.ErrorHandlingIntegrationTests.test_error_handling_orchestrator_integration): Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 621, in test_error_handling_orchestrator_integration
+    from integration.error_handling_integration import (
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/error_handling_integration.py", line 24, in <module>
+    from integration.quality_assurance_integration import QualityAssuranceIntegration
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/quality_assurance_integration.py", line 18, in <module>
+    from multi_agent_research_system.core.quality_framework import (
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/__init__.py", line 11, in <module>
+    from .config.agents import get_all_agent_definitions
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/config/__init__.py", line 3, in <module>
+    from .settings import Settings, get_settings
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/config/settings.py", line 17, in <module>
+    from pydantic import Field, field_validator
+ModuleNotFoundError: No module named 'pydantic'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 665, in test_error_handling_orchestrator_integration
+    self.fail(f"Error Handling-Orchestrator integration test failed: {str(e)}")
+AssertionError: Error Handling-Orchestrator integration test failed: No module named 'pydantic'
+
+Stdout:
+
+=== Testing Error Handling-Orchestrator Integration ===
+
+Stderr:
+WARNING:root:MCP tools not available: No module named 'pydantic'
+
+  - test_error_handling_quality_assurance_integration (__main__.ErrorHandlingIntegrationTests.test_error_handling_quality_assurance_integration): Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 730, in test_error_handling_quality_assurance_integration
+    from integration.error_handling_integration import (
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/error_handling_integration.py", line 24, in <module>
+    from integration.quality_assurance_integration import QualityAssuranceIntegration
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/quality_assurance_integration.py", line 18, in <module>
+    from multi_agent_research_system.core.quality_framework import (
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/__init__.py", line 11, in <module>
+    from .config.agents import get_all_agent_definitions
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/config/__init__.py", line 3, in <module>
+    from .settings import Settings, get_settings
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/config/settings.py", line 17, in <module>
+    from pydantic import Field, field_validator
+ModuleNotFoundError: No module named 'pydantic'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 778, in test_error_handling_quality_assurance_integration
+    self.fail(f"Error Handling-Quality Assurance integration test failed: {str(e)}")
+AssertionError: Error Handling-Quality Assurance integration test failed: No module named 'pydantic'
+
+Stdout:
+
+=== Testing Error Handling-Quality Assurance Integration ===
+
+  - test_complete_system_integration (__main__.EndToEndIntegrationTests.test_complete_system_integration): Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 950, in test_complete_system_integration
+    self.assertTrue(result["success"], f"Integration test failed: {result.get('error', 'Unknown error')}")
+AssertionError: False is not true : Integration test failed: No module named 'pydantic'
+
+Stdout:
+
+=== Testing Complete System Integration ===
+✗ Complete system integration test failed: No module named 'pydantic'
+
+  - test_error_recovery_integration (__main__.EndToEndIntegrationTests.test_error_recovery_integration): Traceback (most recent call last):
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 1049, in test_error_recovery_integration
+    result = loop.run_until_complete(run_error_recovery_test())
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py", line 963, in run_error_recovery_test
+    from integration.error_handling_integration import (
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/error_handling_integration.py", line 24, in <module>
+    from integration.quality_assurance_integration import QualityAssuranceIntegration
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/quality_assurance_integration.py", line 18, in <module>
+    from multi_agent_research_system.core.quality_framework import (
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/__init__.py", line 11, in <module>
+    from .config.agents import get_all_agent_definitions
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/config/__init__.py", line 3, in <module>
+    from .settings import Settings, get_settings
+  File "/home/kjdragan/lrepos/claudeagent-multiagent-latest/multi_agent_research_system/config/settings.py", line 17, in <module>
+    from pydantic import Field, field_validator
+ModuleNotFoundError: No module named 'pydantic'
+
+Stdout:
+
+=== Testing Error Recovery Integration ===
+✗ Error recovery integration test failed: No module named 'pydantic'
+
+
+Detailed integration report saved to: /tmp/integration_test_run_e1beqsqp/integration_test_report.json
+================================================================================
+
+❌ Some integration tests failed.
+🔧 Check the integration report for details on failed components.
+
+=== STDERR ===
+
+Stderr:
+WARNING:root:MCP tools not available: multi_agent_research_system.mcp_tools.zplayground1_search.__spec__ is not set
+WARNING:root:Legacy session management not available: No module named 'pydantic'
+WARNING:integration.mcp_tool_integration:⚠️  MCP server not available, fallback mode enabled
+
+Stderr:
+WARNING:root:MCP tools not available: multi_agent_research_system.mcp_tools.zplayground1_search.__spec__ is not set
+WARNING:root:Legacy session management not available: No module named 'pydantic'
+WARNING:integration.mcp_tool_integration:⚠️  MCP server not available, fallback mode enabled
+
+Stderr:
+/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/integration_tests.py:324: RuntimeWarning: coroutine 'AgentSessionManager.create_session' was never awaited
+  from integration.research_orchestrator import ResearchOrchestrator
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+WARNING:root:Legacy session management not available: No module named 'pydantic'
+
+Stderr:
+WARNING:root:MCP tools not available: multi_agent_research_system.mcp_tools.zplayground1_search.__spec__ is not set
+
+Stderr:
+WARNING:root:MCP tools not available: No module named 'pydantic'

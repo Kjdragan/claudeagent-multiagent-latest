@@ -1,0 +1,298 @@
+{
+  "workflow_summary": {
+    "session_id": "e2e_test_9f044fbb",
+    "start_time": "2025-10-14T09:17:53.523349",
+    "test_query": "latest developments in artificial intelligence and machine learning",
+    "stages_completed": [
+      "stage_1_query_processing",
+      "stage_2_session_initialization",
+      "stage_3_research_execution",
+      "stage_4_content_analysis",
+      "stage_5_report_generation",
+      "stage_6_quality_validation"
+    ],
+    "stages_failed": [],
+    "total_stages": 6,
+    "success_rate": 100.0,
+    "end_time": "2025-10-14T09:17:54.427557"
+  },
+  "stage_results": {
+    "stage_1_query_processing": {
+      "stage_name": "Query Processing",
+      "start_time": 1760451473.5234594,
+      "success": true,
+      "outputs": {
+        "original_query": "latest developments in artificial intelligence and machine learning",
+        "processed_query": "latest developments in artificial intelligence and machine learning",
+        "query_type": "research",
+        "complexity_score": 0.75,
+        "recommended_approach": "comprehensive",
+        "keywords": [
+          "latest",
+          "developments",
+          "in",
+          "artificial",
+          "intelligence"
+        ]
+      },
+      "errors": [],
+      "end_time": 1760451473.6237721,
+      "duration": 0.10031270980834961
+    },
+    "stage_2_session_initialization": {
+      "stage_name": "Session Initialization",
+      "start_time": 1760451473.6238563,
+      "success": true,
+      "outputs": {
+        "session_id": "e2e_test_9f044fbb",
+        "session_directory": "simple_e2e_results/session_e2e_test_9f044fbb",
+        "session_file": "simple_e2e_results/session_e2e_test_9f044fbb/session_data.json",
+        "status": "initialized",
+        "session_data": {
+          "session_id": "e2e_test_9f044fbb",
+          "initial_query": "latest developments in artificial intelligence and machine learning",
+          "created_at": "2025-10-14T09:17:53.624942",
+          "status": "initialized",
+          "configuration": {
+            "research_configuration": {
+              "target_urls": 10,
+              "concurrent_processing": 5,
+              "quality_threshold": 0.7
+            },
+            "quality_configuration": {
+              "enable_quality_assessment": true,
+              "quality_threshold": 0.75
+            }
+          }
+        }
+      },
+      "errors": [],
+      "end_time": 1760451473.6254377,
+      "duration": 0.001581430435180664
+    },
+    "stage_3_research_execution": {
+      "stage_name": "Research Execution",
+      "start_time": 1760451473.6255102,
+      "success": true,
+      "outputs": {
+        "research_results": {
+          "query": "latest developments in artificial intelligence and machine learning",
+          "results": [
+            {
+              "url": "https://example-source-1.com/article1",
+              "title": "Research Article 1: latest developments ...",
+              "content": "This is mock research content 1 about latest developments in artificial intelligence and machine learning. This is mock research content 1 about latest developments in artificial intelligence and machine learning. This is mock research content 1 about latest developments in artificial intelligence and machine learning. This is mock research content 1 about latest developments in artificial intelligence and machine learning. This is mock research content 1 about latest developments in artificial intelligence and machine learning. This is mock research content 1 about latest developments in artificial intelligence and machine learning. This is mock research content 1 about latest developments in artificial intelligence and machine learning. This is mock research content 1 about latest developments in artificial intelligence and machine learning. This is mock research content 1 about latest developments in artificial intelligence and machine learning. This is mock research content 1 about latest developments in artificial intelligence and machine learning. ",
+              "source": "academic_source_1",
+              "timestamp": "2025-10-14T09:17:54.125685",
+              "relevance_score": 0.9,
+              "metadata": {
+                "word_count": 500,
+                "reading_time": 2.0,
+                "content_type": "article"
+              }
+            },
+            {
+              "url": "https://example-source-2.com/article2",
+              "title": "Research Article 2: latest developments ...",
+              "content": "This is mock research content 2 about latest developments in artificial intelligence and machine learning. This is mock research content 2 about latest developments in artificial intelligence and machine learning. This is mock research content 2 about latest developments in artificial intelligence and machine learning. This is mock research content 2 about latest developments in artificial intelligence and machine learning. This is mock research content 2 about latest developments in artificial intelligence and machine learning. This is mock research content 2 about latest developments in artificial intelligence and machine learning. This is mock research content 2 about latest developments in artificial intelligence and machine learning. This is mock research content 2 about latest developments in artificial intelligence and machine learning. This is mock research content 2 about latest developments in artificial intelligence and machine learning. This is mock research content 2 about latest developments in artificial intelligence and machine learning. ",
+              "source": "academic_source_2",
+              "timestamp": "2025-10-14T09:17:54.125726",
+              "relevance_score": 0.85,
+              "metadata": {
+                "word_count": 600,
+                "reading_time": 2.5,
+                "content_type": "article"
+              }
+            },
+            {
+              "url": "https://example-source-3.com/article3",
+              "title": "Research Article 3: latest developments ...",
+              "content": "This is mock research content 3 about latest developments in artificial intelligence and machine learning. This is mock research content 3 about latest developments in artificial intelligence and machine learning. This is mock research content 3 about latest developments in artificial intelligence and machine learning. This is mock research content 3 about latest developments in artificial intelligence and machine learning. This is mock research content 3 about latest developments in artificial intelligence and machine learning. This is mock research content 3 about latest developments in artificial intelligence and machine learning. This is mock research content 3 about latest developments in artificial intelligence and machine learning. This is mock research content 3 about latest developments in artificial intelligence and machine learning. This is mock research content 3 about latest developments in artificial intelligence and machine learning. This is mock research content 3 about latest developments in artificial intelligence and machine learning. ",
+              "source": "academic_source_3",
+              "timestamp": "2025-10-14T09:17:54.125739",
+              "relevance_score": 0.8,
+              "metadata": {
+                "word_count": 700,
+                "reading_time": 3.0,
+                "content_type": "article"
+              }
+            },
+            {
+              "url": "https://example-source-4.com/article4",
+              "title": "Research Article 4: latest developments ...",
+              "content": "This is mock research content 4 about latest developments in artificial intelligence and machine learning. This is mock research content 4 about latest developments in artificial intelligence and machine learning. This is mock research content 4 about latest developments in artificial intelligence and machine learning. This is mock research content 4 about latest developments in artificial intelligence and machine learning. This is mock research content 4 about latest developments in artificial intelligence and machine learning. This is mock research content 4 about latest developments in artificial intelligence and machine learning. This is mock research content 4 about latest developments in artificial intelligence and machine learning. This is mock research content 4 about latest developments in artificial intelligence and machine learning. This is mock research content 4 about latest developments in artificial intelligence and machine learning. This is mock research content 4 about latest developments in artificial intelligence and machine learning. ",
+              "source": "academic_source_4",
+              "timestamp": "2025-10-14T09:17:54.125750",
+              "relevance_score": 0.75,
+              "metadata": {
+                "word_count": 800,
+                "reading_time": 3.5,
+                "content_type": "article"
+              }
+            },
+            {
+              "url": "https://example-source-5.com/article5",
+              "title": "Research Article 5: latest developments ...",
+              "content": "This is mock research content 5 about latest developments in artificial intelligence and machine learning. This is mock research content 5 about latest developments in artificial intelligence and machine learning. This is mock research content 5 about latest developments in artificial intelligence and machine learning. This is mock research content 5 about latest developments in artificial intelligence and machine learning. This is mock research content 5 about latest developments in artificial intelligence and machine learning. This is mock research content 5 about latest developments in artificial intelligence and machine learning. This is mock research content 5 about latest developments in artificial intelligence and machine learning. This is mock research content 5 about latest developments in artificial intelligence and machine learning. This is mock research content 5 about latest developments in artificial intelligence and machine learning. This is mock research content 5 about latest developments in artificial intelligence and machine learning. ",
+              "source": "academic_source_5",
+              "timestamp": "2025-10-14T09:17:54.125761",
+              "relevance_score": 0.7,
+              "metadata": {
+                "word_count": 900,
+                "reading_time": 4.0,
+                "content_type": "article"
+              }
+            }
+          ],
+          "metadata": {
+            "total_results": 5,
+            "processing_time": 0.5,
+            "quality_score": 0.85,
+            "sources_used": [
+              "academic_source_1",
+              "academic_source_2",
+              "academic_source_3"
+            ],
+            "mock_mode": true
+          }
+        },
+        "result_count": 5,
+        "sources_used": [
+          "academic_source_1",
+          "academic_source_2",
+          "academic_source_3"
+        ],
+        "quality_score": 0.85,
+        "research_file": "simple_e2e_results/session_e2e_test_9f044fbb/research_results.json"
+      },
+      "errors": [],
+      "end_time": 1760451474.1265311,
+      "duration": 0.5010209083557129
+    },
+    "stage_4_content_analysis": {
+      "stage_name": "Content Analysis",
+      "start_time": 1760451474.1265712,
+      "success": true,
+      "outputs": {
+        "analysis_results": {
+          "overall_score": 0.88,
+          "key_topics": [
+            "latest",
+            "research",
+            "analysis"
+          ],
+          "sentiment_analysis": {
+            "overall": "neutral",
+            "confidence": 0.85
+          },
+          "recommendations": [
+            "Include more recent sources",
+            "Add case studies",
+            "Enhance technical details"
+          ],
+          "quality_factors": {
+            "relevance": 0.92,
+            "accuracy": 0.85,
+            "completeness": 0.87,
+            "clarity": 0.9
+          },
+          "mock_mode": true
+        },
+        "quality_score": 0.88,
+        "key_topics": [
+          "latest",
+          "research",
+          "analysis"
+        ],
+        "recommendations": [
+          "Include more recent sources",
+          "Add case studies",
+          "Enhance technical details"
+        ],
+        "analysis_file": "simple_e2e_results/session_e2e_test_9f044fbb/content_analysis.json"
+      },
+      "errors": [],
+      "end_time": 1760451474.4271197,
+      "duration": 0.3005485534667969
+    },
+    "stage_5_report_generation": {
+      "stage_name": "Report Generation",
+      "start_time": 1760451474.4271483,
+      "success": true,
+      "outputs": {
+        "completed_stages": [
+          "stage_1_query_processing",
+          "stage_2_session_initialization",
+          "stage_3_research_execution",
+          "stage_4_content_analysis",
+          "stage_5_report_generation"
+        ],
+        "failed_stages": [],
+        "success_rate": 100.0,
+        "total_duration": 0.9037573337554932,
+        "artifact_validation": {
+          "total_artifacts": 1,
+          "valid_artifacts": 1,
+          "artifact_details": [
+            {
+              "type": "report",
+              "file": "simple_e2e_results/session_e2e_test_9f044fbb/research_report.md",
+              "size_bytes": 3404,
+              "valid": true
+            }
+          ]
+        },
+        "overall_quality_score": 100
+      },
+      "errors": [],
+      "end_time": 1760451474.4275532,
+      "duration": 0.0004048347473144531
+    },
+    "stage_6_quality_validation": {
+      "stage_name": "Report Generation",
+      "start_time": 1760451474.4271483,
+      "success": true,
+      "outputs": {
+        "completed_stages": [
+          "stage_1_query_processing",
+          "stage_2_session_initialization",
+          "stage_3_research_execution",
+          "stage_4_content_analysis",
+          "stage_5_report_generation"
+        ],
+        "failed_stages": [],
+        "success_rate": 100.0,
+        "total_duration": 0.9037573337554932,
+        "artifact_validation": {
+          "total_artifacts": 1,
+          "valid_artifacts": 1,
+          "artifact_details": [
+            {
+              "type": "report",
+              "file": "simple_e2e_results/session_e2e_test_9f044fbb/research_report.md",
+              "size_bytes": 3404,
+              "valid": true
+            }
+          ]
+        },
+        "overall_quality_score": 100
+      },
+      "errors": [],
+      "end_time": 1760451474.4275532,
+      "duration": 0.0004048347473144531
+    }
+  },
+  "performance_metrics": {
+    "total_duration": 0.904273271560669,
+    "average_stage_duration": 0.15071221192677817,
+    "completed_stages": 6,
+    "failed_stages": 0
+  },
+  "generated_artifacts": [
+    {
+      "type": "report",
+      "file": "simple_e2e_results/session_e2e_test_9f044fbb/research_report.md",
+      "description": "Final research report"
+    }
+  ]
+}

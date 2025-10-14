@@ -1,0 +1,17 @@
+{
+  "session_id": "e2e_test_9f044fbb",
+  "initial_query": "latest developments in artificial intelligence and machine learning",
+  "created_at": "2025-10-14T09:17:53.624942",
+  "status": "initialized",
+  "configuration": {
+    "research_configuration": {
+      "target_urls": 10,
+      "concurrent_processing": 5,
+      "quality_threshold": 0.7
+    },
+    "quality_configuration": {
+      "enable_quality_assessment": true,
+      "quality_threshold": 0.75
+    }
+  }
+}

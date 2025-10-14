@@ -1,0 +1,103 @@
+{
+  "execution_summary": {
+    "start_time": 1760450700.322994,
+    "end_time": 1760450701.5541806,
+    "total_duration": 1.2311866283416748,
+    "total_test_suites": 4,
+    "successful_suites": 0,
+    "failed_suites": 4,
+    "overall_success_rate": 0.0,
+    "total_test_execution_time": 1.2309627532958984
+  },
+  "test_suite_results": [
+    {
+      "test_name": "Comprehensive Tests",
+      "start_time": 1760450700.323029,
+      "end_time": 1760450700.480853,
+      "duration": 0.15782403945922852,
+      "success": false,
+      "exit_code": 1,
+      "output_length": 385,
+      "error_output_length": 0,
+      "has_exception": false,
+      "metrics": {}
+    },
+    {
+      "test_name": "Integration Tests",
+      "start_time": 1760450700.4809062,
+      "end_time": 1760450700.7937691,
+      "duration": 0.3128628730773926,
+      "success": false,
+      "exit_code": 1,
+      "output_length": 20080,
+      "error_output_length": 1201,
+      "has_exception": false,
+      "metrics": {}
+    },
+    {
+      "test_name": "Performance Tests",
+      "start_time": 1760450700.7938101,
+      "end_time": 1760450701.1928804,
+      "duration": 0.39907026290893555,
+      "success": false,
+      "exit_code": 1,
+      "output_length": 0,
+      "error_output_length": 237,
+      "has_exception": false,
+      "metrics": {}
+    },
+    {
+      "test_name": "Error Scenario Tests",
+      "start_time": 1760450701.1929228,
+      "end_time": 1760450701.5541284,
+      "duration": 0.3612055778503418,
+      "success": false,
+      "exit_code": 1,
+      "output_length": 16395,
+      "error_output_length": 74,
+      "has_exception": false,
+      "metrics": {}
+    }
+  ],
+  "performance_metrics": {
+    "fastest_suite": 0.15782403945922852,
+    "slowest_suite": 0.39907026290893555,
+    "average_duration": 0.3077406883239746,
+    "total_execution_time": 1.2309627532958984,
+    "parallel_efficiency": 0.9998181631926283
+  },
+  "failure_analysis": {
+    "failed_suites": 4,
+    "failure_rate": 100.0,
+    "failure_patterns": [
+      {
+        "suite_name": "Comprehensive Tests",
+        "error_type": "Unknown",
+        "error_message": "No error message",
+        "duration": 0.15782403945922852
+      },
+      {
+        "suite_name": "Integration Tests",
+        "error_type": "Unknown",
+        "error_message": "\nStderr:\nWARNING:root:MCP tools not available: multi_agent_research_system.mcp_tools.zplayground1_search.__spec__ is not set\nWARNING:root:Legacy session management not available: No module named 'pyda",
+        "duration": 0.3128628730773926
+      },
+      {
+        "suite_name": "Performance Tests",
+        "error_type": "Unknown",
+        "error_message": "  File \"/home/kjdragan/lrepos/claudeagent-multiagent-latest/integration/performance_tests.py\", line 272\n    await asyncio.sleep(0.1)  # Simulate minimal processing\n    ^^^^^^^^^^^^^^^^^^^^^^^^\nSyntaxE",
+        "duration": 0.39907026290893555
+      },
+      {
+        "suite_name": "Error Scenario Tests",
+        "error_type": "Unknown",
+        "error_message": "\nStderr:\nWARNING:root:MCP tools not available: No module named 'pydantic'\n",
+        "duration": 0.3612055778503418
+      }
+    ]
+  },
+  "recommendations": [
+    "\ud83d\udd27 4 test suite(s) failed. Review and fix issues.",
+    "\ud83d\udce6 Check dependencies and imports for Integration Tests"
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "query": "latest developments in artificial intelligence and machine learning",
+  "results": [
+    {
+      "url": "https://example-source-1.com/article1",
+      "title": "Research Article 1: latest developments ...",
+      "content": "This is mock research content 1 about latest developments in artificial intelligence and machine learning. This is mock research content 1 about latest developments in artificial intelligence and machine learning. This is mock research content 1 about latest developments in artificial intelligence and machine learning. This is mock research content 1 about latest developments in artificial intelligence and machine learning. This is mock research content 1 about latest developments in artificial intelligence and machine learning. This is mock research content 1 about latest developments in artificial intelligence and machine learning. This is mock research content 1 about latest developments in artificial intelligence and machine learning. This is mock research content 1 about latest developments in artificial intelligence and machine learning. This is mock research content 1 about latest developments in artificial intelligence and machine learning. This is mock research content 1 about latest developments in artificial intelligence and machine learning. ",
+      "source": "academic_source_1",
+      "timestamp": "2025-10-14T09:17:54.125685",
+      "relevance_score": 0.9,
+      "metadata": {
+        "word_count": 500,
+        "reading_time": 2.0,
+        "content_type": "article"
+      }
+    },
+    {
+      "url": "https://example-source-2.com/article2",
+      "title": "Research Article 2: latest developments ...",
+      "content": "This is mock research content 2 about latest developments in artificial intelligence and machine learning. This is mock research content 2 about latest developments in artificial intelligence and machine learning. This is mock research content 2 about latest developments in artificial intelligence and machine learning. This is mock research content 2 about latest developments in artificial intelligence and machine learning. This is mock research content 2 about latest developments in artificial intelligence and machine learning. This is mock research content 2 about latest developments in artificial intelligence and machine learning. This is mock research content 2 about latest developments in artificial intelligence and machine learning. This is mock research content 2 about latest developments in artificial intelligence and machine learning. This is mock research content 2 about latest developments in artificial intelligence and machine learning. This is mock research content 2 about latest developments in artificial intelligence and machine learning. ",
+      "source": "academic_source_2",
+      "timestamp": "2025-10-14T09:17:54.125726",
+      "relevance_score": 0.85,
+      "metadata": {
+        "word_count": 600,
+        "reading_time": 2.5,
+        "content_type": "article"
+      }
+    },
+    {
+      "url": "https://example-source-3.com/article3",
+      "title": "Research Article 3: latest developments ...",
+      "content": "This is mock research content 3 about latest developments in artificial intelligence and machine learning. This is mock research content 3 about latest developments in artificial intelligence and machine learning. This is mock research content 3 about latest developments in artificial intelligence and machine learning. This is mock research content 3 about latest developments in artificial intelligence and machine learning. This is mock research content 3 about latest developments in artificial intelligence and machine learning. This is mock research content 3 about latest developments in artificial intelligence and machine learning. This is mock research content 3 about latest developments in artificial intelligence and machine learning. This is mock research content 3 about latest developments in artificial intelligence and machine learning. This is mock research content 3 about latest developments in artificial intelligence and machine learning. This is mock research content 3 about latest developments in artificial intelligence and machine learning. ",
+      "source": "academic_source_3",
+      "timestamp": "2025-10-14T09:17:54.125739",
+      "relevance_score": 0.8,
+      "metadata": {
+        "word_count": 700,
+        "reading_time": 3.0,
+        "content_type": "article"
+      }
+    },
+    {
+      "url": "https://example-source-4.com/article4",
+      "title": "Research Article 4: latest developments ...",
+      "content": "This is mock research content 4 about latest developments in artificial intelligence and machine learning. This is mock research content 4 about latest developments in artificial intelligence and machine learning. This is mock research content 4 about latest developments in artificial intelligence and machine learning. This is mock research content 4 about latest developments in artificial intelligence and machine learning. This is mock research content 4 about latest developments in artificial intelligence and machine learning. This is mock research content 4 about latest developments in artificial intelligence and machine learning. This is mock research content 4 about latest developments in artificial intelligence and machine learning. This is mock research content 4 about latest developments in artificial intelligence and machine learning. This is mock research content 4 about latest developments in artificial intelligence and machine learning. This is mock research content 4 about latest developments in artificial intelligence and machine learning. ",
+      "source": "academic_source_4",
+      "timestamp": "2025-10-14T09:17:54.125750",
+      "relevance_score": 0.75,
+      "metadata": {
+        "word_count": 800,
+        "reading_time": 3.5,
+        "content_type": "article"
+      }
+    },
+    {
+      "url": "https://example-source-5.com/article5",
+      "title": "Research Article 5: latest developments ...",
+      "content": "This is mock research content 5 about latest developments in artificial intelligence and machine learning. This is mock research content 5 about latest developments in artificial intelligence and machine learning. This is mock research content 5 about latest developments in artificial intelligence and machine learning. This is mock research content 5 about latest developments in artificial intelligence and machine learning. This is mock research content 5 about latest developments in artificial intelligence and machine learning. This is mock research content 5 about latest developments in artificial intelligence and machine learning. This is mock research content 5 about latest developments in artificial intelligence and machine learning. This is mock research content 5 about latest developments in artificial intelligence and machine learning. This is mock research content 5 about latest developments in artificial intelligence and machine learning. This is mock research content 5 about latest developments in artificial intelligence and machine learning. ",
+      "source": "academic_source_5",
+      "timestamp": "2025-10-14T09:17:54.125761",
+      "relevance_score": 0.7,
+      "metadata": {
+        "word_count": 900,
+        "reading_time": 4.0,
+        "content_type": "article"
+      }
+    }
+  ],
+  "metadata": {
+    "total_results": 5,
+    "processing_time": 0.5,
+    "quality_score": 0.85,
+    "sources_used": [
+      "academic_source_1",
+      "academic_source_2",
+      "academic_source_3"
+    ],
+    "mock_mode": true
+  }
+}

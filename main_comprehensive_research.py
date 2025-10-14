@@ -70,7 +70,7 @@ except ImportError as e:
 
 # Import system components
 try:
-    from agents.comprehensive_research_agent import create_comprehensive_research_agent
+    # Import Claude SDK components for proper tool integration
     from integration.agent_session_manager import AgentSessionManager
     from integration.query_processor import QueryProcessor
     from integration.research_orchestrator import ResearchOrchestrator
@@ -136,21 +136,45 @@ class ComprehensiveResearchCLI:
         self.logger.info("🔧 Initializing Claude SDK Client...")
 
         try:
+            # Import required SDK components
+            from claude_agent_sdk import create_sdk_mcp_server, ClaudeAgentOptions, ClaudeSDKClient
+            from claude_agent_sdk import tool
+            import sys
+            import os
+
+            # Add the project root to Python path to import tools
+            project_root = Path(__file__).parent
+            if str(project_root) not in sys.path:
+                sys.path.insert(0, str(project_root))
+
+            # Import the zplayground1 search tool
+            try:
+                from multi_agent_research_system.mcp_tools.zplayground1_search import zplayground1_search_scrape_clean
+                self.logger.info("✅ Imported zplayground1_search_scrape_clean tool")
+            except ImportError as e:
+                self.logger.error(f"❌ Failed to import zplayground1 tool: {e}")
+                raise
+
+            # Create SDK MCP server with the search tool
+            search_server = create_sdk_mcp_server(
+                name="search",
+                version="1.0.0",
+                tools=[zplayground1_search_scrape_clean]
+            )
+            self.logger.info("✅ Created search MCP server")
+
+            # Configure agent options
+            options = ClaudeAgentOptions(
+                mcp_servers={"search": search_server},
+                allowed_tools=["mcp__search__zplayground1_search_scrape_clean"],
+                max_turns=50,
+                continue_conversation=True
+            )
+            self.logger.info("✅ Configured Claude agent options")
+
             # Create client
-            self.client = ClaudeSDKClient()
-            self.logger.info("✅ Claude SDK client created")
-
-            # Connect to service
-            await self.client.connect()
-            self.logger.info("✅ Client connected successfully")
-
-            # Create comprehensive research agent
-            research_agent = create_comprehensive_research_agent()
-            self.logger.info("✅ Comprehensive research agent created")
-
-            # Register agent
-            await self.client.register_agents([research_agent])
-            self.logger.info("✅ Agent registered successfully")
+            self.client = ClaudeSDKClient(options=options)
+            self.logger.info("✅ Claude SDK client created with search tool")
 
         except Exception as e:
             self.logger.error(f"❌ Failed to initialize SDK client: {e}")
@@ -257,16 +281,20 @@ Session Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
             self.logger.info("🚀 Sending query to agent...")
             start_time = time.time()
 
-            # Send query to agent
-            if hasattr(self.client, 'send_message'):
-                response = await self.client.send_message(
-                    session_id=session_id,
-                    message=research_prompt,
-                    agent_name="comprehensive_research_agent"
-                )
-            else:
-                self.logger.warning("⚠️  Client send_message not available, using fallback processing")
-                response = await self.process_query_fallback(query, mode, num_results, session_id)
+            # Use proper Claude SDK pattern with async context manager
+            async with self.client as client:
+                await client.query(research_prompt)
+
+                # Collect response from agent
+                response_parts = []
+                async for message in client.receive_response():
+                    if hasattr(message, 'content'):
+                        for block in message.content:
+                            if hasattr(block, 'text'):
+                                response_parts.append(block.text)
+                                self.logger.info(f"📝 Received: {block.text[:100]}...")
+
+                response = "\n".join(response_parts)
 
             processing_time = time.time() - start_time
             self.logger.info(f"✅ Query processing completed in {processing_time:.2f} seconds")
