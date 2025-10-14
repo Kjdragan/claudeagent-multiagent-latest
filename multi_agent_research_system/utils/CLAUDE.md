@@ -30,6 +30,16 @@ The utils directory provides the foundational infrastructure for intelligent web
 - **`enhanced_relevance_scorer.py`** - Sophisticated relevance scoring with domain authority boosting (Position 40% + Title 30% + Snippet 30%)
 - **`query_intent_analyzer.py`** - Analyzes user queries to determine appropriate report formats and processing approaches
 
+### Enhanced Editorial Workflow Utilities (NEW in v3.2)
+- **`editorial_decision_engine.py`** - Core editorial decision engine with multi-dimensional confidence scoring, gap research decision logic, and cost-benefit analysis
+- **`research_corpus_analyzer.py`** - Comprehensive research corpus analysis utilities for quality assessment, coverage analysis, and gap identification
+- **`editorial_recommendations_engine.py`** - Evidence-based editorial recommendations engine with ROI estimation and implementation planning
+- **`confidence_scoring_utils.py`** - Multi-dimensional confidence scoring utilities for editorial decision making across 8+ quality dimensions
+- **`gap_research_coordinator.py`** - Gap research coordination utilities for intelligent resource allocation and sub-session management
+- **`quality_integration_utils.py`** - Enhanced quality framework integration utilities for seamless editorial workflow quality assessment
+- **`sub_session_integration.py`** - Sub-session management utilities for parent-child session coordination and result integration
+- **`workflow_enhancement_utils.py`** - Workflow enhancement utilities for pre/post-processing hooks and editorial workflow integration
+
 ### Anti-Detection & Reliability
 - **`anti_bot_escalation.py`** - 4-level progressive anti-bot escalation system (Basic → Enhanced → Advanced → Stealth)
 - **`port_manager.py`** - Cross-platform network port management for crawling operations
@@ -59,6 +69,21 @@ Raw HTML → Cleanliness Assessment → AI Cleaning (GPT-5-nano) → Relevance S
 ### Search Strategy Decision Flow
 ```
 Query Analysis → Time Factor Assessment → Topic Classification → Strategy Selection (Google/SERP/Hybrid) → Performance Optimization
+```
+
+### Enhanced Editorial Workflow Pipeline (NEW in v3.2)
+```
+First Draft Report → Research Corpus Analysis → Multi-Dimensional Confidence Scoring → Gap Research Decision Logic → Cost-Benefit Analysis → Gap Research Coordination → Editorial Recommendations Engine → Evidence-Based Prioritization → Integration and Finalization
+```
+
+### Editorial Decision Engine Flow (NEW in v3.2)
+```
+Quality Assessment → Coverage Analysis → Gap Identification → Confidence Scoring (8+ Dimensions) → Decision Threshold Evaluation → ROI Analysis → Evidence-Based Recommendations
+```
+
+### Gap Research Coordination Flow (NEW in v3.2)
+```
+Gap Topics Identification → Sub-Session Creation → Resource Allocation → Gap Research Execution → Result Integration → Quality Assessment → Final Integration
 ```
 
 ## Core Implementation Patterns
@@ -106,6 +131,181 @@ async def crawl_with_retry(url: str, session_id: str = None) -> CrawlResult:
 def select_optimal_strategy(query: str) -> StrategyAnalysis:
     selector = SearchStrategySelector()
     return selector.analyze_and_recommend(query)
+```
+
+### Enhanced Editorial Decision Engine (NEW in v3.2)
+```python
+# Multi-dimensional confidence scoring for editorial decisions
+async def assess_editorial_decision(report_content: str, research_corpus: dict) -> EditorialDecision:
+    """Assess editorial decisions with multi-dimensional confidence scoring"""
+
+    # Initialize decision engine
+    decision_engine = EditorialDecisionEngine()
+
+    # Analyze research corpus
+    corpus_analysis = await decision_engine.analyze_research_corpus(research_corpus)
+
+    # Assess quality gaps across dimensions
+    quality_gaps = await decision_engine.assess_quality_gaps(report_content, corpus_analysis)
+
+    # Calculate confidence scores for each dimension
+    confidence_scores = {}
+    for dimension in ["factual_gaps", "temporal_gaps", "comparative_gaps",
+                     "quality_gaps", "coverage_gaps", "depth_gaps"]:
+        confidence_scores[dimension] = await decision_engine.calculate_dimension_confidence(
+            dimension, quality_gaps, corpus_analysis
+        )
+
+    # Make gap research decision
+    gap_decision = await decision_engine.make_gap_research_decision(confidence_scores)
+
+    return EditorialDecision(
+        confidence_scores=confidence_scores,
+        gap_research_decision=gap_decision,
+        corpus_analysis=corpus_analysis,
+        quality_assessment=quality_gaps
+    )
+```
+
+### Research Corpus Analysis (NEW in v3.2)
+```python
+# Comprehensive research corpus analysis
+async def analyze_research_corpus(research_data: dict) -> CorpusAnalysis:
+    """Analyze research corpus for quality and coverage assessment"""
+
+    analyzer = ResearchCorpusAnalyzer()
+
+    # Quality assessment
+    quality_metrics = await analyzer.assess_content_quality(research_data)
+
+    # Coverage analysis
+    coverage_analysis = await analyzer.analyze_content_coverage(research_data)
+
+    # Gap identification
+    identified_gaps = await analyzer.identify_research_gaps(research_data)
+
+    # Temporal analysis
+    temporal_coverage = await analyzer.analyze_temporal_coverage(research_data)
+
+    # Source diversity assessment
+    source_diversity = await analyzer.assess_source_diversity(research_data)
+
+    return CorpusAnalysis(
+        quality_metrics=quality_metrics,
+        coverage_analysis=coverage_analysis,
+        identified_gaps=identified_gaps,
+        temporal_coverage=temporal_coverage,
+        source_diversity=source_diversity
+    )
+```
+
+### Editorial Recommendations Engine (NEW in v3.2)
+```python
+# Evidence-based editorial recommendations with ROI estimation
+async def generate_editorial_recommendations(report_content: str,
+                                           editorial_analysis: dict,
+                                           gap_results: list = None) -> EditorialRecommendations:
+    """Generate evidence-based editorial recommendations with ROI estimation"""
+
+    recommendations_engine = EditorialRecommendationsEngine()
+
+    # Quality improvement recommendations
+    quality_recommendations = await recommendations_engine.generate_quality_recommendations(
+        report_content, editorial_analysis
+    )
+
+    # Content enhancement recommendations
+    content_recommendations = await recommendations_engine.generate_content_recommendations(
+        report_content, editorial_analysis, gap_results
+    )
+
+    # Calculate ROI for each recommendation
+    for rec in quality_recommendations + content_recommendations:
+        rec["roi_estimate"] = await recommendations_engine.calculate_recommendation_roi(rec)
+        rec["implementation_priority"] = recommendations_engine.calculate_priority(rec["roi_estimate"])
+
+    # Sort by ROI and priority
+    all_recommendations = quality_recommendations + content_recommendations
+    sorted_recommendations = sorted(
+        all_recommendations,
+        key=lambda x: (x["implementation_priority"], x["roi_estimate"]),
+        reverse=True
+    )
+
+    return EditorialRecommendations(
+        recommendations=sorted_recommendations,
+        total_recommendations=len(sorted_recommendations),
+        high_priority_count=len([r for r in sorted_recommendations if r["implementation_priority"] >= 0.8]),
+        estimated_quality_improvement=recommendations_engine.calculate_estimated_improvement(
+            sorted_recommendations
+        )
+    )
+```
+
+### Gap Research Coordination (NEW in v3.2)
+```python
+# Gap research coordination with sub-session management
+async def coordinate_gap_research(gap_topics: list, parent_session_id: str) -> GapResearchResults:
+    """Coordinate gap research through sub-sessions"""
+
+    coordinator = GapResearchCoordinator()
+    gap_results = []
+
+    for gap_topic in gap_topics:
+        # Create sub-session
+        sub_session_id = await coordinator.create_sub_session(gap_topic, parent_session_id)
+
+        # Execute gap research
+        gap_result = await coordinator.execute_gap_research(gap_topic, sub_session_id)
+
+        gap_results.append({
+            "sub_session_id": sub_session_id,
+            "gap_topic": gap_topic,
+            "result": gap_result,
+            "status": "completed"
+        })
+
+    # Integrate results
+    integrated_results = await coordinator.integrate_gap_results(gap_results, parent_session_id)
+
+    return GapResearchResults(
+        individual_results=gap_results,
+        integrated_analysis=integrated_results,
+        total_sub_sessions=len(gap_topics),
+        successful_researches=len([r for r in gap_results if r["status"] == "completed"])
+    )
+```
+
+### Quality Integration Utilities (NEW in v3.2)
+```python
+# Enhanced quality framework integration
+async def integrate_quality_assessment(content: str, context: dict) -> QualityAssessment:
+    """Integrate enhanced quality framework assessment"""
+
+    quality_utils = QualityIntegrationUtils()
+
+    # Multi-dimensional quality assessment
+    quality_scores = {}
+    for dimension in ["accuracy", "completeness", "coherence", "relevance",
+                     "depth", "clarity", "source_quality", "objectivity"]:
+        quality_scores[dimension] = await quality_utils.assess_dimension_quality(
+            content, dimension, context
+        )
+
+    # Overall quality calculation
+    overall_quality = quality_utils.calculate_weighted_quality_score(quality_scores)
+
+    # Enhancement recommendations
+    enhancement_recommendations = await quality_utils.generate_enhancement_recommendations(
+        quality_scores, content, context
+    )
+
+    return QualityAssessment(
+        dimension_scores=quality_scores,
+        overall_quality=overall_quality,
+        enhancement_recommendations=enhancement_recommendations,
+        meets_threshold=overall_quality >= context.get("quality_threshold", 0.75)
+    )
 ```
 
 ## Testing & Quality Assurance
@@ -299,6 +499,173 @@ for query in queries:
     print("---")
 ```
 
+### Enhanced Editorial Decision Engine Usage (NEW in v3.2)
+```python
+from utils.editorial_decision_engine import EditorialDecisionEngine
+from utils.research_corpus_analyzer import ResearchCorpusAnalyzer
+
+# Initialize enhanced editorial components
+decision_engine = EditorialDecisionEngine()
+corpus_analyzer = ResearchCorpusAnalyzer()
+
+async def enhanced_editorial_analysis(report_content: str, research_data: dict):
+    """Complete enhanced editorial analysis workflow"""
+
+    # Step 1: Analyze research corpus
+    corpus_analysis = await corpus_analyzer.analyze_research_corpus(research_data)
+    print(f"Corpus quality score: {corpus_analysis.quality_metrics.overall_score}")
+    print(f"Coverage completeness: {corpus_analysis.coverage_analysis.completeness_percentage}%")
+
+    # Step 2: Assess editorial decisions with confidence scoring
+    editorial_decision = await decision_engine.assess_editorial_decision(
+        report_content, research_data
+    )
+
+    print(f"Gap research confidence scores:")
+    for dimension, score in editorial_decision.confidence_scores.items():
+        print(f"  {dimension}: {score:.2f}")
+
+    # Step 3: Make gap research decision
+    if editorial_decision.gap_research_decision.should_execute:
+        print(f"Gap research recommended: {editorial_decision.gap_research_decision.gap_queries}")
+        print(f"Overall confidence: {editorial_decision.gap_research_decision.overall_confidence:.2f}")
+    else:
+        print("Existing research sufficient - no gap research needed")
+
+    return editorial_decision
+
+# Usage example
+research_corpus = {
+    "sources": ["source1", "source2", "source3"],
+    "content": ["content1", "content2", "content3"],
+    "metadata": {"quality_scores": [0.8, 0.7, 0.9]}
+}
+
+editorial_result = await enhanced_editorial_analysis("sample report content", research_corpus)
+```
+
+### Research Corpus Analysis Usage (NEW in v3.2)
+```python
+from utils.research_corpus_analyzer import ResearchCorpusAnalyzer
+
+analyzer = ResearchCorpusAnalyzer()
+
+async def comprehensive_corpus_analysis(research_data: dict):
+    """Comprehensive research corpus analysis"""
+
+    # Analyze corpus quality and coverage
+    corpus_analysis = await analyzer.analyze_research_corpus(research_data)
+
+    # Quality metrics
+    quality_metrics = corpus_analysis.quality_metrics
+    print(f"Overall Quality: {quality_metrics.overall_score:.2f}")
+    print(f"Factual Accuracy: {quality_metrics.factual_accuracy:.2f}")
+    print(f"Source Reliability: {quality_metrics.source_reliability:.2f}")
+
+    # Coverage analysis
+    coverage = corpus_analysis.coverage_analysis
+    print(f"Temporal Coverage: {coverage.temporal_coverage_percentage}%")
+    print(f"Geographical Coverage: {coverage.geographical_coverage_percentage}%")
+    print(f"Topical Coverage: {coverage.topical_coverage_percentage}%")
+
+    # Identified gaps
+    gaps = corpus_analysis.identified_gaps
+    print(f"Identified Gaps: {len(gaps)}")
+    for gap in gaps:
+        print(f"  - {gap['type']}: {gap['description']} (priority: {gap['priority']})")
+
+    return corpus_analysis
+
+# Example research data
+research_data = {
+    "articles": [
+        {"content": "article 1 content", "date": "2024-01-01", "source": "source1"},
+        {"content": "article 2 content", "date": "2024-02-01", "source": "source2"},
+        {"content": "article 3 content", "date": "2024-03-01", "source": "source3"}
+    ],
+    "query": "artificial intelligence trends",
+    "metadata": {"search_depth": "comprehensive"}
+}
+
+analysis_result = await comprehensive_corpus_analysis(research_data)
+```
+
+### Editorial Recommendations Engine Usage (NEW in v3.2)
+```python
+from utils.editorial_recommendations_engine import EditorialRecommendationsEngine
+
+recommendations_engine = EditorialRecommendationsEngine()
+
+async def generate_editorial_improvements(report_content: str, editorial_analysis: dict):
+    """Generate evidence-based editorial recommendations with ROI estimation"""
+
+    # Generate comprehensive recommendations
+    recommendations = await recommendations_engine.generate_editorial_recommendations(
+        report_content, editorial_analysis
+    )
+
+    print(f"Generated {recommendations.total_recommendations} recommendations")
+    print(f"High priority recommendations: {recommendations.high_priority_count}")
+    print(f"Estimated quality improvement: {recommendations.estimated_quality_improvement:.1f}%")
+
+    # Display top recommendations
+    for i, rec in enumerate(recommendations.recommendations[:5]):
+        print(f"\n{i+1}. {rec['title']}")
+        print(f"   Priority: {rec['implementation_priority']:.2f}")
+        print(f"   ROI Estimate: {rec['roi_estimate']:.2f}")
+        print(f"   Description: {rec['description']}")
+        print(f"   Implementation: {rec['implementation_plan']}")
+
+    return recommendations
+
+# Example usage
+editorial_analysis = {
+    "quality_assessment": {"overall_score": 0.72, "dimensions": {...}},
+    "corpus_analysis": {"quality_metrics": {...}, "coverage_analysis": {...}},
+    "gap_results": [{"topic": "temporal_gaps", "content": "gap research content"}]
+}
+
+recommendations = await generate_editorial_improvements("sample report content", editorial_analysis)
+```
+
+### Gap Research Coordination Usage (NEW in v3.2)
+```python
+from utils.gap_research_coordinator import GapResearchCoordinator
+
+coordinator = GapResearchCoordinator()
+
+async def execute_gap_research_workflow(gap_topics: list, parent_session_id: str):
+    """Execute gap research through coordinated sub-sessions"""
+
+    # Coordinate gap research
+    gap_results = await coordinator.coordinate_gap_research(gap_topics, parent_session_id)
+
+    print(f"Executed {gap_results.total_sub_sessions} gap research sub-sessions")
+    print(f"Successful researches: {gap_results.successful_researches}")
+
+    # Display individual results
+    for result in gap_results.individual_results:
+        print(f"\nGap Topic: {result['gap_topic']}")
+        print(f"Sub-Session ID: {result['sub_session_id']}")
+        print(f"Status: {result['status']}")
+        print(f"Result Quality: {result['result'].get('quality_score', 'N/A')}")
+
+    # Display integrated analysis
+    integrated = gap_results.integrated_analysis
+    print(f"\nIntegrated Analysis:")
+    print(f"Overall Quality Improvement: {integrated['quality_improvement']:.1f}%")
+    print(f"New Insights Added: {len(integrated['new_insights'])}")
+    print(f"Coverage Enhancement: {integrated['coverage_enhancement']:.1f}%")
+
+    return gap_results
+
+# Example usage
+gap_topics = ["recent AI developments", "industry-specific applications", "future trends"]
+parent_session = "research_session_001"
+
+gap_results = await execute_gap_research_workflow(gap_topics, parent_session)
+```
+
 ## Performance Optimization Guidelines
 
 ### Media Optimization (3-4x Performance Improvement)
@@ -381,6 +748,50 @@ ANTI_BOT_CONFIG = {
     "base_delay": 1.0,
     "delay_multiplier": 2.0,
     "success_rate_threshold": 0.8
+}
+
+# Enhanced Editorial Workflow Configuration (NEW in v3.2)
+EDITORIAL_WORKFLOW_CONFIG = {
+    "decision_engine": {
+        "confidence_dimensions": [
+            "factual_gaps", "temporal_gaps", "comparative_gaps",
+            "quality_gaps", "coverage_gaps", "depth_gaps"
+        ],
+        "dimension_weights": {
+            "factual_gaps": 0.25,
+            "temporal_gaps": 0.20,
+            "comparative_gaps": 0.20,
+            "quality_gaps": 0.15,
+            "coverage_gaps": 0.10,
+            "depth_gaps": 0.10
+        },
+        "confidence_threshold": 0.7,
+        "max_gap_topics": 2
+    },
+    "corpus_analysis": {
+        "quality_dimensions": [
+            "accuracy", "completeness", "coherence", "relevance",
+            "depth", "clarity", "source_quality", "objectivity"
+        ],
+        "coverage_aspects": [
+            "temporal_coverage", "geographical_coverage", "topical_coverage",
+            "source_diversity", "perspective_diversity"
+        ],
+        "gap_detection_sensitivity": 0.6
+    },
+    "recommendations_engine": {
+        "roi_analysis": True,
+        "evidence_based": True,
+        "implementation_planning": True,
+        "priority_threshold": 0.8,
+        "max_recommendations": 15
+    },
+    "gap_research_coordination": {
+        "max_concurrent_sub_sessions": 3,
+        "sub_session_timeout": 300,
+        "integration_quality_threshold": 0.7,
+        "resource_optimization": True
+    }
 }
 ```
 

@@ -38,7 +38,30 @@ from rich.table import Table
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from ..config.sdk_config import get_sdk_config, LogLevel
+# Try to import from config, fall back to local definition
+try:
+    from ..config.sdk_config import get_sdk_config, LogLevel
+except ImportError:
+    # Fallback: define locally if import fails
+    import os
+    from typing import Optional, Dict, Any, List
+    from dataclasses import dataclass, field
+    from enum import Enum
+
+    class LogLevel(str, Enum):
+        DEBUG = "DEBUG"
+        INFO = "INFO"
+        WARNING = "WARNING"
+        ERROR = "ERROR"
+        CRITICAL = "CRITICAL"
+
+    def get_sdk_config():
+        # Simple fallback configuration
+        return {
+            "log_level": LogLevel.INFO,
+            "project_name": "multi_agent_research_system",
+            "environment": os.getenv("ENVIRONMENT", "development")
+        }
 
 
 class LogLevel(str, Enum):

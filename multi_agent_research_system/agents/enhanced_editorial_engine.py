@@ -175,15 +175,15 @@ class GapAnalysis:
     confidence_in_solution: float
     expected_research_success: float
 
-    # Evidence and justification
-    evidence_indicators: List[str] = field(default_factory=list)
-    supporting_quotes: List[str] = field(default_factory=list)
-    missing_information_types: List[str] = field(default_factory=list)
-
     # Recommended action
     recommended_action: str
     priority_level: LegacyPriorityLevel
     estimated_research_effort: str
+
+    # Evidence and justification (default fields)
+    evidence_indicators: List[str] = field(default_factory=list)
+    supporting_quotes: List[str] = field(default_factory=list)
+    missing_information_types: List[str] = field(default_factory=list)
 
     # Metadata
     identified_at: datetime = field(default_factory=datetime.now)
@@ -231,23 +231,23 @@ class EnhancedEditorialDecision:
 
     # Decision rationale
     primary_reasoning: str
-    supporting_evidence: List[str] = field(default_factory=list)
-    risk_factors: List[str] = field(default_factory=list)
-    uncertainty_notes: List[str] = field(default_factory=list)
-
-    # Gap research information
-    gap_analysis: List[GapAnalysis] = field(default_factory=list)
-    recommended_gap_research: List[str] = field(default_factory=list)
-    estimated_research_benefit: str = ""
-
-    # Enhancement recommendations
-    enhancement_suggestions: List[str] = field(default_factory=list)
-    improvement_priority: List[Tuple[str, float]] = field(default_factory=list)
-    quality_gate_requirements: List[str] = field(default_factory=list)
 
     # Implementation details
     estimated_effort: str
     estimated_timeline: str
+
+    # Gap research information
+    estimated_research_benefit: str = ""
+
+    # Fields with defaults
+    supporting_evidence: List[str] = field(default_factory=list)
+    risk_factors: List[str] = field(default_factory=list)
+    uncertainty_notes: List[str] = field(default_factory=list)
+    gap_analysis: List[GapAnalysis] = field(default_factory=list)
+    recommended_gap_research: List[str] = field(default_factory=list)
+    enhancement_suggestions: List[str] = field(default_factory=list)
+    improvement_priority: List[Tuple[str, float]] = field(default_factory=list)
+    quality_gate_requirements: List[str] = field(default_factory=list)
     resource_requirements: Dict[str, Any] = field(default_factory=dict)
     success_criteria: List[str] = field(default_factory=list)
 
@@ -1606,3 +1606,61 @@ def create_enhanced_editorial_engine(
         confidence_thresholds=confidence_thresholds,
         message_processor=message_processor
     )
+
+
+# Configuration classes for testing
+class EnhancedEditorialEngineConfig:
+    """Configuration for Enhanced Editorial Decision Engine"""
+    def __init__(self, confidence_threshold=0.7, max_gap_topics=2, quality_threshold=0.75, **kwargs):
+        self.confidence_threshold = confidence_threshold
+        self.max_gap_topics = max_gap_topics
+        self.quality_threshold = quality_threshold
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+class GapDecisionConfig:
+    """Configuration for Gap Research Decision Engine"""
+    def __init__(self, cost_benefit_threshold=1.5, max_gap_topics=2, confidence_threshold=0.7, **kwargs):
+        self.cost_benefit_threshold = cost_benefit_threshold
+        self.max_gap_topics = max_gap_topics
+        self.confidence_threshold = confidence_threshold
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+class CorpusAnalyzerConfig:
+    """Configuration for Research Corpus Analyzer"""
+    def __init__(self, quality_threshold=0.75, analysis_depth="comprehensive", sufficiency_threshold=0.8, **kwargs):
+        self.quality_threshold = quality_threshold
+        self.analysis_depth = analysis_depth
+        self.sufficiency_threshold = sufficiency_threshold
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+class RecommendationsConfig:
+    """Configuration for Editorial Recommendations Engine"""
+    def __init__(self, max_recommendations=10, prioritization_strategy="impact_based", **kwargs):
+        self.max_recommendations = max_recommendations
+        self.prioritization_strategy = prioritization_strategy
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+class SubSessionManagerConfig:
+    """Configuration for Sub-Session Manager"""
+    def __init__(self, max_concurrent_sub_sessions=5, session_timeout=3600, **kwargs):
+        self.max_concurrent_sub_sessions = max_concurrent_sub_sessions
+        self.session_timeout = session_timeout
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+class IntegrationConfig:
+    """Configuration for Editorial Workflow Integration"""
+    def __init__(self, orchestrator_integration=True, hook_integration=True, **kwargs):
+        self.orchestrator_integration = orchestrator_integration
+        self.hook_integration = hook_integration
+        for key, value in kwargs.items():
+            setattr(self, key, value)

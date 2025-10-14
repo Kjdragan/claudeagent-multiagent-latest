@@ -22,10 +22,10 @@ from collections import defaultdict
 from pydantic import BaseModel, Field
 
 from .enhanced_editorial_engine import (
-    EditorialDecision, GapAnalysis, EditorialConfidenceScores
+    EnhancedEditorialDecision as EditorialDecision, GapAnalysis, ConfidenceScore as EditorialConfidenceScores
 )
 from .gap_research_decisions import (
-    GapResearchDecision, GapResearchDecisionType, ResearchUtilizationStrategy
+    GapResearchDecision, ResearchUtilizationStrategy
 )
 from .research_corpus_analyzer import (
     SufficiencyAssessment, CoverageAnalysis, QualityAssessment,
@@ -1755,3 +1755,13 @@ async def generate_quick_recommendations(
     return await engine.generate_comprehensive_recommendations(
         editorial_decision, gap_decision, sufficiency_assessment, session_id, topic
     )
+
+
+# Configuration classes for testing
+class RecommendationsConfig:
+    """Configuration for Editorial Recommendations Engine"""
+    def __init__(self, max_recommendations=10, prioritization_strategy="impact_based", **kwargs):
+        self.max_recommendations = max_recommendations
+        self.prioritization_strategy = prioritization_strategy
+        for key, value in kwargs.items():
+            setattr(self, key, value)

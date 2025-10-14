@@ -51,6 +51,33 @@ except ImportError:
     QualityFramework = None
 
     # Fallback definitions
+    class GapCategory(Enum):
+        FACTUAL_GAPS = "factual_gaps"
+        TEMPORAL_GAPS = "temporal_gaps"
+        COMPARATIVE_GAPS = "comparative_gaps"
+        ANALYTICAL_GAPS = "analytical_gaps"
+        CONTEXTUAL_GAPS = "contextual_gaps"
+        METHODOLOGICAL_GAPS = "methodological_gaps"
+        EXPERT_OPINION_GAPS = "expert_opinion_gaps"
+        DATA_GAPS = "data_gaps"
+
+    class EnhancedEditorialDecisionEngine:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    class GapDecisionConfig:
+        def __init__(self, **kwargs):
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+
+    @dataclass
+    class ResourceRequirements:
+        estimated_scrapes_needed: int
+        estimated_queries_needed: int
+        time_requirement: timedelta
+        budget_requirement: float
+        complexity_level: int
+
     @dataclass
     class ConfidenceScore:
         overall_confidence: float
@@ -126,25 +153,27 @@ class GapResearchDecision:
 
     # Decision rationale
     primary_reasoning: str
-    supporting_evidence: List[str] = field(default_factory=list)
-    uncertainty_factors: List[str] = field(default_factory=list)
-    alternative_options: List[str] = field(default_factory=list)
 
     # Gap research recommendations
-    recommended_gaps: List[GapAnalysis] = field(default_factory=list)
     recommended_strategy: ResearchUtilizationStrategy
-    research_topics: List[str] = field(default_factory=list)
 
     # Cost-benefit analysis
     estimated_cost: str
     estimated_benefit: str
     roi_estimate: float  # 0.0 - 1.0
-    resource_requirements: Dict[str, Any] = field(default_factory=dict)
 
     # Implementation details
     suggested_approach: str
-    success_metrics: List[str] = field(default_factory=list)
     timeline_estimate: str
+
+    # Fields with defaults
+    supporting_evidence: List[str] = field(default_factory=list)
+    uncertainty_factors: List[str] = field(default_factory=list)
+    alternative_options: List[str] = field(default_factory=list)
+    recommended_gaps: List[GapAnalysis] = field(default_factory=list)
+    research_topics: List[str] = field(default_factory=list)
+    resource_requirements: Dict[str, Any] = field(default_factory=dict)
+    success_metrics: List[str] = field(default_factory=list)
 
     # Metadata
     decision_timestamp: datetime = field(default_factory=datetime.now)
@@ -413,7 +442,7 @@ class GapResearchDecisionEngine:
         self,
         existing_sufficiency: Dict[str, float],
         gap_necessity_score: float,
-        context: GapResearchContext
+        context: GapResearchDecisionContext
     ) -> ResearchUtilizationStrategy:
         """
         Determine the optimal strategy for utilizing existing research.
@@ -502,7 +531,7 @@ class GapResearchDecisionEngine:
         decision_type: GapResearchDecision,
         gap_necessity_score: float,
         existing_sufficiency: Dict[str, float],
-        context: GapResearchContext
+        context: GapResearchDecisionContext
     ) -> GapResearchConfidence:
         """
         Calculate confidence level for the gap research decision.
@@ -811,7 +840,7 @@ class GapResearchDecisionEngine:
     def _analyze_diversity_sufficiency(
         self,
         available_research: Dict[str, Any],
-        context: GapResearchContext
+        context: GapResearchDecisionContext
     ) -> float:
         """Analyze diversity sufficiency of existing research."""
         sources = available_research.get('sources', [])
@@ -886,7 +915,7 @@ class GapResearchDecisionEngine:
         self,
         recommended_gaps: List[GapAnalysis],
         strategy: ResearchUtilizationStrategy,
-        context: GapResearchContext
+        context: GapResearchDecisionContext
     ) -> Tuple[str, str, float]:
         """Calculate cost-benefit analysis for gap research."""
         try:
@@ -973,7 +1002,7 @@ class GapResearchDecisionEngine:
         decision_type: GapResearchDecision,
         strategy: ResearchUtilizationStrategy,
         recommended_gaps: List[GapAnalysis],
-        context: GapResearchContext
+        context: GapResearchDecisionContext
     ) -> str:
         """Generate primary reasoning for gap research decision."""
         reasoning_parts = []
@@ -1011,7 +1040,7 @@ class GapResearchDecisionEngine:
         self,
         recommended_gaps: List[GapAnalysis],
         strategy: ResearchUtilizationStrategy,
-        context: GapResearchContext
+        context: GapResearchDecisionContext
     ) -> List[str]:
         """Generate supporting evidence for gap research decision."""
         evidence = []
@@ -1037,7 +1066,7 @@ class GapResearchDecisionEngine:
         self,
         confidence_level: GapResearchConfidence,
         recommended_gaps: List[GapAnalysis],
-        context: GapResearchContext
+        context: GapResearchDecisionContext
     ) -> List[str]:
         """Generate uncertainty factors for gap research decision."""
         factors = []
@@ -1061,7 +1090,7 @@ class GapResearchDecisionEngine:
         self,
         decision_type: GapResearchDecision,
         strategy: ResearchUtilizationStrategy,
-        context: GapResearchContext
+        context: GapResearchDecisionContext
     ) -> List[str]:
         """Generate alternative options for gap research."""
         options = []
@@ -1174,7 +1203,7 @@ class GapResearchDecisionEngine:
         self,
         recommended_gaps: List[GapAnalysis],
         strategy: ResearchUtilizationStrategy,
-        context: GapResearchContext
+        context: GapResearchDecisionContext
     ) -> Dict[str, Any]:
         """Estimate resource requirements for gap research."""
         requirements = {}

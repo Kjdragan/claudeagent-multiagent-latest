@@ -1847,3 +1847,20 @@ async def quick_corpus_analysis(
     """Quick corpus analysis with default configuration"""
     analyzer = create_research_corpus_analyzer()
     return await analyzer.analyze_research_corpus(research_data, topic, research_purpose)
+
+
+# Configuration class for testing
+class CorpusAnalyzerConfig:
+    """Configuration for Research Corpus Analyzer"""
+    def __init__(self, quality_threshold=0.75, analysis_depth="comprehensive", sufficiency_threshold=0.8, **kwargs):
+        self.quality_threshold = quality_threshold
+        self.analysis_depth = analysis_depth
+        self.sufficiency_threshold = sufficiency_threshold
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+class ResearchCorpusAnalysis:
+    """Research corpus analysis results"""
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)

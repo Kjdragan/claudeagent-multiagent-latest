@@ -616,12 +616,12 @@ class SubSessionManager:
         """Get complete session hierarchy"""
         hierarchy = {root_session_id: []}
 
-        def _build_hierarchy(session_id: str, level: int = 0):
+        async def _build_hierarchy(session_id: str, level: int = 0):
             children = await self.get_parent_children(session_id)
             if children:
                 hierarchy[session_id] = children
                 for child_id in children:
-                    _build_hierarchy(child_id, level + 1)
+                    await _build_hierarchy(child_id, level + 1)
 
         await _build_hierarchy(root_session_id)
         return hierarchy
@@ -1592,3 +1592,13 @@ async def get_sub_session_summary(manager: SubSessionManager, parent_session_id:
         "statistics": statistics,
         "hierarchy": await manager.get_session_hierarchy(parent_session_id)
     }
+
+
+# Configuration class for testing
+class SubSessionManagerConfig:
+    """Configuration for Sub-Session Manager"""
+    def __init__(self, max_concurrent_sub_sessions=5, session_timeout=3600, **kwargs):
+        self.max_concurrent_sub_sessions = max_concurrent_sub_sessions
+        self.session_timeout = session_timeout
+        for key, value in kwargs.items():
+            setattr(self, key, value)

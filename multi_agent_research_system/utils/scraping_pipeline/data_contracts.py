@@ -219,7 +219,7 @@ class ScrapingResult(BaseModel):
             raise ValueError("Scores must be between 0.0 and 1.0")
         return v
 
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def validate_result_consistency(cls, values):
         """Validate overall result consistency."""
         success = values.get('success', False)

@@ -32,12 +32,13 @@ from . import (
 )
 
 # Import enhanced logging from Phase 1.1
+import logging
+
 try:
     from ...agent_logging.enhanced_logger import get_enhanced_logger, LogLevel, LogCategory, AgentEventType
     ENHANCED_LOGGING_AVAILABLE = True
 except ImportError:
     ENHANCED_LOGGING_AVAILABLE = False
-    import logging
 
 logger = logging.getLogger(__name__)
 

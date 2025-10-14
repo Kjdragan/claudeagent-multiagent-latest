@@ -24,6 +24,7 @@ import logging
 import pickle
 from typing import Dict, List, Any, Optional, Union, Tuple, Set
 from dataclasses import dataclass, field
+from typing import Callable
 from datetime import datetime, timedelta
 from enum import Enum
 from collections import OrderedDict
