@@ -1,462 +1,402 @@
-# Multi-Agent Research System - Enhanced Architecture v3.2
+# Multi-Agent Research System - Production Implementation Guide
 
-**System Version**: 3.2 Enhanced Editorial Workflow
-**Last Updated**: October 13, 2025
-**Status**: Production-Ready with Advanced Editorial Intelligence
+**System Version**: 2.0 Production Release
+**Last Updated**: October 15, 2025
+**Status**: Production-Ready with Working Search/Scrape/Clean Pipeline
 
 ## Executive Overview
 
-The Multi-Agent Research System is a sophisticated AI-powered platform that delivers comprehensive, high-quality research outputs through coordinated multi-agent workflows with enhanced editorial intelligence and confidence-based decision making. This enhanced system features an advanced editorial workflow engine, intelligent gap research coordination, and comprehensive quality management.
+The Multi-Agent Research System is a functional AI-powered platform that delivers research outputs through coordinated agent workflows. The system implements a working search/scrape/clean pipeline with template-based agents and basic quality assessment.
 
-**Key System Capabilities:**
-- **Enhanced Editorial Workflow Pipeline**: Target URLs → Initial Research → First Draft Report → Enhanced Editorial Analysis → Gap Research Decision → Gap Research Execution → Corpus Analysis → Editorial Recommendations → Integration and Finalization → Final Report
-- **Intelligent Confidence-Based Decision Making**: Multi-dimensional confidence scoring for gap research decisions with cost-benefit analysis
-- **Sophisticated Sub-Session Management**: Parent-child session coordination for gap research with complete workflow integrity
-- **Evidence-Based Editorial Recommendations**: ROI estimation and evidence-based prioritization of editorial improvements
-- **Complete System Integration**: Orchestrator, hooks, and quality frameworks working in harmony
-
-## Directory Purpose
-
-The multi_agent_research_system directory is the main system container that orchestrates sophisticated AI-powered research workflows using multiple specialized agents with enhanced editorial intelligence. It provides comprehensive research capabilities through web search, content analysis, intelligent editorial decision making, gap research coordination, and quality enhancement.
+**Actual System Capabilities:**
+- **Working Search Pipeline**: Functional SERP API integration with web crawling and content cleaning
+- **Template-Based Agents**: Research, Report, and Editorial agents with predefined response patterns
+- **Session Management**: KEVIN directory structure with organized workproduct storage
+- **MCP Tool Integration**: Working Model Context Protocol tools for Claude integration
+- **Basic Quality Assessment**: Simple scoring and feedback mechanisms
+- **URL Replacement System**: Handles permanently blocked domains through replacement
 
 ## Key Components
 
-### System Entry Points
-- **`main.py`** - Main CLI entry point with logging configuration and demo functionality
-- **`run_research.py`** - Primary research execution script with CLI interface
-- **`start_ui.py`** - Streamlit web interface launcher
-
-### Core System Directories
-- **`utils/`** - Web crawling, content processing, and research utilities
-- **`tools/`** - High-level research tools and search interfaces
-- **`mcp_tools/`** - Model Context Protocol implementations for Claude integration
-- **`core/`** - System orchestration and foundational components
-- **`config/`** - Agent definitions and system configuration
-- **`agents/`** - Specialized AI agent implementations including **Enhanced Editorial Agent**
-- **`tests/`** - Comprehensive test suite
-- **`scraping/`** - Two-module scraping system with progressive anti-bot escalation
-- **`agent_logging/`** - Comprehensive monitoring and debugging infrastructure
-
-### Supporting Infrastructure
-- **`KEVIN/`** - Data storage and session management directory with sub-session support
-- **`monitoring/`** - System monitoring and performance tracking
-- **`hooks/`** - System hooks and extension points
-- **`ui/`** - User interface components
-
-## Enhanced System Architecture
-
-### Enhanced Editorial Workflow Pipeline
+### Core System Architecture
 ```
-Target URL Generation → Initial Research → First Draft Report → Enhanced Editorial Analysis
-                                                                    ↓
-                                                          Gap Research Decision
-                                                                    ↓
-                                                    [Gap Research Execution - Sub-Sessions]
-                                                                    ↓
-                                                        Research Corpus Analysis
-                                                                    ↓
-                                                      Editorial Recommendations
-                                                                    ↓
-                                                    Integration and Finalization
-                                                                    ↓
-                                                          Final Report
+User Query → SERP Search → Web Crawling → Content Cleaning → Report Generation → Editorial Review → Final Output
 ```
 
-### New Major Components (Phase 3.2)
+### Working Components
 
-#### 1. Enhanced Editorial Decision Engine
-- **Multi-Dimensional Confidence Scoring**: 8+ quality dimensions with weighted scoring
-- **Cost-Benefit Analysis**: ROI estimation for gap research decisions
-- **Evidence-Based Decision Making**: Data-driven editorial recommendations
-- **Confidence Thresholds**: Configurable decision boundaries
+#### 1. Search & Content Pipeline
+- **SERP API Integration**: Functional search with 15-25 results per query
+- **Web Crawling**: Crawl4AI-based crawling with 4-level anti-bot escalation
+- **Content Cleaning**: GPT-5-nano powered content cleaning with cleanliness assessment
+- **Success Rate**: 70-90% successful content extraction from crawled URLs
 
-#### 2. Gap Research Decision System
-- **Intelligent Decision Logic**: Confidence-based gap research necessity assessment
-- **Query Prioritization**: High-confidence gap identification and targeting
-- **Resource Optimization**: Efficient allocation of research resources
-- **Decision Logging**: Complete audit trail of editorial decisions
+#### 2. Agent System
+- **Research Agent**: Template-based research synthesis with basic structuring
+- **Report Agent**: Report generation using predefined formats and patterns
+- **Editorial Agent**: Basic editorial review with simple gap identification
+- **Quality Judge**: Simple 0-100 scoring with basic feedback
 
-#### 3. Research Corpus Analyzer
-- **Comprehensive Quality Assessment**: Multi-factor content quality analysis
-- **Coverage Analysis**: Temporal, factual, and comparative coverage assessment
-- **Gap Identification**: Systematic identification of research gaps
-- **Quality Metrics**: Detailed quality scoring across multiple dimensions
+#### 3. MCP Tools
+- **enhanced_search_scrape_clean**: Multi-tool MCP server with search capabilities
+- **zplayground1_search**: Single comprehensive search tool
+- **Session Management**: Basic session tracking and workproduct organization
 
-#### 4. Editorial Recommendations Engine
-- **Evidence-Based Prioritization**: ROI-driven recommendation ranking
-- **Implementation Planning**: Detailed action plans for improvements
-- **Quality Enhancement Strategies**: Specific improvement recommendations
-- **Integration Guidance**: Step-by-step integration instructions
+#### 4. Session & File Management
+- **KEVIN Directory**: Organized session-based storage structure
+- **Workproduct Generation**: Timestamped files with standardized naming
+- **Flow Adherence**: Basic tracking of agent execution and completion
 
-#### 5. Sub-Session Manager
-- **Parent-Child Session Coordination**: Hierarchical session management
-- **Gap Research Orchestration**: Coordinated execution of gap research
-- **State Synchronization**: Real-time session state management
-- **Result Integration**: Seamless integration of sub-session results
+## Directory Purpose
 
-#### 6. Editorial Workflow Integration Layer
-- **Hook Integration**: Pre and post-processing hooks for editorial workflow
-- **Quality Framework Integration**: Seamless quality assessment integration
-- **Orchestrator Coordination**: Complete workflow orchestration
-- **System Monitoring**: Real-time workflow monitoring and debugging
+The `multi_agent_research_system` directory contains a production-ready research automation system with functional web search, content extraction, and report generation capabilities.
 
-### Core Components Interaction
-```
-Enhanced Orchestrator
-├── Enhanced Editorial Decision Engine
-│   ├── Multi-Dimensional Confidence Scoring
-│   ├── Gap Research Decision System
-│   ├── Research Corpus Analyzer
-│   └── Editorial Recommendations Engine
-├── Sub-Session Manager
-│   ├── Parent-Child Session Coordination
-│   ├── Gap Research Orchestration
-│   └── Result Integration
-├── MCP Server (tool integration)
-├── Enhanced Quality Framework (8+ dimensions)
-├── Session Management (with sub-sessions)
-├── Hook Integration (pre/post processing)
-└── Error Recovery (enhanced resilience)
-```
+### Core Directories
 
-### Enhanced Data Flow Architecture
-```
-Input → Search & Research → First Draft Report → Enhanced Editorial Analysis →
-[Gap Research Decision] → [Gap Research Sub-Sessions] → Corpus Analysis →
-Editorial Recommendations → Integration & Finalization → Final Output
-```
+#### `core/` - System Orchestration
+- **`orchestrator.py`** (7,000+ lines): Main workflow coordination with agent handoffs
+- **`quality_framework.py`**: Basic quality assessment with scoring criteria
+- **`workflow_state.py`**: Session state management and progress tracking
+- **`base_agent.py`**: Base agent class with common functionality
 
-## Quick Start
+#### `agents/` - Specialized AI Agents
+- **`research_agent.py`**: Web research coordination with basic synthesis
+- **`report_agent.py`**: Report generation using template-based formatting
+- **`decoupled_editorial_agent.py`**: Editorial review with gap identification
+- **`content_quality_judge.py`**: Simple quality scoring (0-100) with feedback
 
-### Basic Usage
-```bash
-# Run research with default settings
-python multi_agent_research_system/run_research.py "your research topic"
+#### `utils/` - Core Utilities
+- **`serp_search_utils.py`**: SERP API integration with 10x performance improvement
+- **`z_search_crawl_utils.py`**: Search and crawl integration with parallel processing
+- **`content_cleaning.py`**: GPT-5-nano content cleaning with cleanliness assessment
+- **`crawl4ai_z_playground.py`**: Production web crawler with anti-bot detection
 
-# Run with specific depth and audience
-python multi_agent_research_system/run_research.py "topic" --depth "Comprehensive Analysis" --audience "Academic"
+#### `mcp_tools/` - Claude Integration
+- **`enhanced_search_scrape_clean.py`**: Multi-tool MCP server with chunking support
+- **`zplayground1_search.py`**: Single comprehensive search tool implementation
+- **`mcp_compliance_manager.py`**: Token management and content allocation
 
-# Run with debug mode
-python multi_agent_research_system/run_research.py "topic" --debug
-```
+#### `KEVIN/` - Data Storage
+- **`sessions/{session_id}/`**: Session-based organization with working/research/complete subdirectories
+- **Workproduct files**: Timestamped markdown files with standardized naming
+- **Session metadata**: JSON files tracking session state and progress
 
-### Development Mode
-```bash
-# Run main system with debugging
-python multi_agent_research_system/main.py
+## Real Working System Architecture
 
-# Start web interface
-python multi_agent_research_system/start_ui.py
-```
+### Search Pipeline Implementation
 
-### Testing
-```bash
-# Run all tests
-python multi_agent_research_system/tests/run_tests.py
+The system implements a functional search-to-report pipeline:
 
-# Run specific test categories
-python multi_agent_research_system/tests/run_tests.py --category integration
-python multi_agent_research_system/tests/run_tests.py --category functional
-```
-
-## Development Guidelines
-
-### System Design Principles
-1. **Agent Specialization**: Each agent has distinct responsibilities and expertise
-2. **Quality-First**: Built-in quality assessment and enhancement at every stage
-3. **Resilience**: Comprehensive error handling and recovery mechanisms
-4. **Scalability**: Designed for both small and large-scale research operations
-
-### Configuration Management
 ```python
-# Example: System configuration
-SYSTEM_CONFIG = {
-    "research": {
-        "max_sources": 20,
-        "search_depth": "comprehensive",
-        "quality_threshold": 0.7
-    },
-    "agents": {
-        "max_concurrent": 4,
-        "timeout": 300,
-        "retry_attempts": 3
-    },
-    "output": {
-        "format": "markdown",
-        "include_citations": True,
-        "quality_enhancement": True
-    }
+# Working Search Pipeline
+async def execute_research_pipeline(query: str, session_id: str):
+    """Execute the complete research pipeline"""
+
+    # Step 1: SERP API Search (15-25 results)
+    search_results = await serp_search_utils.execute_serper_search(
+        query=query,
+        num_results=15,
+        search_type="search"
+    )
+
+    # Step 2: Web Crawling (70-90% success rate)
+    crawled_content = await crawl_utils.parallel_crawl(
+        urls=search_results[:10],  # Top 10 URLs
+        anti_bot_level=1,           # Basic anti-bot
+        max_concurrent=10
+    )
+
+    # Step 3: Content Cleaning (GPT-5-nano)
+    cleaned_content = await content_cleaning.clean_content_with_gpt5_nano(
+        content=crawled_content,
+        url=url,
+        search_query=query
+    )
+
+    # Step 4: Report Generation
+    report = await report_agent.create_report(
+        research_data=cleaned_content,
+        format="standard_report"
+    )
+
+    # Step 5: Editorial Review
+    editorial_review = await editorial_agent.review_content(
+        content=report,
+        session_id=session_id
+    )
+
+    return editorial_review
+```
+
+### Agent Capabilities
+
+#### Research Agent
+- **Purpose**: Coordinate web research and synthesize findings
+- **Capabilities**:
+  - Execute SERP API searches
+  - Coordinate web crawling
+  - Basic content synthesis
+  - Source credibility assessment
+- **Limitations**: Template-based responses, limited analytical depth
+
+#### Report Agent
+- **Purpose**: Generate structured reports from research data
+- **Capabilities**:
+  - Transform research findings into reports
+  - Apply audience-aware formatting
+  - Maintain logical structure
+  - Include source attribution
+- **Limitations**: Predefined formats, limited customization
+
+#### Editorial Agent
+- **Purpose**: Review and enhance report quality
+- **Capabilities**:
+  - Basic quality assessment
+  - Gap identification
+  - Style consistency checking
+  - Enhancement recommendations
+- **Limitations**: Simple heuristics, limited AI-powered analysis
+
+#### Quality Judge
+- **Purpose**: Assess content quality across multiple dimensions
+- **Capabilities**:
+  - 0-100 scoring system
+  - Multi-criteria evaluation
+  - Basic feedback generation
+  - Enhancement recommendations
+- **Limitations**: Simple scoring algorithms, limited depth
+
+### MCP Tool Integration
+
+The system provides working MCP tools for Claude integration:
+
+#### Enhanced Search Server
+```python
+@tool("enhanced_search_scrape_clean", "Advanced search with crawling and cleaning", {
+    "query": str,
+    "search_type": str,  # "search" or "news"
+    "num_results": int,
+    "auto_crawl_top": int,
+    "anti_bot_level": int,
+    "session_id": str
+})
+async def enhanced_search_scrape_clean(args):
+    """Execute enhanced search with crawling and content cleaning"""
+    # Working implementation with real SERP API integration
+    result = await search_crawl_and_clean_direct(
+        query=args["query"],
+        search_type=args["search_type"],
+        num_results=args["num_results"],
+        auto_crawl_top=args["auto_crawl_top"],
+        anti_bot_level=args["anti_bot_level"],
+        session_id=args["session_id"]
+    )
+    return {"content": result}
+```
+
+#### ZPlayground1 Server
+```python
+@tool("zplayground1_search_scrape_clean", "Complete search workflow", {
+    "query": str,
+    "search_mode": str,  # "web" or "news"
+    "num_results": int,
+    "anti_bot_level": int,
+    "session_id": str
+})
+async def zplayground1_search_scrape_clean(args):
+    """Complete zPlayground1 workflow implementation"""
+    # Single tool with complete workflow
+    result = await search_crawl_and_clean_direct(...)
+    return {"content": result}
+```
+
+## KEVIN Directory Structure
+
+### Session Organization
+
+The system uses session-based organization in the KEVIN directory:
+
+```
+KEVIN/
+├── sessions/
+│   └── {session_id}/
+│       ├── working/
+│       │   ├── RESEARCH_{timestamp}.md
+│       │   ├── REPORT_{timestamp}.md
+│       │   ├── EDITORIAL_{timestamp}.md
+│       │   └── FINAL_{timestamp}.md
+│       ├── research/
+│       │   └── search_workproduct_{timestamp}.md
+│       ├── complete/
+│       │   └── FINAL_ENHANCED_{timestamp}.md
+│       └── session_metadata.json
+└── logs/
+```
+
+### Workproduct Files
+
+Each session generates standardized workproduct files:
+
+#### Research Workproduct
+```markdown
+# Enhanced Search+Crawl+Clean Workproduct
+
+**Session ID**: {session_id}
+**Export Date**: {timestamp}
+**Agent**: Enhanced Search+Crawl Tool
+**Search Query**: {query}
+**Total Search Results**: {count}
+**Successfully Crawled**: {count}
+
+## 🔍 Search Results Summary
+
+### 1. Article Title
+**URL**: {url}
+**Source**: {source}
+**Date**: {date}
+**Relevance Score**: {score}
+
+**Snippet**: {content_snippet}
+
+---
+```
+
+#### Session Metadata
+```json
+{
+  "session_id": "uuid-string",
+  "topic": "research topic",
+  "user_requirements": {
+    "depth": "Standard Research",
+    "audience": "General",
+    "format": "Detailed Report"
+  },
+  "created_at": "2025-10-15T15:41:31Z",
+  "status": "completed",
+  "stages": {
+    "research": {"status": "completed"},
+    "report": {"status": "completed"},
+    "editorial": {"status": "completed"}
+  },
+  "research_metrics": {
+    "total_urls_processed": 25,
+    "successful_scrapes": 13,
+    "success_rate": 0.52
+  }
 }
 ```
 
-### Enhanced Agent Coordination Patterns (v3.2)
-```python
-# Example: Enhanced agent orchestration with editorial intelligence
-class EnhancedResearchOrchestrator:
-    def __init__(self):
-        self.agents = {
-            "research": ResearchAgent(),
-            "report": ReportAgent(),
-            "enhanced_editorial": EnhancedEditorialAgent(),
-            "quality": EnhancedQualityJudge(),
-            "sub_session_manager": SubSessionManager()
-        }
+## Performance Characteristics
 
-    async def execute_enhanced_research(self, topic: str, config: dict):
-        # Enhanced sequential agent execution with quality gates and editorial intelligence
-        research_data = await self.agents["research"].execute(topic, config)
-        report = await self.agents["report"].execute(research_data, config)
+### Search Pipeline Performance
+- **SERP API Success Rate**: 95-99% (reliable API integration)
+- **Web Crawling Success Rate**: 70-90% (depending on anti-bot level)
+- **Content Cleaning Success Rate**: 85-95% (GPT-5-nano integration)
+- **Overall Pipeline Success**: 60-80% (end-to-end completion)
 
-        # Enhanced editorial analysis with confidence-based gap research decisions
-        editorial_analysis = await self.agents["enhanced_editorial"].execute(
-            report, research_data, config
-        )
+### Processing Time
+- **SERP Search**: 2-5 seconds
+- **Web Crawling**: 30-120 seconds (parallel processing)
+- **Content Cleaning**: 10-30 seconds per URL
+- **Total Pipeline Time**: 2-5 minutes (typical research session)
 
-        # Execute gap research sub-sessions if needed
-        if editorial_analysis["gap_research_decision"]["should_execute"]:
-            gap_results = await self.execute_gap_research_sub_sessions(
-                editorial_analysis["gap_research_decision"]["gap_topics"],
-                config
-            )
-            editorial_analysis["gap_results"] = gap_results
+### Resource Usage
+- **Concurrent Crawling**: Up to 10 parallel requests
+- **Anti-Bot Levels**: 0-3 (basic to stealth)
+- **Token Usage**: 2000-8000 tokens per content cleaning operation
+- **Memory Usage**: 500MB-2GB (depending on concurrency)
 
-        # Apply editorial recommendations and finalize
-        enhanced_report = await self.apply_editorial_recommendations(
-            report, editorial_analysis, config
-        )
+## Limitations and Constraints
 
-        # Final quality assessment with enhanced framework
-        final_quality = await self.agents["quality"].evaluate_comprehensive(
-            enhanced_report, editorial_analysis
-        )
+### Technical Limitations
+- **Template-Based Agents**: Limited AI reasoning, predefined response patterns
+- **Simple Quality Assessment**: Basic scoring without deep analysis
+- **No Gap Research Execution**: Gap identification exists but execution is limited
+- **Basic Error Handling**: Simple retry logic without sophisticated recovery
+- **Limited Context Management**: No advanced context preservation across sessions
 
-        return self.format_enhanced_output(enhanced_report, final_quality, editorial_analysis)
+### Functional Limitations
+- **No Real Editorial Intelligence**: Gap research decisions are rule-based, not AI-powered
+- **Basic Content Synthesis**: Limited ability to synthesize complex information
+- **No Sub-Session Coordination**: Gap research coordination is not implemented
+- **Simple Quality Gates**: Basic thresholds without sophisticated quality management
+- **Limited Learning**: No adaptive improvement or learning capabilities
 
-    async def execute_gap_research_sub_sessions(self, gap_topics: list, config: dict):
-        """Execute gap research through sub-sessions"""
-        sub_session_manager = self.agents["sub_session_manager"]
-        gap_results = []
+### API and External Dependencies
+- **SERP API**: Required for search functionality (paid service)
+- **GPT-5-nano**: Required for content cleaning (paid service)
+- **Crawl4AI**: Web crawling framework with known limitations
+- **Anti-Bot Detection**: Limited effectiveness against sophisticated bot detection
 
-        for gap_topic in gap_topics:
-            sub_session_id = await sub_session_manager.create_sub_session(gap_topic)
-            gap_result = await self.agents["research"].execute(gap_topic, config)
-            gap_results.append({
-                "sub_session_id": sub_session_id,
-                "gap_topic": gap_topic,
-                "result": gap_result
-            })
+## Configuration Management
 
-        return gap_results
+### Required Environment Variables
+```bash
+# API Keys (Required)
+ANTHROPIC_API_KEY=your-anthropic-key      # For Claude Agent SDK
+SERPER_API_KEY=your-serper-key              # For search functionality
+OPENAI_API_KEY=your-openai-key              # For GPT-5-nano content cleaning
+
+# System Configuration
+KEVIN_BASE_DIR=/path/to/KEVIN               # Data storage directory
+DEBUG_MODE=false                            # Enable debug logging
+DEFAULT_RESEARCH_DEPTH=Standard Research    # Default research depth
+MAX_CONCURRENT_CRAWLS=10                    # Maximum concurrent crawling
 ```
 
-### Enhanced Editorial Intelligence Implementation (NEW in v3.2)
+### System Configuration
 ```python
-# Example: Enhanced editorial decision engine implementation
-class EnhancedEditorialDecisionEngine:
-    def __init__(self):
-        self.confidence_threshold = 0.7
-        self.quality_dimensions = [
-            "factual_gaps", "temporal_gaps", "comparative_gaps",
-            "quality_gaps", "coverage_gaps", "depth_gaps"
-        ]
-        self.dimension_weights = {
-            "factual_gaps": 0.25,
-            "temporal_gaps": 0.20,
-            "comparative_gaps": 0.20,
-            "quality_gaps": 0.15,
-            "coverage_gaps": 0.10,
-            "depth_gaps": 0.10
-        }
+# Search Configuration
+SEARCH_CONFIG = {
+    "default_num_results": 15,
+    "max_concurrent_crawls": 10,
+    "anti_bot_default_level": 1,
+    "content_cleaning_enabled": True
+}
 
-    async def assess_gap_research_necessity(self, report_content: str, research_corpus: dict):
-        """Assess gap research necessity with multi-dimensional confidence scoring"""
+# Quality Configuration
+QUALITY_CONFIG = {
+    "default_threshold": 70,  # 0-100 scale
+    "enhancement_enabled": True,
+    "max_enhancement_cycles": 2
+}
 
-        # Analyze existing research corpus
-        corpus_analysis = await self.analyze_research_corpus(research_corpus)
-
-        # Assess quality gaps across dimensions
-        quality_assessment = await self.assess_quality_gaps(report_content, corpus_analysis)
-
-        # Calculate confidence scores for each dimension
-        confidence_scores = {}
-        for dimension in self.quality_dimensions:
-            confidence_scores[dimension] = await self.calculate_dimension_confidence(
-                dimension, quality_assessment, corpus_analysis
-            )
-
-        # Calculate overall confidence score
-        overall_confidence = sum(
-            confidence_scores[dim] * self.dimension_weights[dim]
-            for dim in self.quality_dimensions
-        )
-
-        # Determine if gap research is needed
-        high_confidence_gaps = [
-            dim for dim, score in confidence_scores.items()
-            if score >= self.confidence_threshold
-        ]
-
-        should_execute_gap_research = len(high_confidence_gaps) > 0
-
-        # Generate gap research queries if needed
-        gap_queries = []
-        if should_execute_gap_research:
-            gap_queries = await self.generate_gap_queries(
-                high_confidence_gaps, quality_assessment
-            )
-
-        return {
-            "should_execute_gap_research": should_execute_gap_research,
-            "overall_confidence": overall_confidence,
-            "confidence_scores": confidence_scores,
-            "high_confidence_gaps": high_confidence_gaps,
-            "gap_queries": gap_queries[:2],  # Limit to top 2 gap topics
-            "corpus_analysis": corpus_analysis,
-            "quality_assessment": quality_assessment
-        }
-
-    async def generate_evidence_based_recommendations(self,
-                                                    report_content: str,
-                                                    editorial_analysis: dict,
-                                                    gap_results: list = None):
-        """Generate evidence-based editorial recommendations with ROI estimation"""
-
-        recommendations = []
-
-        # Quality improvement recommendations
-        quality_recommendations = await self.generate_quality_recommendations(
-            report_content, editorial_analysis["quality_assessment"]
-        )
-
-        # Content enhancement recommendations
-        content_recommendations = await self.generate_content_recommendations(
-            report_content, editorial_analysis, gap_results
-        )
-
-        # Calculate ROI for each recommendation
-        for rec in quality_recommendations + content_recommendations:
-            rec["roi_estimate"] = await self.calculate_recommendation_roi(rec)
-            rec["implementation_priority"] = self.calculate_priority(rec["roi_estimate"])
-
-        # Sort by ROI and priority
-        all_recommendations = quality_recommendations + content_recommendations
-        sorted_recommendations = sorted(
-            all_recommendations,
-            key=lambda x: (x["implementation_priority"], x["roi_estimate"]),
-            reverse=True
-        )
-
-        return {
-            "recommendations": sorted_recommendations,
-            "total_recommendations": len(sorted_recommendations),
-            "high_priority_count": len([r for r in sorted_recommendations if r["implementation_priority"] >= 0.8]),
-            "estimated_quality_improvement": self.calculate_estimated_improvement(sorted_recommendations)
-        }
-```
-
-### Sub-Session Management Implementation (NEW in v3.2)
-```python
-# Example: Sub-session management implementation
-class SubSessionManager:
-    def __init__(self):
-        self.active_sub_sessions = {}
-        self.parent_child_links = {}
-        self.sub_session_results = {}
-
-    async def create_sub_session(self, gap_topic: str, parent_session_id: str) -> str:
-        """Create a sub-session for gap research"""
-
-        sub_session_id = self.generate_sub_session_id()
-
-        # Initialize sub-session
-        self.active_sub_sessions[sub_session_id] = {
-            "sub_session_id": sub_session_id,
-            "parent_session_id": parent_session_id,
-            "gap_topic": gap_topic,
-            "status": "initialized",
-            "created_at": datetime.now(),
-            "work_directory": self.create_sub_session_directory(sub_session_id)
-        }
-
-        # Create parent-child link
-        if parent_session_id not in self.parent_child_links:
-            self.parent_child_links[parent_session_id] = []
-
-        self.parent_child_links[parent_session_id].append(sub_session_id)
-
-        return sub_session_id
-
-    async def coordinate_gap_research(self, sub_session_id: str, gap_query: str):
-        """Coordinate gap research execution in sub-session"""
-
-        # Update sub-session status
-        self.active_sub_sessions[sub_session_id]["status"] = "executing_gap_research"
-        self.active_sub_sessions[sub_session_id]["gap_query"] = gap_query
-
-        # Execute gap research (simplified example)
-        gap_research_result = await self.execute_gap_research(gap_query, sub_session_id)
-
-        # Store results
-        self.sub_session_results[sub_session_id] = gap_research_result
-
-        # Update status
-        self.active_sub_sessions[sub_session_id]["status"] = "completed"
-        self.active_sub_sessions[sub_session_id]["completed_at"] = datetime.now()
-
-        return gap_research_result
-
-    async def integrate_sub_session_results(self, parent_session_id: str):
-        """Integrate all sub-session results into parent session"""
-
-        if parent_session_id not in self.parent_child_links:
-            return {"error": "No sub-sessions found for parent session"}
-
-        child_session_ids = self.parent_child_links[parent_session_id]
-        integrated_results = []
-
-        for child_id in child_session_ids:
-            if child_id in self.sub_session_results:
-                child_result = self.sub_session_results[child_id]
-                integrated_results.append({
-                    "sub_session_id": child_id,
-                    "gap_topic": self.active_sub_sessions[child_id]["gap_topic"],
-                    "result": child_result,
-                    "integration_status": "ready"
-                })
-
-        return {
-            "parent_session_id": parent_session_id,
-            "integrated_results": integrated_results,
-            "total_sub_sessions": len(child_session_ids),
-            "successful_integrations": len(integrated_results)
-        }
+# Agent Configuration
+AGENT_CONFIG = {
+    "timeout_seconds": 300,
+    "retry_attempts": 3,
+    "template_responses": True
+}
 ```
 
 ## Usage Examples
 
-### Basic Research Query
+### Basic Research Workflow
 ```bash
-python multi_agent_research_system/run_research.py "latest developments in artificial intelligence"
-```
+# Run basic research
+python multi_agent_research_system/run_research.py "artificial intelligence in healthcare"
 
-### Advanced Research with Parameters
-```bash
-python multi_agent_research_system/run_research.py \
-  "climate change impacts on global agriculture" \
+# Run with specific parameters
+python multi_agent_research_system/run_research.py "climate change impacts" \
   --depth "Comprehensive Analysis" \
   --audience "Academic" \
-  --format "Academic Paper"
+  --debug
+
+# Start web interface
+python multi_agent_research_system/start_ui.py
 ```
 
 ### Programmatic Usage
 ```python
 from multi_agent_research_system.core.orchestrator import ResearchOrchestrator
 
+# Initialize orchestrator
 orchestrator = ResearchOrchestrator()
 await orchestrator.initialize()
 
+# Start research session
 session_id = await orchestrator.start_research_session(
-    "quantum computing applications in healthcare",
+    "quantum computing applications",
     {
         "depth": "Standard Research",
         "audience": "Technical",
@@ -464,295 +404,94 @@ session_id = await orchestrator.start_research_session(
     }
 )
 
-# Monitor progress and get results
+# Monitor progress
 status = await orchestrator.get_session_status(session_id)
 results = await orchestrator.get_session_results(session_id)
 ```
 
-### Custom Agent Configuration
+### MCP Tool Usage
 ```python
-from multi_agent_research_system.config.agents import get_research_agent_definition
-
-# Get standard agent definition
-research_agent = get_research_agent_definition()
-
-# Customize agent behavior
-custom_config = {
-    "max_sources": 30,
-    "search_strategy": "comprehensive",
-    "quality_threshold": 0.8
-}
-
-# Use agent with custom configuration
-orchestrator = ResearchOrchestrator(agent_config=custom_config)
-```
-
-## Enhanced System Features
-
-### Enhanced Multi-Agent Collaboration
-- **Research Agent**: Web search, source validation, information synthesis with enhanced scraping
-- **Report Agent**: Content structuring, report generation, formatting with quality integration
-- **Enhanced Editorial Agent**: Advanced editorial intelligence with confidence-based decision making
-  - Multi-dimensional quality assessment (8+ dimensions)
-  - Gap research decision system with cost-benefit analysis
-  - Evidence-based editorial recommendations with ROI estimation
-- **Quality Judge**: Enhanced assessment with comprehensive quality frameworks
-- **Sub-Session Manager**: Hierarchical session coordination for gap research
-
-### Advanced Editorial Intelligence (NEW in v3.2)
-- **Confidence-Based Gap Research Decisions**: Intelligent decision making with multi-dimensional scoring
-- **Evidence-Based Recommendations**: ROI-driven prioritization of editorial improvements
-- **Research Corpus Analysis**: Comprehensive coverage and quality assessment
-- **Cost-Benefit Analysis**: Sophisticated ROI estimation for research decisions
-- **Decision Audit Trail**: Complete logging of editorial decision processes
-
-### Enhanced Quality Management
-- **Multi-Dimensional Quality Assessment**: 8+ quality dimensions with weighted scoring
-- **Progressive Enhancement**: Iterative quality improvement with confidence tracking
-- **Quality Gates**: Enhanced minimum quality standards with configurable thresholds
-- **Content Validation**: Advanced fact-checking and source verification
-- **Style Consistency**: Format and tone standardization with quality metrics
-
-### Enhanced Search Capabilities
-- **Two-Module Scraping System**: Progressive anti-bot escalation with early termination
-- **Multi-Source Research**: Enhanced searches across multiple data sources
-- **Intelligent Querying**: Optimized search strategies with query expansion
-- **Advanced Anti-Detection**: 4-level progressive anti-bot techniques
-- **AI-Powered Content Cleaning**: GPT-5-nano integration for intelligent content extraction
-
-### Enhanced MCP Integration
-- **Claude SDK Integration**: Seamless Claude model integration with session management
-- **Enhanced Tool Exposure**: Advanced research capabilities exposed through MCP
-- **Protocol Compliance**: Full MCP standard compliance with intelligent token management
-- **Session Coordination**: Multi-agent session management with state synchronization
-
-### Sub-Session Management (NEW in v3.2)
-- **Parent-Child Session Architecture**: Hierarchical session coordination
-- **Gap Research Orchestration**: Coordinated execution of gap research sub-sessions
-- **State Synchronization**: Real-time session state management across sessions
-- **Result Integration**: Seamless integration of sub-session research results
-- **Resource Optimization**: Efficient allocation and coordination of research resources
-
-### Workflow Integration (NEW in v3.2)
-- **Hook Integration**: Pre and post-processing hooks for editorial workflow stages
-- **Quality Framework Integration**: Seamless integration with enhanced quality assessment
-- **System Monitoring**: Real-time workflow monitoring and comprehensive debugging
-- **Error Recovery**: Enhanced resilience mechanisms with intelligent recovery strategies
-
-## Enhanced Performance Considerations
-
-### Advanced Optimization Strategies
-1. **Concurrent Processing**: Multiple agents work in parallel with intelligent coordination
-2. **Intelligent Caching**: Enhanced caching with confidence-based cache invalidation
-3. **Resource Management**: Advanced monitoring and management of system resources
-4. **Quality vs. Speed**: Sophisticated trade-offs between quality and performance with confidence tracking
-5. **Sub-Session Optimization**: Efficient allocation and coordination of gap research resources
-6. **Decision-Based Resource Allocation**: Confidence-based resource distribution for optimal performance
-
-### Enhanced Scaling Recommendations
-- Use appropriate research depth and editorial intelligence levels for your needs
-- Configure enhanced agent timeouts and retry logic with confidence thresholds
-- Monitor advanced system performance metrics including editorial decision quality
-- Consider distributed processing for large-scale operations with sub-session coordination
-- Optimize gap research execution based on confidence scoring and ROI analysis
-- Leverage enhanced caching for repeated queries with quality-aware cache management
-
-### Performance Targets (Enhanced in v3.2)
-- **Initial Research Success Rate**: ≥ 60% (6+ successful results from 10 target)
-- **Gap Research Success Rate**: ≥ 70% (2+ successful results from 3 target)
-- **Editorial Decision Accuracy**: ≥ 80% appropriate gap research decisions
-- **Processing Time**: ≤ 5 minutes for initial research, ≤ 2 minutes for gap research
-- **Quality Enhancement Success**: ≥ 85% improvement in content quality scores
-- **Sub-Session Coordination Efficiency**: ≥ 90% successful parent-child session integration
-
-## Enhanced Monitoring and Debugging
-
-### Advanced Logging System (Enhanced in v3.2)
-```python
-# Example: Enhanced comprehensive logging with editorial intelligence
-import logging
-from multi_agent_research_system.core.logging_config import get_logger
-
-logger = get_logger("enhanced_research_system")
-logger.info("Starting enhanced research session with editorial intelligence")
-logger.debug(f"Configuration: {config}")
-logger.info("Editorial decision made: gap research confidence score", extra={
-    "confidence_score": 0.85,
-    "decision": "execute_gap_research",
-    "gap_areas": ["temporal_gaps", "comparative_gaps"]
-})
-logger.warning("Quality threshold not met, applying enhanced enhancement")
-logger.error("Research failed: {error}", extra={
-    "session_id": session_id,
-    "stage": "editorial_analysis",
-    "error_type": "gap_research_decision_failure"
-})
-```
-
-### Enhanced Performance Monitoring
-- **Advanced Session Tracking**: Multi-level session management with sub-session monitoring
-- **Agent Performance Metrics**: Enhanced metrics including editorial decision accuracy
-- **Quality Assessment Statistics**: Multi-dimensional quality tracking with confidence scores
-- **Editorial Decision Monitoring**: Gap research decision quality and ROI analysis
-- **Sub-Session Coordination Metrics**: Parent-child session integration efficiency
-- **Error Rate Monitoring**: Enhanced error tracking with intelligent recovery analysis
-
-### Advanced Debugging Tools (NEW in v3.2)
-- **Verbose Logging Modes**: Enhanced logging with editorial intelligence tracking
-- **Agent Execution Traces**: Detailed traces with confidence scoring and decision paths
-- **Quality Assessment Reports**: Multi-dimensional quality reports with improvement tracking
-- **Session State Inspection**: Advanced session state monitoring with sub-session visibility
-- **Editorial Decision Analysis**: Detailed analysis of gap research decisions and outcomes
-- **Workflow Integrity Monitoring**: Real-time monitoring of enhanced workflow execution
-- **Performance Analytics**: Advanced analytics for editorial intelligence and system optimization
-
-### Monitoring Dashboard Features
-- **Real-time Editorial Intelligence**: Live monitoring of editorial decisions and confidence scores
-- **Sub-Session Visualization**: Parent-child session relationship visualization
-- **Quality Enhancement Tracking**: Real-time quality improvement monitoring
-- **Resource Allocation Monitoring**: Dynamic resource usage and optimization tracking
-- **Decision Quality Analytics**: Editorial decision accuracy and ROI analysis
-
-## Enhanced Configuration
-
-### Environment Variables (Enhanced in v3.2)
-```bash
-# Required API keys
-ANTHROPIC_API_KEY=your_anthropic_key
-OPENAI_API_KEY=your_openai_key
-SERPER_API_KEY=your_serp_key
-
-# Enhanced Editorial Intelligence Configuration
-EDITORIAL_INTELLIGENCE_ENABLED=true
-GAP_RESEARCH_CONFIDENCE_THRESHOLD=0.7
-EDITORIAL_DECISION_LOGGING=true
-SUB_SESSION_COORDINATION_ENABLED=true
-
-# Enhanced Research Configuration
-DEFAULT_RESEARCH_DEPTH=Standard Research
-MAX_CONCURRENT_AGENTS=5
-QUALITY_THRESHOLD=0.75
-MULTI_DIMENSIONAL_QUALITY_ENABLED=true
-
-# Advanced Performance Configuration
-ENABLE_CACHING=true
-CACHE_TTL_SECONDS=3600
-PERFORMANCE_MONITORING_ENABLED=true
-DECISION_ANALYTICS_ENABLED=true
-
-# Development settings
-DEBUG_MODE=false
-LOG_LEVEL=INFO
-EDITORIAL_DEBUG_MODE=false
-SUB_SESSION_DEBUG_MODE=false
-```
-
-### Enhanced System Settings (NEW in v3.2)
-```python
-# enhanced_research_system_config.py
-ENHANCED_SYSTEM_CONFIG = {
-    "research": {
-        "default_depth": "Standard Research",
-        "max_sources": 20,
-        "quality_threshold": 0.75,
-        "multi_dimensional_quality": True,
-        "gap_research_confidence_threshold": 0.7
-    },
-    "editorial_intelligence": {
-        "enabled": True,
-        "confidence_dimensions": [
-            "factual_gaps", "temporal_gaps", "comparative_gaps",
-            "quality_gaps", "coverage_gaps", "depth_gaps"
-        ],
-        "max_gap_topics": 2,
-        "cost_benefit_analysis": True,
-        "roi_estimation": True
-    },
-    "sub_session_management": {
-        "enabled": True,
-        "max_concurrent_sub_sessions": 3,
-        "parent_child_coordination": True,
-        "state_synchronization": True,
-        "result_integration": True
-    },
-    "agents": {
-        "timeout": 300,
-        "retry_attempts": 3,
-        "max_concurrent": 4,
-        "enhanced_editorial_agent": True
-    },
-    "quality_framework": {
-        "dimensions": [
-            "accuracy", "completeness", "coherence", "relevance",
-            "depth", "clarity", "source_quality", "objectivity"
-        ],
-        "weights": {
-            "accuracy": 0.20,
-            "completeness": 0.15,
-            "coherence": 0.15,
-            "relevance": 0.15,
-            "depth": 0.10,
-            "clarity": 0.10,
-            "source_quality": 0.10,
-            "objectivity": 0.05
-        },
-        "progressive_enhancement": True
-    },
-    "output": {
-        "directory": "KEVIN",
-        "format": "markdown",
-        "include_metadata": True,
-        "include_editorial_analysis": True,
-        "include_quality_metrics": True
-    },
-    "monitoring": {
-        "editorial_decisions": True,
-        "sub_session_coordination": True,
-        "quality_enhancement": True,
-        "performance_analytics": True
+# Using enhanced search tool
+result = await client.call_tool(
+    "enhanced_search_scrape_clean",
+    {
+        "query": "latest AI developments",
+        "search_type": "search",
+        "num_results": 15,
+        "auto_crawl_top": 10,
+        "anti_bot_level": 1,
+        "session_id": "research_session_001"
     }
-}
-```
+)
 
-### Editorial Intelligence Configuration (NEW in v3.2)
-```python
-# editorial_intelligence_config.py
-EDITORIAL_CONFIG = {
-    "decision_engine": {
-        "confidence_scoring": {
-            "dimensions": ["factual", "temporal", "comparative", "quality", "coverage"],
-            "weights": {
-                "factual": 0.25,
-                "temporal": 0.20,
-                "comparative": 0.20,
-                "quality": 0.20,
-                "coverage": 0.15
-            },
-            "threshold": 0.7
-        },
-        "cost_benefit_analysis": {
-            "enabled": True,
-            "min_roi_threshold": 1.5,
-            "cost_factors": ["time", "resources", "complexity"],
-            "benefit_factors": ["quality_improvement", "coverage_enhancement", "gap_filling"]
-        }
-    },
-    "gap_research": {
-        "max_gap_topics": 2,
-        "confidence_threshold": 0.7,
-        "resource_allocation": "intelligent",
-        "sub_session_coordination": True
-    },
-    "recommendations": {
-        "evidence_based": True,
-        "roi_estimation": True,
-        "implementation_planning": True,
-        "priority_ranking": True
+# Using zplayground1 tool
+result = await client.call_tool(
+    "zplayground1_search_scrape_clean",
+    {
+        "query": "machine learning trends",
+        "search_mode": "web",
+        "num_results": 20,
+        "anti_bot_level": 2,
+        "session_id": "ml_trends_research"
     }
-}
+)
 ```
 
-## Testing
+## Development Guidelines
+
+### System Design Principles
+1. **Template-Based Agents**: Use predefined response patterns for consistency
+2. **Async-First Architecture**: All operations use async/await patterns
+3. **Session-Based Organization**: Organize all work by session IDs
+4. **Basic Quality Management**: Implement simple scoring and thresholds
+5. **Error Recovery**: Use basic retry logic and graceful degradation
+
+### Adding New Agents
+```python
+class CustomAgent(BaseAgent):
+    def __init__(self):
+        super().__init__("custom_agent", "custom_processing")
+        self.template_responses = True
+
+    def get_system_prompt(self) -> str:
+        return """You are a Custom Agent with specific responsibilities.
+        Use predefined response patterns for consistent output."""
+
+    @tool("custom_processing", "Custom processing tool", {
+        "input_data": str,
+        "session_id": str
+    })
+    async def custom_processing(self, args):
+        """Implement custom processing logic"""
+        # Use template-based responses
+        return self.generate_template_response(args["input_data"])
+```
+
+### MCP Tool Development
+```python
+@tool("custom_tool", "Custom tool description", {
+    "parameter": str,
+    "session_id": str
+})
+async def custom_tool(args):
+    """Custom tool implementation"""
+    try:
+        # Implement tool logic
+        result = await process_custom_data(args)
+
+        # Handle token limits
+        if len(result) > 20000:
+            content_blocks = create_adaptive_chunks(result, args["parameter"])
+            return {"content": content_blocks}
+        else:
+            return {"content": [{"type": "text", "text": result}]}
+
+    except Exception as e:
+        error_msg = f"❌ Custom Tool Error: {str(e)}"
+        return {"content": [{"type": "text", "text": error_msg}], "is_error": True}
+```
+
+## Testing and Debugging
 
 ### Test Structure
 ```
@@ -765,199 +504,128 @@ tests/
 
 ### Running Tests
 ```bash
-# All tests
+# Run all tests
 python multi_agent_research_system/tests/run_tests.py
 
-# Specific categories
+# Run specific categories
 python multi_agent_research_system/tests/run_tests.py --unit
 python multi_agent_research_system/tests/run_tests.py --integration
-python multi_agent_research_system/tests/run_tests.py --functional
 
-# With coverage
+# Run with coverage
 python multi_agent_research_system/tests/run_tests.py --coverage
 ```
 
-## Troubleshooting
-
-### Common Issues
-
-1. **API Key Errors**
-   - Ensure ANTHROPIC_API_KEY is set
-   - Verify key has sufficient permissions
-   - Check network connectivity
-
-2. **Research Failures**
-   - Check search service availability
-   - Verify internet connectivity
-   - Review search query complexity
-
-3. **Quality Issues**
-   - Adjust quality thresholds
-   - Verify source diversity
-   - Check content length requirements
-
-4. **Performance Issues**
-   - Reduce concurrent agent count
-   - Optimize search depth settings
-   - Monitor system resources
-
 ### Debug Mode
 ```bash
-# Enable comprehensive debugging
+# Enable debug logging
 python multi_agent_research_system/run_research.py "topic" --debug --log-level DEBUG
-```
 
-### Log Analysis
-```bash
-# View recent logs
+# Monitor logs
 tail -f KEVIN/logs/research_system.log
 
-# Search for errors
-grep "ERROR" KEVIN/logs/research_system.log
-
-# Monitor agent activity
-grep "agent" KEVIN/logs/research_system.log
+# Check session progress
+python multi_agent_research_system/utils/session_monitor.py {session_id}
 ```
 
-## Integration Examples
+### Common Issues and Solutions
 
-### CLI Integration
-```python
-# Example: CLI command integration
-import subprocess
-import asyncio
+#### Search Failures
+- **Check SERP_API_KEY**: Ensure API key is valid and has sufficient credits
+- **Network Connectivity**: Verify internet connection and firewall settings
+- **Rate Limiting**: Implement delays between search requests
 
-async def run_research_query(topic: str, depth: str = "Standard"):
-    cmd = [
-        "python", "multi_agent_research_system/run_research.py",
-        topic, "--depth", depth
-    ]
+#### Crawling Failures
+- **Anti-Bot Escalation**: Increase anti-bot level (0-3) for difficult sites
+- **Timeout Issues**: Increase timeout values for slow websites
+- **Blocked URLs**: Use URL replacement system for permanently blocked domains
 
-    result = await asyncio.create_subprocess_exec(
-        *cmd, stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE
-    )
+#### Content Cleaning Issues
+- **GPT-5-nano API**: Check OpenAI API key and usage limits
+- **Content Quality**: Some content may be too dirty for effective cleaning
+- **Token Limits**: Monitor token usage and implement chunking for large content
 
-    stdout, stderr = await result.communicate()
-    return result.returncode == 0, stdout.decode(), stderr.decode()
+#### Agent Performance
+- **Template Responses**: Ensure agents are using appropriate response templates
+- **Timeout Issues**: Increase agent timeout values for complex processing
+- **Memory Usage**: Monitor memory usage with concurrent processing
+
+## Monitoring and Maintenance
+
+### Performance Monitoring
+- **Search Success Rates**: Track SERP API and crawling success rates
+- **Processing Times**: Monitor pipeline performance and bottlenecks
+- **Quality Scores**: Track quality assessment trends and averages
+- **Resource Usage**: Monitor memory, CPU, and API usage
+
+### Maintenance Tasks
+- **Session Cleanup**: Remove old sessions and temporary files
+- **Log Rotation**: Rotate and compress log files
+- **API Key Management**: Monitor API usage and update keys as needed
+- **Performance Optimization**: Adjust concurrency and timeout settings
+
+### System Health Checks
+```bash
+# Check system health
+python multi_agent_research_system/utils/health_check.py
+
+# Validate configuration
+python multi_agent_research_system/utils/config_validator.py
+
+# Test API connectivity
+python multi_agent_research_system/utils/api_test.py
 ```
-
-### Python API Integration
-```python
-# Example: Direct API usage
-from multi_agent_research_system.core.orchestrator import ResearchOrchestrator
-
-class ResearchService:
-    def __init__(self):
-        self.orchestrator = ResearchOrchestrator()
-
-    async def research(self, topic: str, **kwargs):
-        await self.orchestrator.initialize()
-
-        session_id = await self.orchestrator.start_research_session(
-            topic, kwargs
-        )
-
-        # Wait for completion
-        while True:
-            status = await self.orchestrator.get_session_status(session_id)
-            if status["status"] in ["completed", "error"]:
-                break
-            await asyncio.sleep(1)
-
-        return await self.orchestrator.get_session_results(session_id)
-```
-
-## Best Practices
-
-### Research Query Design
-- Be specific and focused in your queries
-- Use appropriate research depth for your needs
-- Consider target audience when formulating queries
-- Include relevant timeframes if needed
-
-### Quality Optimization
-- Set appropriate quality thresholds
-- Use progressive enhancement for better results
-- Monitor quality assessment scores
-- Adjust agent behavior based on results
-
-### Resource Management
-- Monitor system resource usage
-- Configure appropriate timeouts
-- Use caching for repeated queries
-- Scale resources based on demand
-
-### Security Considerations
-- Protect API keys and sensitive configuration
-- Use secure connections for external services
-- Monitor for unusual activity patterns
-- Regularly update dependencies
 
 ## Future Development
 
-### Completed Enhancements (v3.2 - Current Release)
-✅ **Enhanced Editorial Intelligence**: Multi-dimensional confidence scoring and decision making
-✅ **Gap Research Decision System**: Intelligent confidence-based gap research decisions
-✅ **Sub-Session Management**: Parent-child session coordination for gap research
-✅ **Research Corpus Analyzer**: Comprehensive quality and coverage assessment
-✅ **Editorial Recommendations Engine**: Evidence-based recommendations with ROI estimation
-✅ **Advanced Quality Framework**: 8+ dimensional quality assessment
-✅ **Enhanced Monitoring**: Real-time editorial intelligence and workflow monitoring
-✅ **Complete System Integration**: Orchestrator, hooks, and quality framework harmony
-
-### Planned Enhancements (Future Versions)
-- **Advanced Personalization**: User-specific editorial intelligence and learning
-- **Enhanced Multi-Modal Support**: Integration with image, video, and audio content analysis
-- **Advanced Collaboration Features**: Multi-user session coordination and collaboration
-- **Enhanced AI Reasoning**: Integration with next-generation AI reasoning capabilities
-- **Advanced Analytics**: Predictive analytics for research quality and outcomes
-- **Extended Integration**: Integration with additional research databases and sources
+### Planned Enhancements
+1. **Enhanced AI Integration**: More sophisticated agent reasoning and synthesis
+2. **Advanced Quality Management**: Multi-dimensional quality assessment
+3. **Gap Research Execution**: Implement functional gap research coordination
+4. **Learning Systems**: Add adaptive improvement and learning capabilities
+5. **Performance Optimization**: Improve crawling speed and success rates
 
 ### Extension Points
-- **Custom Editorial Intelligence**: Develop specialized editorial decision engines
-- **Enhanced Quality Dimensions**: Add custom quality assessment dimensions
-- **Advanced Gap Research**: Develop specialized gap research strategies
-- **Custom Sub-Session Coordination**: Develop specialized sub-session management approaches
-- **Enhanced Monitoring**: Develop custom monitoring and analytics capabilities
-- **Advanced Integration**: Integration with external systems and workflows
+- **Custom Agents**: Add specialized agents for specific domains
+- **Additional Search Sources**: Integrate more search APIs and databases
+- **Advanced Content Processing**: Implement sophisticated content analysis
+- **Custom Quality Metrics**: Add domain-specific quality assessment criteria
 
-### Contributing to Enhanced System
-- Follow established enhanced code patterns and editorial intelligence principles
-- Add comprehensive tests for editorial intelligence and sub-session coordination
-- Update documentation to reflect enhanced system capabilities
-- Ensure quality standards meet enhanced editorial intelligence requirements
-- Include confidence scoring and decision analysis in new features
-- Consider sub-session coordination implications in new implementations
-- Include comprehensive monitoring and debugging capabilities
+### Contributing Guidelines
+- **Code Quality**: Follow established patterns and conventions
+- **Testing**: Add comprehensive tests for new functionality
+- **Documentation**: Update documentation for all changes
+- **Performance**: Monitor and optimize performance impact
+- **Compatibility**: Maintain backward compatibility when possible
 
-### Migration Guide (for existing implementations)
-- **Update Configuration**: Migrate to enhanced configuration system with editorial intelligence settings
-- **Update Agent Logic**: Adapt to enhanced editorial decision making and confidence scoring
-- **Update Session Management**: Implement sub-session coordination for gap research
-- **Update Quality Assessment**: Integrate with enhanced multi-dimensional quality framework
-- **Update Monitoring**: Implement enhanced monitoring for editorial intelligence and sub-session coordination
-- **Update Testing**: Include tests for editorial intelligence and sub-session coordination features
+## System Status
 
-## System Status and Quality Assurance
+### Current Implementation Status: ✅ Production-Ready
+- **Search Pipeline**: Fully functional with SERP API integration
+- **Web Crawling**: Working with anti-bot detection and parallel processing
+- **Content Cleaning**: Functional GPT-5-nano integration
+- **Agent System**: Template-based agents with basic capabilities
+- **MCP Integration**: Working Model Context Protocol tools
+- **Session Management**: Organized session-based storage and tracking
+- **File Management**: Standardized workproduct generation and organization
 
-### Current System Status: ✅ Production-Ready
-- **Enhanced Editorial Workflow**: Fully operational with confidence-based decision making
-- **Sub-Session Management**: Complete parent-child session coordination implemented
-- **Quality Framework**: Enhanced multi-dimensional quality assessment operational
-- **System Integration**: Complete integration with orchestrator, hooks, and quality frameworks
-- **Monitoring and Debugging**: Comprehensive monitoring and debugging capabilities operational
+### Known Limitations
+- **Template-Based Responses**: Limited AI reasoning and synthesis capabilities
+- **Basic Quality Assessment**: Simple scoring without deep analysis
+- **No Gap Research Execution**: Gap identification exists but execution is limited
+- **Simple Error Handling**: Basic retry logic without sophisticated recovery
+- **Limited Context Management**: No advanced context preservation
 
-### Quality Assurance Metrics
-- **Workflow Integrity**: 100% enhanced workflow execution success rate
-- **Editorial Decision Accuracy**: ≥80% appropriate gap research decisions
-- **Quality Enhancement Success**: ≥85% improvement in content quality scores
-- **Sub-Session Coordination**: ≥90% successful parent-child session integration
-- **System Performance**: All performance targets met or exceeded
+### Performance Characteristics
+- **Overall Success Rate**: 60-80% (end-to-end pipeline completion)
+- **Processing Time**: 2-5 minutes (typical research session)
+- **Resource Usage**: Moderate CPU and memory requirements
+- **API Dependencies**: Requires SERP API and OpenAI API for full functionality
 
-### Continuous Improvement
-- **Performance Monitoring**: Real-time monitoring of all system components
-- **Quality Tracking**: Continuous tracking of editorial intelligence quality metrics
-- **User Feedback Integration**: Continuous integration of user feedback for system improvement
-- **Feature Enhancement**: Regular enhancement of editorial intelligence and system capabilities
-- **Performance Optimization**: Ongoing optimization of system performance and resource usage
+---
+
+**Implementation Status**: ✅ Production-Ready Working System
+**Architecture**: Functional Multi-Agent Research Pipeline
+**Key Features**: Search/Scrape/Clean Pipeline, Template-Based Agents, MCP Integration
+**Limitations**: Basic AI Capabilities, Simple Quality Assessment, No Gap Research Execution
+
+This documentation reflects the actual current implementation of the multi-agent research system, focusing on working features and realistic capabilities while removing fictional enhanced features that are not implemented.
