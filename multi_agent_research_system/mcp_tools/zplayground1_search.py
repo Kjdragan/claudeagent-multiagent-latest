@@ -245,15 +245,37 @@ def create_zplayground1_mcp_server():
                 workproduct_prefix = args.get("workproduct_prefix", "")
 
             except (ValueError, TypeError) as param_error:
-                error_msg = f"❌ **CRITICAL PARAMETER VALIDATION ERROR**: {param_error}"
-                logger.error(f"FAIL-FAST PARAMETER ERROR: {error_msg}")
-                logger.error(
-                    "This error would have been silently ignored before - now we fail fast!"
-                )
+                error_msg = f"""❌ **CRITICAL PARAMETER VALIDATION ERROR - SYSTEM HALTED**
+
+{param_error}
+
+**ROOT CAUSE**: Agent is generating invalid parameter values!
+
+**IMMEDIATE ACTION REQUIRED**:
+1. Check agent instructions for proper parameter guidance
+2. Verify agent tool definitions match MCP tool schema exactly
+3. Update agent parameter validation logic
+4. Test parameter generation before system deployment
+
+**VALID PARAMETER REQUIREMENTS**:
+- search_mode: MUST be exactly "web" or "news" (NEVER "search")
+- crawl_threshold: MUST be between 0.0 and 1.0 (NEVER 5.0, 6.0, 7.0)
+- anti_bot_level: MUST be integer between 0 and 3
+- num_results: MUST be integer between 1 and 50
+- auto_crawl_top: MUST be integer between 0 and 20
+- max_concurrent: MUST be integer between 0 and 20
+
+**DEBUGGING STEP**: Check your agent instructions - they should specify EXACT parameter values and ranges.
+
+**SYSTEM BEHAVIOR**: Execution halted to prevent silent parameter validation failures.
+"""
+                logger.error(f"FAIL-FAST PARAMETER ERROR: {param_error}")
+                logger.error("AGENT CONFIGURATION ERROR - Fix agent parameter generation, NOT the MCP tool!")
                 return {
                     "content": [{"type": "text", "text": error_msg}],
                     "is_error": True,
                     "error_details": str(param_error),
+                    "error_type": "PARAMETER_VALIDATION_FAILURE"
                 }
 
             # Parameter validation is now handled above with FAIL-FAST approach
@@ -468,7 +490,7 @@ Please check:
     return server
 
 
-async def fallback_to_serp_search(query: str, session_id: str, search_mode: str = "search") -> str:
+async def fallback_to_serp_search(query: str, session_id: str, search_mode: str = "web") -> str:
     """Fallback to SERP API search when enhanced scraping fails."""
     logger.info("🔄 Activating fallback to SERP API search")
     try:

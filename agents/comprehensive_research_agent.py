@@ -45,29 +45,58 @@ COMPREHENSIVE_RESEARCH_TOOLS = [
         "parameters": {
             "query": {
                 "type": "string",
-                "description": "Research query or topic to investigate"
+                "description": "Search query, topic, or news topic to research"
+            },
+            "search_mode": {
+                "type": "string",
+                "description": "Search mode: 'web' for Google search, 'news' for news search",
+                "enum": ["web", "news"],
+                "default": "web"
             },
             "num_results": {
                 "type": "integer",
-                "description": "Number of search results to target (default: 50)",
-                "default": 50
+                "description": "Base number of search results (default: 15, range: 1-50)",
+                "default": 15,
+                "minimum": 1,
+                "maximum": 50
             },
             "auto_crawl_top": {
                 "type": "integer",
-                "description": "Number of top URLs to crawl concurrently (default: 20)",
-                "default": 20
+                "description": "Maximum number of URLs to crawl for content extraction (default: 10, range: 0-20)",
+                "default": 10,
+                "minimum": 0,
+                "maximum": 20
+            },
+            "crawl_threshold": {
+                "type": "number",
+                "description": "Minimum relevance score threshold for crawling (default: 0.3, range: 0.0-1.0)",
+                "default": 0.3,
+                "minimum": 0.0,
+                "maximum": 1.0
             },
             "anti_bot_level": {
                 "type": "integer",
-                "description": "Anti-bot detection level (0-3, default: 1)",
+                "description": "Progressive anti-bot level: 0=basic, 1=enhanced, 2=advanced, 3=stealth (default: 1)",
                 "default": 1,
                 "minimum": 0,
                 "maximum": 3
             },
-            "session_prefix": {
+            "max_concurrent": {
+                "type": "integer",
+                "description": "Maximum concurrent crawling operations (default: 0, range: 0-20, 0 for unbounded)",
+                "default": 0,
+                "minimum": 0,
+                "maximum": 20
+            },
+            "session_id": {
                 "type": "string",
-                "description": "Session prefix for organizing research results",
-                "default": "comprehensive_research"
+                "description": "Session identifier for tracking and work products (default: 'default')",
+                "default": "default"
+            },
+            "workproduct_prefix": {
+                "type": "string",
+                "description": "Optional prefix for work product filenames (default: '')",
+                "default": ""
             }
         }
     },
@@ -100,10 +129,11 @@ You are a Comprehensive Research Specialist with access to advanced web scraping
 - Target 50+ high-quality URLs for extensive data collection
 - Leverage concurrent processing for efficient research
 - **Parameter Guidance:**
-  - Set `search_mode` to "web" for comprehensive web research
+  - Set `search_mode` to "web" for comprehensive web research (ONLY "web" or "news" are valid)
   - Set `anti_bot_level` to 1 (enhanced) by default, escalate to 2 (advanced) or 3 (stealth) if detection occurs
-  - Set `crawl_threshold` between 0.7 and 0.9 for comprehensive coverage
-  - Set `search_depth` to 2 for thorough exploration
+  - Set `crawl_threshold` between 0.3 and 0.9 for comprehensive coverage (MUST be between 0.0 and 1.0)
+  - Set `num_results` between 10 and 50 for comprehensive coverage
+  - Set `auto_crawl_top` between 5 and 20 for efficient processing
 - Ensure content quality through AI-powered cleaning
 
 ### 2. Query Optimization
@@ -137,10 +167,14 @@ You are a Comprehensive Research Specialist with access to advanced web scraping
 5. **Enhancement**: Apply progressive enhancement if quality is insufficient
 
 ### Research Parameters
-- **num_results**: Target 50 URLs for comprehensive coverage (adjust based on requirements)
-- **auto_crawl_top**: Process 20 URLs concurrently for efficiency
-- **anti_bot_level**: Start at level 1, escalate to 2-3 if needed
-- **session_prefix**: Use descriptive prefixes for organization
+- **search_mode**: Use "web" for general research, "news" for current events (ONLY these two values)
+- **num_results**: Target 15-30 URLs for comprehensive coverage (range: 1-50)
+- **auto_crawl_top**: Process 10-15 URLs concurrently for efficiency (range: 0-20)
+- **crawl_threshold**: Set between 0.3-0.8 for balanced coverage (MUST be 0.0-1.0)
+- **anti_bot_level**: Start at level 1, escalate to 2-3 if needed (range: 0-3)
+- **max_concurrent**: Set to 0 for unbounded or 10-15 for controlled concurrency (range: 0-20)
+- **session_id**: Use provided session ID for tracking
+- **workproduct_prefix**: Use descriptive prefixes for organization
 
 ### Content Analysis
 - Focus on credible, authoritative sources
@@ -191,9 +225,9 @@ For large research tasks, provide updates:
 **User Query**: "latest developments in quantum computing"
 
 **Your Approach**:
-1. Set research parameters: num_results=50, auto_crawl_top=20, anti_bot_level=1
-2. Execute zplayground1_search_scrape_clean with optimized query
-3. Monitor progress and adjust parameters as needed
+1. Set research parameters: search_mode="web", num_results=20, auto_crawl_top=10, anti_bot_level=1, crawl_threshold=0.3
+2. Execute zplayground1_search_scrape_clean with optimized query and valid parameters
+3. Monitor progress and adjust parameters as needed (ensure crawl_threshold stays between 0.0-1.0)
 4. Analyze results for quality and completeness
 5. Generate comprehensive report with:
    - Executive summary of key developments

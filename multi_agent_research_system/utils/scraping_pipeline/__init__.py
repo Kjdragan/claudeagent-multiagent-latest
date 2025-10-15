@@ -25,6 +25,7 @@ from .data_contracts import (
     PipelineStage,
     ErrorType,
     Priority,
+    ValidationLevel,
 
     # Core Models
     TaskContext,
@@ -48,7 +49,23 @@ from .data_contracts import (
     create_pipeline_config,
 )
 
-from .integration import ScrapingPipelineAPI
+from .integration import ScrapingPipelineAPI, quick_scrape_and_clean, batch_process_urls
+
+# Import async orchestrator and other components
+try:
+    from .orchestrator import AsyncScrapingOrchestrator, managed_orchestrator
+    from .error_recovery import ErrorRecoveryManager
+except ImportError:
+    # Fallback for standalone usage
+    AsyncScrapingOrchestrator = None
+    managed_orchestrator = None
+    ErrorRecoveryManager = None
+
+# Add optional components to __all__ if they were imported successfully
+if AsyncScrapingOrchestrator is not None:
+    __all__.extend(['AsyncScrapingOrchestrator', 'managed_orchestrator'])
+if ErrorRecoveryManager is not None:
+    __all__.append('ErrorRecoveryManager')
 
 __version__ = "1.4.0"
 __author__ = "Multi-Agent Research System"
@@ -59,6 +76,7 @@ __all__ = [
     'PipelineStage',
     'ErrorType',
     'Priority',
+    'ValidationLevel',
 
     # Core Models
     'TaskContext',
@@ -83,4 +101,8 @@ __all__ = [
 
     # API
     'ScrapingPipelineAPI',
+
+    # Convenience Functions
+    'quick_scrape_and_clean',
+    'batch_process_urls',
 ]
