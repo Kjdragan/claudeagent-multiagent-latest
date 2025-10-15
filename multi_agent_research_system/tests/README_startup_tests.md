@@ -117,9 +117,9 @@ Success Rate: 100.0%
 #### Tool Verification Issues
 
 **Symptom:** `❌ SERP API Search: Tool not executed in response`
-- **Cause**: MCP server not running or SERP_API_KEY missing
+- **Cause**: MCP server not running or SERPER_API_KEY missing
 - **Solution**:
-  - Set SERP_API_KEY environment variable
+  - Set SERPER_API_KEY environment variable
   - Check MCP server initialization
 
 **Symptom:** `❌ File Operations: Failed: Permission denied`
@@ -208,10 +208,10 @@ pip install claude-agent-sdk
 - Verify API key validity
 - Check for rate limiting
 
-#### "SERP_API_KEY Status: NOT_SET"
+#### "SERPER_API_KEY Status: NOT_SET"
 ```bash
 # Solution: Set the environment variable
-export SERP_API_KEY="your_api_key_here"
+export SERPER_API_KEY="your_api_key_here"
 ```
 
 ### Debug Mode

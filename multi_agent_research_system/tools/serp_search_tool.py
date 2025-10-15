@@ -66,8 +66,8 @@ async def serp_search(args):
         error_msg = f"SERP API search failed: {str(e)}"
 
         # Check if API key is missing
-        if "SERP_API_KEY" in str(e):
-            error_msg += "\n\n⚠️ **SERP_API_KEY not found in environment**\nPlease add SERP_API_KEY to your .env file."
+        if "SERPER_API_KEY" in str(e):
+            error_msg += "\n\n⚠️ **SERPER_API_KEY not found in environment**\nPlease add SERPER_API_KEY to your .env file."
 
         # Check if OpenAI API key is missing (for content cleaning)
         if "OPENAI_API_KEY" in str(e):

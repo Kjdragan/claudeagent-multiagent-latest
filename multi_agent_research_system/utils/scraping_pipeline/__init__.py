@@ -48,6 +48,8 @@ from .data_contracts import (
     create_pipeline_config,
 )
 
+from .integration import ScrapingPipelineAPI
+
 __version__ = "1.4.0"
 __author__ = "Multi-Agent Research System"
 
@@ -78,4 +80,7 @@ __all__ = [
     'create_scraping_request',
     'create_cleaning_request',
     'create_pipeline_config',
+
+    # API
+    'ScrapingPipelineAPI',
 ]

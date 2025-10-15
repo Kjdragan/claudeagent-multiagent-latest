@@ -360,8 +360,8 @@ async def handle_tool_errors(func):
             # Check for common issues and provide specific guidance
             error_msg = str(e)
 
-            if "SERP_API_KEY" in error_msg:
-                error_msg += "\n\n⚠️ **SERP_API_KEY not found**\nAdd SERP_API_KEY to your .env file."
+            if "SERPER_API_KEY" in error_msg:
+                error_msg += "\n\n⚠️ **SERPER_API_KEY not found**\nAdd SERPER_API_KEY to your .env file."
             elif "OPENAI_API_KEY" in error_msg:
                 error_msg += "\n\n⚠️ **OPENAI_API_KEY not found**\nAdd OPENAI_API_KEY to your .env file for AI content cleaning."
             elif "playwright" in error_msg.lower():
@@ -417,7 +417,7 @@ asyncio.run(test())
 # Check API key configuration
 python -c "
 import os
-print(f'SERP_API_KEY: {os.getenv('SERP_API_KEY', 'NOT SET')}')
+print(f'SERPER_API_KEY: {os.getenv('SERPER_API_KEY', 'NOT SET')}')
 print(f'OPENAI_API_KEY: {os.getenv('OPENAI_API_KEY', 'NOT SET')}')
 "
 ```
@@ -1006,7 +1006,7 @@ class ResearchWorkflow:
 ### Required Environment Variables
 ```bash
 # API Keys (Required)
-SERP_API_KEY=your_serp_api_key_here
+SERPER_API_KEY=your_serp_api_key_here
 OPENAI_API_KEY=your_openai_api_key_here
 ANTHROPIC_API_KEY=your_anthropic_api_key_here
 

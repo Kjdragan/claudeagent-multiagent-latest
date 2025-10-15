@@ -102,7 +102,7 @@ async def test_intelligent_research_directly():
     except Exception as e:
         print(f"\n❌ Error in intelligent research: {e}")
         print("\nCommon issues:")
-        print("  - Check SERP_API_KEY in .env file")
+        print("  - Check SERPER_API_KEY in .env file")
         print("  - Check OPENAI_API_KEY in .env file (for content cleaning)")
         print("  - Verify crawl4ai installation")
         return False

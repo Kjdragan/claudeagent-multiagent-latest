@@ -1115,7 +1115,7 @@ Failed to execute enhanced query search: {str(e)}
 **Session**: {session_id}
 
 **Troubleshooting**:
-- Check SERP_API_KEY is configured
+- Check SERPER_API_KEY is configured
 - Verify network connectivity
 - Ensure query parameters are valid
 

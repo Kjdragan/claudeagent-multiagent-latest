@@ -295,16 +295,17 @@ class AgentSessionManager:
             return
 
         try:
-            # Create legacy session
+            # Use the same session ID for legacy session to avoid duplication
             legacy_session_id = await self.legacy_session_manager.create_session(
                 topic=topic,
-                user_requirements=user_requirements
+                user_requirements=user_requirements,
+                session_id=session_id  # Use the same session ID
             )
 
             # Link sessions
             await self._link_legacy_session(session_id, legacy_session_id)
 
-            logger.info(f"🔗 Legacy session linked: {legacy_session_id}")
+            logger.info(f"🔗 Legacy session created with shared ID: {legacy_session_id}")
 
         except Exception as e:
             logger.warning(f"Legacy session integration failed: {e}")

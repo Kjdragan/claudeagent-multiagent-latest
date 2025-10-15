@@ -315,28 +315,33 @@ def create_zplayground1_mcp_server():
                 logger.info("🔄 Activating fallback to SERP API search due to enhanced scraping failure")
                 result = await fallback_to_serp_search(query, session_id, search_mode)
 
-            # Validate tool actually produced content
-            if not result or not hasattr(result, 'success') or not result.success:
-                logger.error(f"❌ Tool execution failed: SearchAndCleanResult indicates failure")
-                if hasattr(result, 'error_message') and result.error_message:
-                    logger.error(f"   Error message: {result.error_message}")
+            # Validate tool actually produced content (result is a string from search_crawl_and_clean_direct)
+            if not isinstance(result, str) or len(result.strip()) == 0:
+                logger.error(f"❌ Tool execution failed: No content produced")
                 return {
                     "content": [{"type": "text", "text": "❌ Search and scrape operation failed to produce content"}],
                     "is_error": True,
-                    "error_details": "SearchAndCleanResult indicates failure"
+                    "error_details": "No content produced from search operation"
                 }
 
-            # Extract content and metrics from SearchAndCleanResult or string fallback
-            if isinstance(result, str):
-                # Handle string fallback from SERP search
-                content_length = len(result)
-                url_count = len([line for line in result.split("\n") if "URL:" in line])
-                logger.info(f"✅ Tool validation passed: {content_length} characters of content produced (fallback mode)")
+            # Extract content and metrics from string result
+            content_length = len(result)
+
+            # Count URLs in the content to estimate success
+            url_count = len([line for line in result.split("\n") if "URL:" in line or "http" in line])
+
+            # Check if content indicates successful research
+            success_indicators = [
+                "Search Results:", "Work Product:", "URLs found:",
+                "✅", "Successfully scraped", "Content extracted"
+            ]
+
+            is_successful = any(indicator in result for indicator in success_indicators)
+
+            if is_successful:
+                logger.info(f"✅ Tool validation passed: {content_length} characters of content produced with {url_count} URLs found")
             else:
-                # Handle SearchAndCleanResult object
-                content_length = getattr(result, 'contents_extracted', 0) * 1000  # Estimate content length
-                url_count = getattr(result, 'urls_found', 0)
-                logger.info(f"✅ Tool validation passed: SearchAndCleanResult with {url_count} URLs found")
+                logger.warning(f"⚠️ Tool validation warning: Content may not indicate successful research ({content_length} chars)")
 
             # Define minimum content standards
             MIN_CONTENT_LENGTH = 500  # Minimum characters for meaningful content
@@ -435,7 +440,7 @@ Failed to execute search and content extraction using zPlayground1 implementatio
 If this failed, there's an issue with the setup that needs to be addressed.
 
 Please check:
-- SERP_API_KEY is configured
+- SERPER_API_KEY is configured
 - Network connectivity
 - Query parameters are valid
 - zPlayground1 utilities are properly imported
@@ -486,7 +491,7 @@ All search methods have failed:
 - SERP API fallback: {str(e)}
 
 **Troubleshooting**:
-- Check SERP_API_KEY is configured
+- Check SERPER_API_KEY is configured
 - Verify network connectivity
 - Ensure query parameters are valid
 - Check system dependencies are installed

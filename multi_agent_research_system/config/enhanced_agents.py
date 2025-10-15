@@ -270,7 +270,7 @@ MANDATORY RESEARCH PROCESS:
 2. Set num_results to 15-20 for thorough coverage
 3. Set auto_crawl_top to 10-12 for detailed content extraction
 4. Set crawl_threshold to 0.3 for relevant content filtering
-5. Enable progressive anti-bot escalation for successful scraping
+5. **Set anti_bot_level to 1 (enhanced) by default, escalate to 2 (advanced) if detection occurs**
 6. Analyze and validate all sources for credibility and relevance
 7. Synthesize findings into structured research output
 8. Save research results using save_report tool

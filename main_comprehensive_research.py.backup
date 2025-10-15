@@ -27,7 +27,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 # Add the multi_agent_research_system to the path
 sys.path.insert(0, str(Path(__file__).parent / "multi_agent_research_system"))
@@ -57,14 +57,9 @@ else:
 try:
     from claude_agent_sdk import (
         AgentDefinition,
-        AssistantMessage,
         ClaudeAgentOptions,
         ClaudeSDKClient,
         create_sdk_mcp_server,
-        ResultMessage,
-        TextBlock,
-        ToolResultBlock,
-        ToolUseBlock,
     )
     CLAUDE_SDK_AVAILABLE = True
     print("✅ Claude Agent SDK imported successfully")
@@ -152,29 +147,22 @@ class ComprehensiveResearchCLI:
             if str(project_root) not in sys.path:
                 sys.path.insert(0, str(project_root))
 
-            # Import the search servers
+            # Import the zplayground1 search server
             try:
                 from multi_agent_research_system.mcp_tools.zplayground1_search import zplayground1_server
-                from multi_agent_research_system.mcp_tools.enhanced_search_scrape_clean import enhanced_search_server
-                self.logger.info("✅ Imported search servers")
+                self.logger.info("✅ Imported zplayground1 server")
             except ImportError as e:
-                self.logger.error(f"❌ Failed to import search servers: {e}")
+                self.logger.error(f"❌ Failed to import zplayground1 server: {e}")
                 raise
 
             # Use the imported server configuration
             search_server = zplayground1_server
             self.logger.info("✅ Using zplayground1 search MCP server")
 
-            # Configure agent options with both search servers
+            # Configure agent options
             options = ClaudeAgentOptions(
-                mcp_servers={
-                    "search": search_server,
-                    "enhanced_search": enhanced_search_server
-                },
-                allowed_tools=[
-                    "mcp__search__zplayground1_search_scrape_clean",
-                    "mcp__enhanced_search__enhanced_search_scrape_clean"
-                ],
+                mcp_servers={"search": search_server},
+                allowed_tools=["mcp__search__zplayground1_search_scrape_clean"],
                 max_turns=50,
                 continue_conversation=False  # Ensure fresh session for each research query
             )
@@ -265,9 +253,7 @@ class ComprehensiveResearchCLI:
             self.logger.info(f"🏁 Total session time: {total_time:.2f} seconds")
 
             # Update session metadata
-            final_report_path = workflow_result.get("final_report_path", Path("KEVIN/sessions/{}/final_report.md".format(session_id)))
-            response = workflow_result.get("final_content", "Research completed successfully")
-            await self.update_session_completion(session_id, final_report_path, response, total_time)
+            await self.update_session_completion(session_id, workflow_result)
 
             # Prepare result
             result = {
@@ -379,14 +365,6 @@ class ComprehensiveResearchCLI:
                 "completed_at": datetime.now().isoformat()
             }
 
-            # Organize workflow files into proper KEVIN directory structure
-            self.logger.info("🗂️ Organizing workflow files...")
-            try:
-                organization_result = await self.organize_workflow_files(session_id)
-                self.logger.info(f"✅ Files organized: {organization_result.get('files_organized', 0)}")
-            except Exception as org_error:
-                self.logger.warning(f"⚠️ File organization warning: {org_error}")
-
             self.logger.info(f"🎉 Multi-agent workflow completed successfully!")
             self.logger.info(f"⏱️ Total duration: {workflow_summary['total_duration']:.2f} seconds")
 
@@ -426,7 +404,8 @@ class ComprehensiveResearchCLI:
         try:
             self.logger.info("🔍 Executing research agent...")
 
-            # Enhanced search server already imported during initialization
+            # Import comprehensive research tool from existing system
+            from multi_agent_research_system.mcp_tools.enhanced_search_scrape_clean import enhanced_search_scrape_clean_tool
 
             # Initialize session state
             await self.initialize_session_state(session_id, query)
@@ -434,41 +413,26 @@ class ComprehensiveResearchCLI:
             # Generate search URLs using SERP API
             search_urls = await self.generate_targeted_urls(query)
 
-            # Connect the SDK client before using it
-            await self.client.connect()
-
-            # Prepare research prompt
-            research_prompt = f"""
-            You are a research specialist. Your task is to conduct comprehensive research on: {query}
-
-            Please use the enhanced_search_server tool to gather relevant information about this topic.
-            The tool will help you search for and analyze content from multiple sources.
-
-            Focus on:
-            1. Recent developments and current information
-            2. Key facts and data points
-            3. Expert analysis and perspectives
-            4. Relevant examples and case studies
-
-            Provide a comprehensive research report that can be used as the foundation for further analysis.
-            """
-
-            # Send query to SDK client
-            self.logger.info("🔄 Sending research query to SDK client...")
-            await self.client.query(research_prompt)
-
-            # Collect response messages using proper streaming iteration
-            collected_messages = []
-            async for message in self.client.receive_response():
-                collected_messages.append(message)
-                # Stop when we receive the final ResultMessage
-                if message.__class__.__name__ == "ResultMessage":
-                    break
-
-            # Extract research results from collected messages
-            research_result = self.extract_research_from_messages(collected_messages, query, session_id)
-
-            self.logger.info(f"✅ Research agent completed successfully")
+            # Execute comprehensive research
+            research_result = await enhanced_search_scrape_clean_tool({
+                "query_type": "initial",
+                "queries": {
+                    "original": query,
+                    "reformulated": await self.reformulate_query(query),
+                    "orthogonal_1": await self.generate_orthogonal_query_1(query),
+                    "orthogonal_2": await self.generate_orthogonal_query_2(query)
+                },
+                "target_success_count": 10,
+                "max_total_urls": 20,
+                "max_concurrent_scrapes": 20,
+                "max_concurrent_cleans": 20,
+                "session_id": session_id,
+                "workproduct_prefix": "INITIAL_SEARCH",
+                "search_mode": "web",
+                "anti_bot_level": 1,
+                "crawl_threshold": 0.8,
+                "search_depth": 2
+            })
 
             # Save research workproduct
             research_workproduct_path = await self.save_research_workproduct(
@@ -695,15 +659,15 @@ This is a fallback response as the full agent-based processing encountered issue
     async def save_research_workproduct(self, session_id: str, research_result: dict, query: str) -> str:
         """Save research workproduct"""
         try:
-            research_dir = Path(f"KEVIN/sessions/{session_id}/research")
-            research_dir.mkdir(parents=True, exist_ok=True)
+        research_dir = Path(f"KEVIN/sessions/{session_id}/research")
+        research_dir.mkdir(parents=True, exist_ok=True)
 
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"search_workproduct_{timestamp}.md"
-            filepath = research_dir / filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"search_workproduct_{timestamp}.md"
+        filepath = research_dir / filename
 
-            # Create research content
-            research_content = f"""# Research Workproduct: {query}
+        # Create research content
+        research_content = f"""# Research Workproduct: {query}
 
 **Session ID**: {session_id}
 **Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
@@ -723,53 +687,53 @@ This is a fallback response as the full agent-based processing encountered issue
 Generated by Multi-Agent Research System
 """
 
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(research_content)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(research_content)
 
-            self.logger.info(f"Research workproduct saved: {filepath}")
-            return str(filepath)
+        self.logger.info(f"Research workproduct saved: {filepath}")
+        return str(filepath)
 
-        except Exception as e:
-            self.logger.error(f"Failed to save research workproduct: {e}")
-            return ""
+    except Exception as e:
+        self.logger.error(f"Failed to save research workproduct: {e}")
+        return ""
 
-    def _format_research_results(self, research_result: dict) -> str:
-        """Format research results for display"""
-        try:
-            successful_results = research_result.get('results', {}).get('successful_results', [])
+  def _format_research_results(self, research_result: dict) -> str:
+    """Format research results for display"""
+    try:
+        successful_results = research_result.get('results', {}).get('successful_results', [])
 
-            if not successful_results:
-                return "No successful results found."
+        if not successful_results:
+            return "No successful results found."
 
-            formatted_results = []
-            for i, result in enumerate(successful_results[:10], 1):  # Limit to 10 results
-                url = result.get('url', 'Unknown URL')
-                title = result.get('title', 'No Title')
-                snippet = result.get('snippet', 'No snippet available')
+        formatted_results = []
+        for i, result in enumerate(successful_results[:10], 1):  # Limit to 10 results
+            url = result.get('url', 'Unknown URL')
+            title = result.get('title', 'No Title')
+            snippet = result.get('snippet', 'No snippet available')
 
-                formatted_results.append(f"""
-                ### Result {i}: {title}
+            formatted_results.append(f"""
+### Result {i}: {title}
 
-                **URL**: {url}
-                **Snippet**: {snippet}
+**URL**: {url}
+**Snippet**: {snippet}
 
-                ---
+---
 
-                """)
+""")
 
-            return "\n".join(formatted_results)
+        return "\n".join(formatted_results)
 
-        except Exception as e:
-            self.logger.error(f"Failed to format research results: {e}")
-            return "Error formatting research results."
+    except Exception as e:
+        self.logger.error(f"Failed to format research results: {e}")
+        return "Error formatting research results."
 
-    async def generate_report_content(self, research_data: dict) -> str:
-        """Generate report content from research data"""
-        try:
-            topic = research_data.get('topic', 'Unknown Topic')
-            sources = research_data.get('sources', [])
+  async def generate_report_content(self, research_data: dict) -> str:
+    """Generate report content from research data"""
+    try:
+        topic = research_data.get('topic', 'Unknown Topic')
+        sources = research_data.get('sources', [])
 
-            report_content = f"""# Report: {topic}
+        report_content = f"""# Report: {topic}
 
 **Session ID**: {research_data.get('session_id', 'Unknown')}
 **Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
@@ -805,100 +769,100 @@ The findings suggest several important implications for understanding {topic}:
 Generated by Multi-Agent Research System
 """
 
-            return report_content
+        return report_content
 
-        except Exception as e:
-            self.logger.error(f"Failed to generate report content: {e}")
-            return f"Error generating report for {research_data.get('topic', 'Unknown Topic')}"
+    except Exception as e:
+        self.logger.error(f"Failed to generate report content: {e}")
+        return f"Error generating report for {research_data.get('topic', 'Unknown Topic')}"
 
-    def _generate_key_findings(self, sources: list) -> str:
-        """Generate key findings section"""
-        if not sources:
-            return "No sources available for analysis."
+  def _generate_key_findings(self, sources: list) -> str:
+    """Generate key findings section"""
+    if not sources:
+        return "No sources available for analysis."
 
-        return f"""
-        Based on the analysis of {len(sources)} sources, the following key findings emerge:
+    return f"""
+Based on the analysis of {len(sources)} sources, the following key findings emerge:
 
-        1. Multiple perspectives on the topic have been identified
-        2. Consistent themes across different sources indicate reliability
-        3. Areas requiring further investigation have been noted
-        """
+1. Multiple perspectives on the topic have been identified
+2. Consistent themes across different sources indicate reliability
+3. Areas requiring further investigation have been noted
+"""
 
-    def _generate_analysis_section(self, sources: list) -> str:
-        """Generate analysis section"""
-        if not sources:
-            return "Insufficient data for detailed analysis."
+  def _generate_analysis_section(self, sources: list) -> str:
+    """Generate analysis section"""
+    if not sources:
+        return "Insufficient data for detailed analysis."
 
-        return f"""
-        The analysis of {len(sources)} sources reveals several important patterns:
+    return f"""
+The analysis of {len(sources)} sources reveals several important patterns:
 
-        - Source credibility assessment indicates high-quality information
-        - Cross-referencing shows consistency in key information
-        - Temporal relevance suggests current and actionable insights
-        """
+- Source credibility assessment indicates high-quality information
+- Cross-referencing shows consistency in key information
+- Temporal relevance suggests current and actionable insights
+"""
 
-    def _generate_implications(self, sources: list) -> str:
-        """Generate implications section"""
-        return f"""
-        The research findings have several important implications:
+  def _generate_implications(self, sources: list) -> str:
+    """Generate implications section"""
+    return f"""
+The research findings have several important implications:
 
-        1. **Strategic Implications**: The information suggests specific actionable approaches
-        2. **Operational Impact**: Practical applications can be implemented
-        3. **Future Considerations**: Ongoing monitoring and research is recommended
-        """
+1. **Strategic Implications**: The information suggests specific actionable approaches
+2. **Operational Impact**: Practical applications can be implemented
+3. **Future Considerations**: Ongoing monitoring and research is recommended
+"""
 
-    def _generate_conclusion(self, topic: str, sources: list) -> str:
-        """Generate conclusion section"""
-        return f"""
-        In conclusion, this research on {topic} has provided valuable insights from {len(sources)} sources. The findings suggest a comprehensive understanding of the topic with practical implications for future action.
+  def _generate_conclusion(self, topic: str, sources: list) -> str:
+    """Generate conclusion section"""
+    return f"""
+In conclusion, this research on {topic} has provided valuable insights from {len(sources)} sources. The findings suggest a comprehensive understanding of the topic with practical implications for future action.
 
-        Key takeaways include the importance of continued monitoring and the need for strategic implementation of the findings.
-        """
+Key takeaways include the importance of continued monitoring and the need for strategic implementation of the findings.
+"""
 
-    def _format_sources(self, sources: list) -> str:
-        """Format sources section"""
-        if not sources:
-            return "No sources available."
+  def _format_sources(self, sources: list) -> str:
+    """Format sources section"""
+    if not sources:
+        return "No sources available."
 
-        formatted_sources = []
-        for i, source in enumerate(sources[:20], 1):  # Limit to 20 sources
-            url = source.get('url', 'Unknown URL')
-            title = source.get('title', 'No Title')
-            formatted_sources.append(f"{i}. {title} - {url}")
+    formatted_sources = []
+    for i, source in enumerate(sources[:20], 1):  # Limit to 20 sources
+        url = source.get('url', 'Unknown URL')
+        title = source.get('title', 'No Title')
+        formatted_sources.append(f"{i}. {title} - {url}")
 
-        return "\n".join(formatted_sources)
+    return "\n".join(formatted_sources)
 
-    async def save_report_draft(self, session_id: str, report_content: str, query: str) -> str:
-        """Save report draft"""
-        try:
-            working_dir = Path(f"KEVIN/sessions/{session_id}/working")
-            working_dir.mkdir(parents=True, exist_ok=True)
+  async def save_report_draft(self, session_id: str, report_content: str, query: str) -> str:
+    """Save report draft"""
+    try:
+        working_dir = Path(f"KEVIN/sessions/{session_id}/working")
+        working_dir.mkdir(parents=True, exist_ok=True)
 
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"REPORT_DRAFT_{timestamp}.md"
-            filepath = working_dir / filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"REPORT_DRAFT_{timestamp}.md"
+        filepath = working_dir / filename
 
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(report_content)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(report_content)
 
-            self.logger.info(f"Report draft saved: {filepath}")
-            return str(filepath)
+        self.logger.info(f"Report draft saved: {filepath}")
+        return str(filepath)
 
-        except Exception as e:
-            self.logger.error(f"Failed to save report draft: {e}")
-            return ""
+    except Exception as e:
+        self.logger.error(f"Failed to save report draft: {e}")
+        return ""
 
-    async def save_editorial_review(self, session_id: str, editorial_result, query: str) -> str:
-        """Save editorial review"""
-        try:
-            working_dir = Path(f"KEVIN/sessions/{session_id}/working")
-            working_dir.mkdir(parents=True, exist_ok=True)
+  async def save_editorial_review(self, session_id: str, editorial_result, query: str) -> str:
+    """Save editorial review"""
+    try:
+        working_dir = Path(f"KEVIN/sessions/{session_id}/working")
+        working_dir.mkdir(parents=True, exist_ok=True)
 
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"EDITORIAL_REVIEW_{timestamp}.md"
-            filepath = working_dir / filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"EDITORIAL_REVIEW_{timestamp}.md"
+        filepath = working_dir / filename
 
-            editorial_content = f"""# Editorial Review: {query}
+        editorial_content = f"""# Editorial Review: {query}
 
 **Session ID**: {session_id}
 **Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
@@ -921,51 +885,51 @@ Generated by Multi-Agent Research System
 Generated by Multi-Agent Research System
 """
 
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(editorial_content)
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(editorial_content)
 
-            self.logger.info(f"Editorial review saved: {filepath}")
-            return str(filepath)
+        self.logger.info(f"Editorial review saved: {filepath}")
+        return str(filepath)
 
-        except Exception as e:
-            self.logger.error(f"Failed to save editorial review: {e}")
-            return ""
+    except Exception as e:
+        self.logger.error(f"Failed to save editorial review: {e}")
+        return ""
 
-    def _format_editorial_assessment(self, editorial_result) -> str:
-        """Format editorial assessment"""
-        try:
-            return f"""
-        Content Quality Score: {editorial_result.content_quality}/100
-        Enhancements Applied: {editorial_result.enhancements_made}
-        Original Content Length: {len(editorial_result.original_content)} characters
-        Final Content Length: {len(editorial_result.final_content)} characters
+  def _format_editorial_assessment(self, editorial_result) -> str:
+    """Format editorial assessment"""
+    try:
+        return f"""
+Content Quality Score: {editorial_result.content_quality}/100
+Enhancements Applied: {editorial_result.enhancements_made}
+Original Content Length: {len(editorial_result.original_content)} characters
+Final Content Length: {len(editorial_result.final_content)} characters
 
-        ## Editorial Report
+## Editorial Report
 
-        {editorial_result.editorial_report if editorial_result.editorial_report else 'No detailed editorial report available.'}
-        """
-        except Exception as e:
-            return f"Error formatting editorial assessment: {e}"
+{editorial_result.editorial_report if editorial_result.editorial_report else 'No detailed editorial report available.'}
+"""
+    except Exception as e:
+        return f"Error formatting editorial assessment: {e}"
 
-    def _format_processing_log(self, processing_log: list) -> str:
-        """Format processing log"""
-        if not processing_log:
-            return "No processing log available."
+  def _format_processing_log(self, processing_log: list) -> str:
+    """Format processing log"""
+    if not processing_log:
+        return "No processing log available."
 
-        formatted_log = []
-        for entry in processing_log:
-            stage = entry.get('stage', 'Unknown')
-            action = entry.get('action', 'No action')
-            timestamp = entry.get('timestamp', 'No timestamp')
-            formatted_log.append(f"- {timestamp}: {stage} - {action}")
+    formatted_log = []
+    for entry in processing_log:
+        stage = entry.get('stage', 'Unknown')
+        action = entry.get('action', 'No action')
+        timestamp = entry.get('timestamp', 'No timestamp')
+        formatted_log.append(f"- {timestamp}: {stage} - {action}")
 
-        return "\n".join(formatted_log)
+    return "\n".join(formatted_log)
 
-    async def create_final_enhanced_report(self, query: str, research_result: dict,
+  async def create_final_enhanced_report(self, query: str, research_result: dict,
                                        report_result: dict, editorial_result: dict, session_id: str) -> str:
-        """Create final enhanced report integrating all results"""
-        try:
-            final_content = f"""# Enhanced Research Report: {query}
+    """Create final enhanced report integrating all results"""
+    try:
+        final_content = f"""# Enhanced Research Report: {query}
 
 **Session ID**: {session_id}
 **Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
@@ -1046,105 +1010,105 @@ The multi-agent research workflow has successfully produced a high-quality, comp
 *This report was generated by the Enhanced Multi-Agent Research System on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*
 """
 
-            return final_content
+        return final_content
 
-        except Exception as e:
-            self.logger.error(f"Failed to create final enhanced report: {e}")
-            return f"Error creating final report: {e}"
+    except Exception as e:
+        self.logger.error(f"Failed to create final enhanced report: {e}")
+        return f"Error creating final report: {e}"
 
-    def _extract_research_highlights(self, research_result: dict) -> str:
-        """Extract research highlights"""
-        try:
-            sources_found = research_result.get('sources_found', 0)
-            research_quality = research_result.get('quality_score', 'N/A')
+  def _extract_research_highlights(self, research_result: dict) -> str:
+    """Extract research highlights"""
+    try:
+        sources_found = research_result.get('sources_found', 0)
+        research_quality = research_result.get('quality_score', 'N/A')
 
-            return f"""
-        - Successfully identified and analyzed {sources_found} relevant sources
-        - Applied advanced filtering and quality assessment criteria
-        - Ensured comprehensive coverage of the topic area
-        - Maintained high research quality standards (Score: {research_quality}/100)
-        """
-        except Exception as e:
-            return f"Error extracting research highlights: {e}"
+        return f"""
+- Successfully identified and analyzed {sources_found} relevant sources
+- Applied advanced filtering and quality assessment criteria
+- Ensured comprehensive coverage of the topic area
+- Maintained high research quality standards (Score: {research_quality}/100)
+"""
+    except Exception as e:
+        return f"Error extracting research highlights: {e}"
 
-    def _summarize_editorial_improvements(self, editorial_result: dict) -> str:
-        """Summarize editorial improvements"""
-        try:
-            content_quality = editorial_result.get('content_quality', 'N/A')
-            enhancements_made = editorial_result.get('enhancements_made', False)
-            files_created = editorial_result.get('files_created', [])
+  def _summarize_editorial_improvements(self, editorial_result: dict) -> str:
+    """Summarize editorial improvements"""
+    try:
+        content_quality = editorial_result.get('content_quality', 'N/A')
+        enhancements_made = editorial_result.get('enhancements_made', False)
+        files_created = editorial_result.get('files_created', [])
 
-            return f"""
-        - Content quality enhanced to {content_quality}/100
-        - Applied {'multiple' if enhancements_made else 'minimal'} editorial improvements
-        - Created {len(files_created)} supporting files
-        - Ensured consistency, clarity, and professional presentation
-        """
-        except Exception as e:
-            return f"Error summarizing editorial improvements: {e}"
+        return f"""
+- Content quality enhanced to {content_quality}/100
+- Applied {'multiple' if enhancements_made else 'minimal'} editorial improvements
+- Created {len(files_created)} supporting files
+- Ensured consistency, clarity, and professional presentation
+"""
+    except Exception as e:
+        return f"Error summarizing editorial improvements: {e}"
 
-    async def save_final_report_from_workflow(self, session_id: str, final_content: str, query: str) -> str:
-        """Save final enhanced report from workflow"""
-        try:
-            complete_dir = Path(f"KEVIN/sessions/{session_id}/complete")
-            complete_dir.mkdir(parents=True, exist_ok=True)
+  async def save_final_report_from_workflow(self, session_id: str, final_content: str, query: str) -> str:
+    """Save final enhanced report from workflow"""
+    try:
+        complete_dir = Path(f"KEVIN/sessions/{session_id}/complete")
+        complete_dir.mkdir(parents=True, exist_ok=True)
 
-            # Also save to working directory for backup
-            working_dir = Path(f"KEVIN/sessions/{session_id}/working")
-            working_dir.mkdir(parents=True, exist_ok=True)
+        # Also save to working directory for backup
+        working_dir = Path(f"KEVIN/sessions/{session_id}/working")
+        working_dir.mkdir(parents=True, exist_ok=True)
 
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"FINAL_ENHANCED_REPORT_{timestamp}.md"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"FINAL_ENHANCED_REPORT_{timestamp}.md"
 
-            # Save to complete directory
-            complete_filepath = complete_dir / filename
-            with open(complete_filepath, 'w', encoding='utf-8') as f:
-                f.write(final_content)
+        # Save to complete directory
+        complete_filepath = complete_dir / filename
+        with open(complete_filepath, 'w', encoding='utf-8') as f:
+            f.write(final_content)
 
-            # Also save to working directory
-            working_filepath = working_dir / filename
-            with open(working_filepath, 'w', encoding='utf-8') as f:
-                f.write(final_content)
+        # Also save to working directory
+        working_filepath = working_dir / filename
+        with open(working_filepath, 'w', encoding='utf-8') as f:
+            f.write(final_content)
 
-            self.logger.info(f"✅ Final enhanced report saved to: {complete_filepath}")
-            self.logger.info(f"📝 Working copy saved to: {working_filepath}")
+        self.logger.info(f"✅ Final enhanced report saved to: {complete_filepath}")
+        self.logger.info(f"📝 Working copy saved to: {working_filepath}")
 
-            return str(complete_filepath)
+        return str(complete_filepath)
 
-        except Exception as e:
-            self.logger.error(f"❌ Failed to save final enhanced report: {e}")
-            return ""
+    except Exception as e:
+        self.logger.error(f"❌ Failed to save final enhanced report: {e}")
+        return ""
 
-    async def update_session_completion(self, session_id: str, workflow_result: dict):
-        """Update session completion status"""
-        try:
-            session_dir = Path(f"KEVIN/sessions/{session_id}")
-            metadata_file = session_dir / "session_metadata.json"
+  async def update_session_completion(self, session_id: str, workflow_result: dict):
+    """Update session completion status"""
+    try:
+        session_dir = Path(f"KEVIN/sessions/{session_id}")
+        metadata_file = session_dir / "session_metadata.json"
 
-            # Read existing metadata if available
-            if metadata_file.exists():
-                with open(metadata_file, 'r') as f:
-                    metadata = json.load(f)
-            else:
-                metadata = {}
+        # Read existing metadata if available
+        if metadata_file.exists():
+            with open(metadata_file, 'r') as f:
+                metadata = json.load(f)
+        else:
+            metadata = {}
 
-            # Update with workflow completion data
-            metadata.update({
-                "workflow_completed": True,
-                "completion_time": datetime.now().isoformat(),
-                "workflow_status": workflow_result.get("status", "unknown"),
-                "workflow_summary": workflow_result.get("workflow_summary", {}),
-                "final_result": workflow_result.get("final_result", {})
-            })
+        # Update with workflow completion data
+        metadata.update({
+            "workflow_completed": True,
+            "completion_time": datetime.now().isoformat(),
+            "workflow_status": workflow_result.get("status", "unknown"),
+            "workflow_summary": workflow_result.get("workflow_summary", {}),
+            "final_result": workflow_result.get("final_result", {})
+        })
 
-            # Save updated metadata
-            with open(metadata_file, 'w') as f:
-                json.dump(metadata, f, indent=2, default=str)
+        # Save updated metadata
+        with open(metadata_file, 'w') as f:
+            json.dump(metadata, f, indent=2, default=str)
 
-            self.logger.info(f"Session completion updated: {session_id}")
+        self.logger.info(f"Session completion updated: {session_id}")
 
-        except Exception as e:
-            self.logger.error(f"Failed to update session completion: {e}")
+    except Exception as e:
+        self.logger.error(f"Failed to update session completion: {e}")
 
     async def save_final_report(self, session_id: str, query: str, response: str,
                                user_requirements: Dict[str, Any]) -> Path:
@@ -1163,37 +1127,37 @@ The multi-agent research workflow has successfully produced a high-quality, comp
         # Prepare report content with metadata
         report_content = f"""# Comprehensive Research Report: {query}
 
-        **Session ID:** {session_id}
-        **Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-        **Mode:** {user_requirements.get('mode', 'web')}
-        **Target Results:** {user_requirements.get('target_results', 50)}
+**Session ID:** {session_id}
+**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+**Mode:** {user_requirements.get('mode', 'web')}
+**Target Results:** {user_requirements.get('target_results', 50)}
 
-        ---
+---
 
-        {response}
+{response}
 
-        ---
+---
 
-        ## Report Metadata
+## Report Metadata
 
-        - **Query:** {query}
-        - **Session ID:** {session_id}
-        - **Processing Mode:** {user_requirements.get('mode', 'web')}
-        - **Target Results:** {user_requirements.get('target_results', 50)}
-        - **Generated At:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-        - **File Location:** {filepath}
-        - **Status:** Completed
+- **Query:** {query}
+- **Session ID:** {session_id}
+- **Processing Mode:** {user_requirements.get('mode', 'web')}
+- **Target Results:** {user_requirements.get('target_results', 50)}
+- **Generated At:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+- **File Location:** {filepath}
+- **Status:** Completed
 
-        ## Research Configuration
+## Research Configuration
 
-        - **Debug Mode:** {user_requirements.get('debug_mode', False)}
-        - **Quality Threshold:** 0.8
-        - **Anti-bot Level:** 1 (enhanced)
-        - **Concurrent Processing:** Enabled
+- **Debug Mode:** {user_requirements.get('debug_mode', False)}
+- **Quality Threshold:** 0.8
+- **Anti-bot Level:** 1 (enhanced)
+- **Concurrent Processing:** Enabled
 
-        ---
-        *Generated by Multi-Agent Research System v3.2*
-        """
+---
+*Generated by Multi-Agent Research System v3.2*
+"""
 
         # Write the report to file
         with open(filepath, 'w', encoding='utf-8') as f:
@@ -1215,16 +1179,9 @@ The multi-agent research workflow has successfully produced a high-quality, comp
             with open(metadata_path, 'r', encoding='utf-8') as f:
                 metadata = json.load(f)
 
-            # Ensure session_info exists and update completion status
-            if "session_info" not in metadata:
-                metadata["session_info"] = {}
-
+            # Update completion status
             metadata["session_info"]["status"] = "completed"
             metadata["session_info"]["completed_at"] = datetime.now().isoformat()
-
-            # Ensure workflow_stages exists and update completion status
-            if "workflow_stages" not in metadata:
-                metadata["workflow_stages"] = {}
 
             # Update workflow stages
             for stage in ["query_processing", "research_execution", "content_analysis",
@@ -1232,10 +1189,6 @@ The multi-agent research workflow has successfully produced a high-quality, comp
                 if stage in metadata["workflow_stages"]:
                     metadata["workflow_stages"][stage]["status"] = "completed"
                     metadata["workflow_stages"][stage]["completed_at"] = datetime.now().isoformat()
-
-            # Ensure file_tracking exists and update file tracking
-            if "file_tracking" not in metadata:
-                metadata["file_tracking"] = {"working_files": [], "completed_files": []}
 
             # Update file tracking
             metadata["file_tracking"]["working_files"].append(str(final_report_path.name))
@@ -1263,144 +1216,6 @@ The multi-agent research workflow has successfully produced a high-quality, comp
             self.logger.info(f"✅ Final report moved to: {final_report_complete_path}")
         else:
             self.logger.warning(f"⚠️ Session metadata file not found: {metadata_path}")
-
-    def extract_research_from_messages(self, messages: List[Any], query: str, session_id: str) -> Dict[str, Any]:
-        """Extract research results from SDK client messages."""
-        research_content = []
-        tool_results = []
-        successful_results = []
-
-        for message in messages:
-            # Handle AssistantMessage with text and tool content
-            if isinstance(message, AssistantMessage):
-                for block in message.content:
-                    if isinstance(block, TextBlock):
-                        research_content.append(block.text)
-                    elif isinstance(block, ToolUseBlock):
-                        # Track tool use for debugging
-                        research_content.append(f"Tool used: {block.name}")
-                    elif isinstance(block, ToolResultBlock):
-                        # Extract tool results
-                        tool_results.append(block.result)
-                        if isinstance(block.result, dict):
-                            if 'successful_results' in block.result:
-                                successful_results.extend(block.result['successful_results'])
-                            if 'content' in block.result:
-                                research_content.append(f"Tool result: {block.result['content']}")
-
-            # Handle ResultMessage (end of conversation)
-            elif isinstance(message, ResultMessage):
-                research_content.append(f"Research completed. Cost: ${message.total_cost_usd:.4f}" if message.total_cost_usd else "Research completed.")
-
-        # If no structured results from tools, create a basic research result
-        if not successful_results and research_content:
-            successful_results = [
-                {
-                    "url": "https://research.conducted/sdk",
-                    "title": f"Research Results: {query}",
-                    "snippet": research_content[0][:200] + "..." if len(research_content[0]) > 200 else research_content[0]
-                }
-            ]
-
-        # Create research result structure
-        research_result = {
-            "response": research_content,
-            "session_id": session_id,
-            "query": query,
-            "results": {
-                "successful_results": successful_results
-            },
-            "tool_results": tool_results,
-            "message_count": len(messages),
-            "content_summary": "\n".join(research_content)
-        }
-
-        return research_result
-
-    async def organize_workflow_files(self, session_id: str) -> Dict[str, Any]:
-        """Organize workflow files into proper KEVIN directory structure."""
-        try:
-            # Import the workflow organization function
-            import sys
-            import os
-
-            # Add the hooks directory to the path
-            hooks_path = Path(__file__).parent / ".claude" / "hooks"
-            if str(hooks_path) not in sys.path:
-                sys.path.insert(0, str(hooks_path))
-
-            from organize_workflow_files import organize_workflow_files
-
-            # Call the organization function
-            result = organize_workflow_files(session_id, "KEVIN/sessions")
-
-            return result
-
-        except ImportError:
-            # Fallback to basic organization if hook not available
-            return await self.basic_workflow_organization(session_id)
-        except Exception as e:
-            self.logger.error(f"❌ Workflow organization failed: {e}")
-            return {
-                "status": "error",
-                "message": str(e),
-                "files_organized": 0
-            }
-
-    async def basic_workflow_organization(self, session_id: str) -> Dict[str, Any]:
-        """Basic workflow file organization as fallback."""
-        session_path = Path(f"KEVIN/sessions/{session_id}")
-
-        if not session_path.exists():
-            return {
-                "status": "error",
-                "message": f"Session directory not found: {session_path}",
-                "files_organized": 0
-            }
-
-        # Ensure subdirectories exist
-        subdirs = {
-            "working": session_path / "working",
-            "research": session_path / "research",
-            "complete": session_path / "complete",
-            "logs": session_path / "logs"
-        }
-
-        files_organized = 0
-        for subdir_path in subdirs.values():
-            subdir_path.mkdir(parents=True, exist_ok=True)
-
-        # Basic file organization by type
-        for file_path in session_path.rglob("*"):
-            if file_path.is_file() and file_path.parent == session_path:
-                stage = self._detect_basic_stage(file_path)
-
-                if stage != "root":
-                    target_dir = subdirs.get(stage, subdirs["working"])
-                    target_path = target_dir / file_path.name
-
-                    if target_path != file_path:
-                        shutil.move(str(file_path), str(target_path))
-                        files_organized += 1
-
-        return {
-            "status": "success",
-            "files_organized": files_organized,
-            "session_id": session_id
-        }
-
-    def _detect_basic_stage(self, file_path: Path) -> str:
-        """Basic stage detection from filename."""
-        filename_lower = file_path.name.lower()
-
-        if "research" in filename_lower or "workproduct" in filename_lower:
-            return "research"
-        elif "final" in filename_lower:
-            return "complete"
-        elif file_path.suffix == ".log":
-            return "logs"
-        else:
-            return "working"
 
     def print_results_summary(self, result: Dict[str, Any]):
         """Print summary of research results."""
@@ -1445,8 +1260,8 @@ class FallbackQueryProcessor:
         }
 
 
-    class FallbackOrchestrator:
-        """Fallback orchestrator for when system components are not available."""
+class FallbackOrchestrator:
+    """Fallback orchestrator for when system components are not available."""
 
     def __init__(self):
         self.logger = logging.getLogger("fallback_orchestrator")
@@ -1464,7 +1279,7 @@ class FallbackQueryProcessor:
         }
 
 
-def create_argument_parser() -> argparse.ArgumentParser:
+    def create_argument_parser() -> argparse.ArgumentParser:
         """Create command line argument parser."""
         parser = argparse.ArgumentParser(
         description="Agent-Based Comprehensive Research System",
@@ -1477,13 +1292,13 @@ def create_argument_parser() -> argparse.ArgumentParser:
         """
         )
 
-        # Required arguments
+    # Required arguments
         parser.add_argument(
         "query",
         help="Research query to investigate (required)"
         )
 
-        # Optional arguments
+    # Optional arguments
         parser.add_argument(
         "--mode",
         choices=["web", "news", "academic"],
@@ -1530,9 +1345,9 @@ def create_argument_parser() -> argparse.ArgumentParser:
         return parser
 
 
-def create_user_requirements(args: argparse.Namespace) -> Dict[str, Any]:
-    """Create user requirements dictionary from command line arguments."""
-    return {
+    def create_user_requirements(args: argparse.Namespace) -> Dict[str, Any]:
+        """Create user requirements dictionary from command line arguments."""
+        return {
         "depth": "Comprehensive Analysis",
         "audience": "General",
         "format": "Detailed Report",
@@ -1541,20 +1356,20 @@ def create_user_requirements(args: argparse.Namespace) -> Dict[str, Any]:
         "session_id": args.session_id,
         "debug_mode": args.debug,
         "dry_run": args.dry_run
-    }
+        }
 
 
-async def main():
-    """Main function - entry point for the comprehensive research system."""
+    async def main():
+        """Main function - entry point for the comprehensive research system."""
 
     # Parse command line arguments
-    parser = create_argument_parser()
-    args = parser.parse_args()
+        parser = create_argument_parser()
+        args = parser.parse_args()
 
     # Initialize CLI
-    cli = ComprehensiveResearchCLI()
+        cli = ComprehensiveResearchCLI()
 
-    try:
+        try:
         # Print banner
         cli.print_banner()
 
@@ -1596,10 +1411,10 @@ async def main():
 
         cli.logger.info("🎉 Comprehensive research session completed successfully")
 
-    except KeyboardInterrupt:
+        except KeyboardInterrupt:
         cli.logger.info("\n⚠️  Research interrupted by user")
         sys.exit(1)
-    except Exception as e:
+        except Exception as e:
         cli.logger.error(f"\n❌ Research failed: {str(e)}")
         if args.debug:
             import traceback
@@ -1607,5 +1422,5 @@ async def main():
         sys.exit(1)
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+        if __name__ == "__main__":
+        asyncio.run(main())

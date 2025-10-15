@@ -442,7 +442,7 @@ except Exception as e:
 Failed to execute search and content extraction: {str(e)}
 
 Please check:
-- SERP_API_KEY is configured
+- SERPER_API_KEY is configured
 - Network connectivity
 - Query parameters are valid
 """
@@ -825,7 +825,7 @@ MCP_TOOLS_CONFIG = {
 ```bash
 # Required Environment Variables
 ANTHROPIC_API_KEY=your_anthropic_key
-SERP_API_KEY=your_serp_api_key
+SERPER_API_KEY=your_serp_api_key
 
 # Optional Configuration
 KEVIN_WORKPRODUCTS_DIR=/path/to/KEVIN/sessions

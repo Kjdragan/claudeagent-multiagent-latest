@@ -87,6 +87,14 @@ class Priority(str, Enum):
     CRITICAL = "critical"
 
 
+class ValidationLevel(str, Enum):
+    """Validation level enumeration for scraping pipeline."""
+    BASIC = "basic"
+    STANDARD = "standard"
+    STRICT = "strict"
+    COMPREHENSIVE = "comprehensive"
+
+
 class TaskContext(BaseModel):
     """Context information for scraping/cleaning tasks."""
 
@@ -622,7 +630,7 @@ def create_pipeline_config(**overrides) -> PipelineConfig:
 # Export main classes and functions
 __all__ = [
     # Enums
-    'TaskStatus', 'PipelineStage', 'ErrorType', 'Priority',
+    'TaskStatus', 'PipelineStage', 'ErrorType', 'Priority', 'ValidationLevel',
 
     # Core Models
     'TaskContext', 'ScrapingRequest', 'ScrapingResult',

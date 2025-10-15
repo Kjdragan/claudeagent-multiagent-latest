@@ -128,7 +128,7 @@ async def test_enhanced_search_mcp_integration():
 
         required_vars = {
             'ANTHROPIC_API_KEY': 'Required for Claude Agent SDK',
-            'SERP_API_KEY': 'Required for search functionality',
+            'SERPER_API_KEY': 'Required for search functionality',
             'OPENAI_API_KEY': 'Required for content cleaning (optional)'
         }
 

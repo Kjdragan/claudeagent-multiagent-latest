@@ -5,7 +5,8 @@
       "Bash(python -m ruff format src/ tests/)",
       "Bash(python -m mypy src/)",
       "Bash(python -m pytest tests/)",
-      "Bash(python -m pytest tests/*)"
+      "Bash(python -m pytest tests/*)",
+      "Bash(uv run python .claude/hooks/organize_workflow_files.py)"
     ],
     "deny": []
   },
@@ -19,6 +20,16 @@
           }
         ],
         "matcher": "Edit|Write|MultiEdit"
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"session_id\": \"$(basename $(pwd))\", \"base_dir\": \"KEVIN/sessions\"}' | uv run python .claude/hooks/organize_workflow_files.py"
+          }
+        ]
       }
     ]
   }

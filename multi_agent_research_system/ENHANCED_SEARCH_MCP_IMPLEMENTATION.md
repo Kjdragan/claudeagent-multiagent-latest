@@ -53,7 +53,7 @@ Successfully integrated zPlayground1's enhanced search, scrape, and clean functi
 ### Environment Variables (✅ All Available)
 ```
 ANTHROPIC_API_KEY=6f0db204b6... ✅ Available (49 chars)
-SERP_API_KEY=e65a731fcf... ✅ Available (40 chars)
+SERPER_API_KEY=e65a731fcf... ✅ Available (40 chars)
 OPENAI_API_KEY=sk-proj-9rD... ✅ Available (164 chars)
 ```
 

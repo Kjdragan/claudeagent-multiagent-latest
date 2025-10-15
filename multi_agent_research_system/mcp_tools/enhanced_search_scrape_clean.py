@@ -482,7 +482,7 @@ def create_enhanced_search_mcp_server():
                 }
 
         except Exception as e:
-            error_msg = f"❌ **Enhanced Search Error**\n\nFailed to execute search and content extraction: {str(e)}\n\nPlease check:\n- SERP_API_KEY is configured\n- Network connectivity\n- Query parameters are valid"
+            error_msg = f"❌ **Enhanced Search Error**\n\nFailed to execute search and content extraction: {str(e)}\n\nPlease check:\n- SERPER_API_KEY is configured\n- Network connectivity\n- Query parameters are valid"
             logger.error(f"Enhanced search failed: {e}")
             return {
                 "content": [{"type": "text", "text": error_msg}],
@@ -628,7 +628,7 @@ def create_enhanced_search_mcp_server():
                 }
 
         except Exception as e:
-            error_msg = f"❌ **Enhanced News Search Error**\n\nFailed to execute news search and extraction: {str(e)}\n\nPlease check:\n- SERP_API_KEY is configured\n- Network connectivity\n- News topic is valid"
+            error_msg = f"❌ **Enhanced News Search Error**\n\nFailed to execute news search and extraction: {str(e)}\n\nPlease check:\n- SERPER_API_KEY is configured\n- Network connectivity\n- News topic is valid"
             logger.error(f"Enhanced news search failed: {e}")
             return {
                 "content": [{"type": "text", "text": error_msg}],
@@ -836,7 +836,7 @@ Failed to execute expanded query search and content extraction: {str(e)}
 
 This tool uses the corrected workflow that consolidates searches properly.
 Please check:
-- SERP_API_KEY is configured
+- SERPER_API_KEY is configured
 - Network connectivity
 - Query parameters are valid
 - Expanded query parameters are within limits

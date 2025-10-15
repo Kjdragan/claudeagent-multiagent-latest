@@ -192,7 +192,7 @@ async def test_enhanced_search_utils():
         logger.info("Test 8: Checking environment variables...")
 
         env_vars = {
-            'SERP_API_KEY': 'Required for search',
+            'SERPER_API_KEY': 'Required for search',
             'OPENAI_API_KEY': 'Required for content cleaning',
             'ANTHROPIC_API_KEY': 'Required for Claude SDK',
             'KEVIN_WORKPRODUCTS_DIR': 'Optional workproduct directory'
@@ -203,9 +203,9 @@ async def test_enhanced_search_utils():
             if os.getenv(var):
                 logger.info(f"✅ {var}: SET ({description})")
             else:
-                status = "REQUIRED" if var in ['SERP_API_KEY', 'ANTHROPIC_API_KEY'] else "OPTIONAL"
+                status = "REQUIRED" if var in ['SERPER_API_KEY', 'ANTHROPIC_API_KEY'] else "OPTIONAL"
                 logger.warning(f"⚠️ {var}: NOT SET ({description}) - {status}")
-                if var in ['SERP_API_KEY', 'ANTHROPIC_API_KEY']:
+                if var in ['SERPER_API_KEY', 'ANTHROPIC_API_KEY']:
                     missing_required.append(var)
 
         if missing_required:
