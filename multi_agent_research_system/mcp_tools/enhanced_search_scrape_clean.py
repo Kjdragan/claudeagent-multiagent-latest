@@ -285,17 +285,17 @@ def create_enhanced_search_mcp_server():
             },
             "num_results": {
                 "type": "integer",
-                "default": 15,
+                "default": 30,
                 "minimum": 1,
                 "maximum": 50,
-                "description": "Number of search results to retrieve",
+                "description": "Number of search results to retrieve (increased for better coverage)",
             },
             "auto_crawl_top": {
                 "type": "integer",
-                "default": 10,
+                "default": 20,
                 "minimum": 0,
-                "maximum": 20,
-                "description": "Maximum number of URLs to crawl for content extraction",
+                "maximum": 50,
+                "description": "Maximum number of URLs to crawl for content extraction (increased for comprehensive research)",
             },
             "crawl_threshold": {
                 "type": "number",
@@ -369,6 +369,27 @@ def create_enhanced_search_mcp_server():
             anti_bot_level = int(args.get("anti_bot_level", 1))
             max_concurrent = int(args.get("max_concurrent", 15))
             session_id = args.get("session_id", "default")
+
+            # Check research threshold before proceeding
+            try:
+                from ..utils.research_threshold_tracker import check_search_threshold
+                intervention = await check_search_threshold(session_id, query, "enhanced_search")
+                if intervention:
+                    # Return intervention message instead of searching
+                    logger.info(f"🎯 Threshold intervention triggered for enhanced search session {session_id}")
+                    return {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": intervention
+                            }
+                        ],
+                        "threshold_intervention": True,
+                        "search_type": "enhanced_search",
+                        "session_id": session_id
+                    }
+            except ImportError as e:
+                logger.warning(f"⚠️  Could not import threshold tracker: {e}")
 
             # Validate parameters
             if anti_bot_level < 0 or anti_bot_level > 3:
@@ -558,6 +579,27 @@ def create_enhanced_search_mcp_server():
             anti_bot_level = args.get("anti_bot_level", 1)
             session_id = args.get("session_id", "default")
 
+            # Check research threshold before proceeding
+            try:
+                from ..utils.research_threshold_tracker import check_search_threshold
+                intervention = await check_search_threshold(session_id, query, "news_search")
+                if intervention:
+                    # Return intervention message instead of searching
+                    logger.info(f"🎯 Threshold intervention triggered for news search session {session_id}")
+                    return {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": intervention
+                            }
+                        ],
+                        "threshold_intervention": True,
+                        "search_type": "news_search",
+                        "session_id": session_id
+                    }
+            except ImportError as e:
+                logger.warning(f"⚠️  Could not import threshold tracker: {e}")
+
             # Set up work product directory
             workproduct_dir = os.environ.get("KEVIN_WORKPRODUCTS_DIR")
             if not workproduct_dir:
@@ -724,6 +766,27 @@ def create_enhanced_search_mcp_server():
             crawl_threshold = float(args.get("crawl_threshold", 0.3))
             session_id = args.get("session_id", "default")
             max_expanded_queries = int(args.get("max_expanded_queries", 3))
+
+            # Check research threshold before proceeding
+            try:
+                from ..utils.research_threshold_tracker import check_search_threshold
+                intervention = await check_search_threshold(session_id, query, "expanded_query")
+                if intervention:
+                    # Return intervention message instead of searching
+                    logger.info(f"🎯 Threshold intervention triggered for expanded query search session {session_id}")
+                    return {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": intervention
+                            }
+                        ],
+                        "threshold_intervention": True,
+                        "search_type": "expanded_query",
+                        "session_id": session_id
+                    }
+            except ImportError as e:
+                logger.warning(f"⚠️  Could not import threshold tracker: {e}")
 
             # Set up work product directory
             workproduct_dir = os.environ.get("KEVIN_WORKPRODUCTS_DIR")

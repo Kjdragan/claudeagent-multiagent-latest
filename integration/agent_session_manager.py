@@ -118,8 +118,6 @@ class AgentSessionManager:
 
         directories = [
             self.sessions_dir,
-            self.sessions_dir / "templates",
-            self.kevin_base_dir / "work_products",
             self.kevin_base_dir / "logs",
             self.kevin_base_dir / "monitoring"
         ]

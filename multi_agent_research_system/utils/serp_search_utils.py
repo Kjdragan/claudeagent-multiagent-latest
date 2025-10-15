@@ -179,10 +179,16 @@ async def execute_serp_search(
         endpoint = "news" if search_type == "news" else "search"
         url = f"https://google.serper.dev/{endpoint}"
 
-        # Build search parameters
+        # Build search parameters - ensure num_results is an integer
+        try:
+            num_results_int = int(num_results)
+        except (ValueError, TypeError):
+            num_results_int = 20  # Default fallback
+            logger.warning(f"Invalid num_results '{num_results}', using default {num_results_int}")
+
         search_params = {
             "q": query,
-            "num": min(num_results, 100),  # Serper limit
+            "num": min(num_results_int, 100),  # Serper limit
             "gl": country,
             "hl": language
         }
@@ -215,7 +221,7 @@ async def execute_serp_search(
             for i, result in enumerate(raw_results):
                 title = result.get("title", "")
                 snippet = result.get("snippet", "")
-                position = i + 1
+                position = int(i + 1)  # Ensure position is an integer
 
                 # Calculate enhanced relevance score with domain authority
                 relevance_score = calculate_enhanced_relevance_score(

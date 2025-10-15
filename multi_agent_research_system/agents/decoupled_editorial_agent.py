@@ -262,7 +262,7 @@ class DecoupledEditorialAgent:
             return ""
 
         # Apply modern content cleaning
-        cleaned_content = self.content_cleaner.clean_content(content)
+        cleaned_content = self.content_cleaner.clean_article_content(content)
 
         # Additional article-specific extraction
         lines = cleaned_content.split('\n')

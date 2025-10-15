@@ -6,11 +6,43 @@
       "Bash(python -m mypy src/)",
       "Bash(python -m pytest tests/)",
       "Bash(python -m pytest tests/*)",
-      "Bash(uv run python .claude/hooks/organize_workflow_files.py)"
+      "Bash(uv run python .claude/hooks/organize_workflow_files.py)",
+      "Bash(uv run python .claude/hooks/validate_session_id.py)",
+      "Bash(uv run python .claude/hooks/validate_content_cleaner.py)",
+      "Bash(uv run python .claude/hooks/ensure_session_metrics.py)"
     ],
     "deny": []
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Session ID validation hook triggered' && uv run python .claude/hooks/validate_session_id.py --validate-session-id"
+          }
+        ],
+        "matcher": "session_id|create_session|session.*create"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Content cleaner validation hook triggered' && uv run python .claude/hooks/validate_content_cleaner.py --check-methods"
+          }
+        ],
+        "matcher": "ModernWebContentCleaner|content_cleaner|clean_content"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Session metrics validation hook triggered' && uv run python .claude/hooks/ensure_session_metrics.py --validate-structure"
+          }
+        ],
+        "matcher": "session_metrics|metadata.*update"
+      }
+    ],
     "PostToolUse": [
       {
         "hooks": [
@@ -27,9 +59,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '{\"session_id\": \"$(basename $(pwd))\", \"base_dir\": \"KEVIN/sessions\"}' | uv run python .claude/hooks/organize_workflow_files.py"
+            "command": "echo 'Session metrics post-validation hook triggered' && uv run python .claude/hooks/ensure_session_metrics.py --ensure-metrics"
           }
-        ]
+        ],
+        "matcher": "workflow.*completion.*final|session.*complete.*final|final.*report.*generated"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "LATEST_SESSION=$(ls -1t KEVIN/sessions/ 2>/dev/null | head -1); printf '{\"session_id\": \"%s\", \"base_dir\": \"KEVIN/sessions\"}\\n' \"$LATEST_SESSION\" | uv run python .claude/hooks/validate_project_context.py | uv run python .claude/hooks/organize_workflow_files.py"
+          }
+        ],
+        "matcher": "workflow.*completed.*successfully|research.*workflow.*finished|final.*report.*completed|execute_complete_enhanced_workflow.*completed"
       }
     ]
   }

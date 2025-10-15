@@ -23,6 +23,7 @@ import asyncio
 import json
 import logging
 import os
+import shutil
 import sys
 import time
 from datetime import datetime
@@ -173,10 +174,12 @@ class ComprehensiveResearchCLI:
                 },
                 allowed_tools=[
                     "mcp__search__zplayground1_search_scrape_clean",
-                    "mcp__enhanced_search__enhanced_search_scrape_clean"
+                    "mcp__enhanced_search__enhanced_search_scrape_clean",
+                    "mcp__enhanced_search__enhanced_news_search",
+                    "mcp__enhanced_search__expanded_query_search_and_extract_tool"
                 ],
                 max_turns=50,
-                continue_conversation=False  # Ensure fresh session for each research query
+                continue_conversation=True  # Enable agent state and message sharing
             )
             self.logger.info("✅ Configured Claude agent options")
 
@@ -193,6 +196,9 @@ class ComprehensiveResearchCLI:
         self.logger.info("🔧 Initializing system components...")
 
         try:
+            # Initialize threshold monitoring
+            await self.initialize_threshold_monitoring()
+
             # Initialize session manager
             if SYSTEM_COMPONENTS_AVAILABLE:
                 self.session_manager = AgentSessionManager()
@@ -220,6 +226,202 @@ class ComprehensiveResearchCLI:
         except Exception as e:
             self.logger.error(f"❌ Failed to initialize system components: {e}")
             raise
+
+    async def initialize_threshold_monitoring(self):
+        """Initialize threshold monitoring system."""
+        try:
+            self.logger.info("🎯 Initializing threshold monitoring system...")
+
+            # Import threshold integration
+            try:
+                from multi_agent_research_system.hooks.threshold_integration import setup_threshold_monitoring
+                from multi_agent_research_system.hooks.comprehensive_hooks import ComprehensiveHookManager
+                self.logger.info("✅ Imported threshold integration components")
+            except ImportError as e:
+                self.logger.warning(f"⚠️  Could not import threshold integration: {e}")
+                self.threshold_manager = None
+                return
+
+            # Create hook manager
+            try:
+                hook_manager = ComprehensiveHookManager()
+                self.logger.info("✅ Created comprehensive hook manager")
+            except Exception as e:
+                self.logger.warning(f"⚠️  Could not create hook manager: {e}")
+                self.threshold_manager = None
+                return
+
+            # Setup threshold monitoring
+            try:
+                self.threshold_manager = await setup_threshold_monitoring(
+                    hook_manager=hook_manager,
+                    success_threshold=10,  # Stop after 10 successful scrapes
+                    check_interval=3.0,    # Check every 3 seconds
+                    max_search_time=240.0  # 4 minute max
+                )
+                self.logger.info("✅ Threshold monitoring system initialized")
+            except Exception as e:
+                self.logger.warning(f"⚠️  Could not setup threshold monitoring: {e}")
+                self.threshold_manager = None
+
+        except Exception as e:
+            self.logger.warning(f"⚠️  Threshold monitoring initialization failed: {e}")
+            self.threshold_manager = None
+
+    async def start_threshold_monitoring(self, session_id: str):
+        """Start threshold monitoring for a session."""
+        if self.threshold_manager:
+            try:
+                success = await self.threshold_manager.start_monitoring_session(
+                    session_id=session_id,
+                    agent_name="research_agent"
+                )
+                if success:
+                    self.logger.info(f"🎯 Started threshold monitoring for session: {session_id}")
+                else:
+                    self.logger.warning(f"⚠️  Failed to start threshold monitoring for session: {session_id}")
+            except Exception as e:
+                self.logger.warning(f"⚠️  Error starting threshold monitoring: {e}")
+
+    async def stop_threshold_monitoring(self, session_id: str):
+        """Stop threshold monitoring for a session."""
+        if self.threshold_manager:
+            try:
+                success = await self.threshold_manager.stop_monitoring_session(session_id)
+                if success:
+                    self.logger.info(f"⏹️  Stopped threshold monitoring for session: {session_id}")
+            except Exception as e:
+                self.logger.warning(f"⚠️  Error stopping threshold monitoring: {e}")
+
+    async def get_research_workproduct_path(self, session_id: str, research_result: dict) -> str:
+        """Get the path to the research work product created by search tools."""
+        try:
+            # The search tools should have created work products in the research directory
+            research_dir = Path(f"KEVIN/sessions/{session_id}/research")
+            if not research_dir.exists():
+                self.logger.warning(f"Research directory not found: {research_dir}")
+                return ""
+
+            # Look for work product files created by search tools
+            workproduct_patterns = [
+                "search_workproduct_*.md",
+                "1-search_workproduct_*.md",
+                "1-expanded_search_workproduct_*.md"
+            ]
+
+            for pattern in workproduct_patterns:
+                workproduct_files = list(research_dir.glob(pattern))
+                if workproduct_files:
+                    # Get the most recent work product
+                    latest_file = max(workproduct_files, key=lambda f: f.stat().st_mtime)
+                    self.logger.info(f"Found research work product: {latest_file.name}")
+                    return str(latest_file)
+
+            # If no work product found, check if threshold intervention occurred
+            if research_result.get("threshold_intervention"):
+                self.logger.info("Threshold intervention occurred - no work product to return")
+                return ""
+
+            self.logger.warning(f"No research work product found in {research_dir}")
+            return ""
+
+        except Exception as e:
+            self.logger.error(f"Error getting research work product path: {e}")
+            return ""
+
+    async def get_real_research_results(self, session_id: str) -> List[Dict[str, Any]]:
+        """Get real research results from threshold tracker or existing work products."""
+        try:
+            # First, try to get results from threshold tracker
+            if self.threshold_manager:
+                threshold_status = await self.threshold_manager.get_session_status(session_id)
+                if threshold_status and threshold_status.get("successful_scrapes", 0) > 0:
+                    self.logger.info(f"Found {threshold_status['successful_scrapes']} successful scrapes from threshold tracker")
+
+                    # Check if there are any actual work product files
+                    research_dir = Path(f"KEVIN/sessions/{session_id}/research")
+                    if research_dir.exists():
+                        # Look for any existing work products that might have real results
+                        workproduct_files = list(research_dir.glob("search_workproduct_*.md"))
+
+                        for workproduct_file in workproduct_files:
+                            try:
+                                content = workproduct_file.read_text(encoding='utf-8')
+                                # Check if this is a real work product (not placeholder)
+                                if ("Total URLs Processed" in content and
+                                    "Total URLs Processed: 0" not in content):
+                                    self.logger.info(f"Found real work product: {workproduct_file.name}")
+                                    # Extract results from this work product
+                                    return self._extract_results_from_workproduct(content)
+                            except Exception as e:
+                                self.logger.warning(f"Could not read work product {workproduct_file}: {e}")
+
+            # If no threshold tracker results, try to find work products directly
+            research_dir = Path(f"KEVIN/sessions/{session_id}/research")
+            if research_dir.exists():
+                workproduct_files = list(research_dir.glob("search_workproduct_*.md"))
+
+                for workproduct_file in workproduct_files:
+                    try:
+                        content = workproduct_file.read_text(encoding='utf-8')
+                        # Check if this is a real work product with actual results
+                        if ("### Result" in content and
+                            "http" in content and
+                            "Total URLs Processed: 0" not in content):
+                            self.logger.info(f"Found real work product with actual URLs: {workproduct_file.name}")
+                            return self._extract_results_from_workproduct(content)
+                    except Exception as e:
+                        self.logger.warning(f"Could not read work product {workproduct_file}: {e}")
+
+            return []  # No real results found
+
+        except Exception as e:
+            self.logger.warning(f"Error getting real research results: {e}")
+            return []
+
+    def _extract_results_from_workproduct(self, content: str) -> List[Dict[str, Any]]:
+        """Extract real research results from work product content."""
+        results = []
+        lines = content.split('\n')
+
+        current_result = {}
+        for i, line in enumerate(lines):
+            if line.startswith('### Result'):
+                # Save previous result if exists
+                if current_result and current_result.get('url') and 'sdk' not in current_result['url']:
+                    results.append(current_result)
+
+                # Start new result
+                current_result = {}
+
+            elif line.startswith('**URL**:') and current_result is not None:
+                url = line.split(':', 1)[1].strip()
+                # Skip SDK placeholder URLs
+                if 'sdk' not in url.lower():
+                    current_result['url'] = url
+
+            elif line.startswith('**Snippet**:') and current_result is not None:
+                snippet = line.split(':', 1)[1].strip()
+                current_result['snippet'] = snippet
+
+            elif line.startswith('**Title**:') and current_result is not None:
+                title = line.split(':', 1)[1].strip()
+                current_result['title'] = title
+
+        # Save last result if exists
+        if current_result and current_result.get('url') and 'sdk' not in current_result['url']:
+            results.append(current_result)
+
+        return results
+
+    async def get_threshold_status(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Get threshold monitoring status for a session."""
+        if self.threshold_manager:
+            try:
+                return self.threshold_manager.get_session_status(session_id)
+            except Exception as e:
+                self.logger.warning(f"⚠️  Error getting threshold status: {e}")
+        return None
 
     async def create_session(self, query: str, user_requirements: Dict[str, Any]) -> str:
         """Create a new research session."""
@@ -258,14 +460,29 @@ class ComprehensiveResearchCLI:
             self.logger.info(f"🆔 Session created: {session_id}")
 
             # Execute complete multi-agent workflow
-            workflow_result = await self.execute_multi_agent_workflow(query, session_id)
+            workflow_result = await self.execute_multi_agent_workflow(query, session_id, mode)
 
             # Calculate total session time
             total_time = (datetime.now() - self.start_time).total_seconds()
             self.logger.info(f"🏁 Total session time: {total_time:.2f} seconds")
 
             # Update session metadata
-            final_report_path = workflow_result.get("final_report_path", Path("KEVIN/sessions/{}/final_report.md".format(session_id)))
+            workflow_final_path = workflow_result.get("final_report_path")
+            if workflow_final_path:
+                final_report_path = Path(workflow_final_path)
+            else:
+                # Look for the actual final report that was created
+                complete_dir = Path(f"KEVIN/sessions/{session_id}/complete")
+                if complete_dir.exists():
+                    # Find the most recent final enhanced report
+                    final_reports = list(complete_dir.glob("FINAL_ENHANCED_REPORT_*.md"))
+                    if final_reports:
+                        final_report_path = max(final_reports, key=lambda x: x.stat().st_mtime)
+                    else:
+                        final_report_path = complete_dir / "FINAL_ENHANCED_REPORT.md"
+                else:
+                    final_report_path = Path(f"KEVIN/sessions/{session_id}/complete/FINAL_ENHANCED_REPORT.md")
+
             response = workflow_result.get("final_content", "Research completed successfully")
             await self.update_session_completion(session_id, final_report_path, response, total_time)
 
@@ -287,7 +504,7 @@ class ComprehensiveResearchCLI:
             self.logger.error(f"❌ Multi-agent workflow failed: {e}")
             raise
 
-    async def execute_multi_agent_workflow(self, query: str, session_id: str) -> Dict[str, Any]:
+    async def execute_multi_agent_workflow(self, query: str, session_id: str, mode: str = "web") -> Dict[str, Any]:
         """Execute complete multi-agent workflow: Research → Report → Editorial → Enhanced Report"""
 
         self.logger.info(f"🚀 Starting complete multi-agent workflow for session {session_id}")
@@ -306,7 +523,7 @@ class ComprehensiveResearchCLI:
             workflow_stages["research"]["started_at"] = datetime.now()
             workflow_stages["research"]["status"] = "running"
 
-            research_result = await self.execute_research_agent(query, session_id)
+            research_result = await self.execute_research_agent(query, session_id, mode)
 
             workflow_stages["research"]["status"] = "completed"
             workflow_stages["research"]["completed_at"] = datetime.now()
@@ -421,10 +638,13 @@ class ComprehensiveResearchCLI:
                 "completed_at": datetime.now().isoformat()
             }
 
-    async def execute_research_agent(self, query: str, session_id: str) -> Dict[str, Any]:
+    async def execute_research_agent(self, query: str, session_id: str, mode: str = "web") -> Dict[str, Any]:
         """Execute research agent stage"""
         try:
             self.logger.info("🔍 Executing research agent...")
+
+            # Start threshold monitoring
+            await self.start_threshold_monitoring(session_id)
 
             # Enhanced search server already imported during initialization
 
@@ -438,11 +658,43 @@ class ComprehensiveResearchCLI:
             await self.client.connect()
 
             # Prepare research prompt
+            mode_param = "news" if mode == "news" else "web"
             research_prompt = f"""
             You are a research specialist. Your task is to conduct comprehensive research on: {query}
 
             Please use the enhanced_search_server tool to gather relevant information about this topic.
             The tool will help you search for and analyze content from multiple sources.
+
+            CRITICAL PARAMETER REQUIREMENTS:
+            1. ALWAYS include session_id: "{session_id}" exactly as provided
+            2. For search_type parameter, use: "{mode_param}" (NOT "comprehensive")
+            3. Valid search_type values are: "web" or "news" only
+
+            CORRECT Tool usage example:
+            enhanced_search_scrape_clean({{
+                "query": "{query}",
+                "session_id": "{session_id}",
+                "search_type": "{mode_param}",
+                "num_results": 30,
+                "auto_crawl_top": 20,
+                "max_concurrent": 15,
+                "crawl_threshold": 0.1
+            }})
+
+            WRONG - DO NOT USE:
+            - search_mode (use search_type instead)
+            - "comprehensive" as a value (use "web" or "news")
+            - High crawl_threshold values (use 0.1 to ensure sufficient URLs for crawling)
+
+            **IMPORTANT - SUCCESS THRESHOLD:**
+            - Stop making additional search calls after you achieve 10+ successful scrapes
+            - If your first search returns 10 or more successful scrapes, STOP and proceed to analysis
+            - Only make multiple search calls if the first search returns fewer than 10 successful scrapes
+            - The goal is to gather sufficient research efficiently, not maximize the number of searches
+
+            **CRITICAL - CRAWL THRESHOLD:**
+            - ALWAYS use crawl_threshold: 0.1 to ensure sufficient URLs are selected for crawling
+            - This prevents rejecting all search candidates and ensures meaningful research results
 
             Focus on:
             1. Recent developments and current information
@@ -451,11 +703,12 @@ class ComprehensiveResearchCLI:
             4. Relevant examples and case studies
 
             Provide a comprehensive research report that can be used as the foundation for further analysis.
+            Remember: Quality over quantity - stop when you have sufficient research (10+ successful scrapes).
             """
 
-            # Send query to SDK client
-            self.logger.info("🔄 Sending research query to SDK client...")
-            await self.client.query(research_prompt)
+            # Send query to SDK client with proper session ID
+            self.logger.info(f"🔄 Sending research query to SDK client with session_id: {session_id}")
+            await self.client.query(research_prompt, session_id=session_id)
 
             # Collect response messages using proper streaming iteration
             collected_messages = []
@@ -470,12 +723,19 @@ class ComprehensiveResearchCLI:
 
             self.logger.info(f"✅ Research agent completed successfully")
 
-            # Save research workproduct
-            research_workproduct_path = await self.save_research_workproduct(
-                session_id, research_result, query
-            )
+            # Get research work product path from search tool results
+            research_workproduct_path = await self.get_research_workproduct_path(session_id, research_result)
 
             successful_results = research_result.get("results", {}).get("successful_results", [])
+
+            # Check threshold status
+            threshold_status = await self.get_threshold_status(session_id)
+            if threshold_status:
+                self.logger.info(f"🎯 Threshold status: {threshold_status['successful_scrapes']} scrapes, "
+                               f"threshold met: {threshold_status['threshold_met']}")
+
+            # Stop threshold monitoring
+            await self.stop_threshold_monitoring(session_id)
 
             return {
                 "status": "success",
@@ -483,10 +743,13 @@ class ComprehensiveResearchCLI:
                 "workproduct_path": research_workproduct_path,
                 "quality_score": 85,  # Placeholder for actual quality assessment
                 "sources_found": len(successful_results),
-                "session_id": session_id
+                "session_id": session_id,
+                "threshold_status": threshold_status
             }
 
         except Exception as e:
+            # Ensure threshold monitoring is stopped even on error
+            await self.stop_threshold_monitoring(session_id)
             self.logger.error(f"❌ Research agent failed: {e}")
             raise
 
@@ -695,6 +958,10 @@ This is a fallback response as the full agent-based processing encountered issue
     async def save_research_workproduct(self, session_id: str, research_result: dict, query: str) -> str:
         """Save research workproduct"""
         try:
+            # Check if this is a threshold intervention result with no real data
+            if research_result.get("threshold_intervention") and not research_result.get("results", {}).get("successful_results"):
+                self.logger.info("🎯 Skipping work product creation for threshold intervention with no real results")
+                return ""  # Return empty path to indicate no work product created
             research_dir = Path(f"KEVIN/sessions/{session_id}/research")
             research_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1115,37 +1382,7 @@ The multi-agent research workflow has successfully produced a high-quality, comp
             self.logger.error(f"❌ Failed to save final enhanced report: {e}")
             return ""
 
-    async def update_session_completion(self, session_id: str, workflow_result: dict):
-        """Update session completion status"""
-        try:
-            session_dir = Path(f"KEVIN/sessions/{session_id}")
-            metadata_file = session_dir / "session_metadata.json"
-
-            # Read existing metadata if available
-            if metadata_file.exists():
-                with open(metadata_file, 'r') as f:
-                    metadata = json.load(f)
-            else:
-                metadata = {}
-
-            # Update with workflow completion data
-            metadata.update({
-                "workflow_completed": True,
-                "completion_time": datetime.now().isoformat(),
-                "workflow_status": workflow_result.get("status", "unknown"),
-                "workflow_summary": workflow_result.get("workflow_summary", {}),
-                "final_result": workflow_result.get("final_result", {})
-            })
-
-            # Save updated metadata
-            with open(metadata_file, 'w') as f:
-                json.dump(metadata, f, indent=2, default=str)
-
-            self.logger.info(f"Session completion updated: {session_id}")
-
-        except Exception as e:
-            self.logger.error(f"Failed to update session completion: {e}")
-
+    
     async def save_final_report(self, session_id: str, query: str, response: str,
                                user_requirements: Dict[str, Any]) -> Path:
         """Save the final report to the working directory."""
@@ -1240,7 +1477,10 @@ The multi-agent research workflow has successfully produced a high-quality, comp
             # Update file tracking
             metadata["file_tracking"]["working_files"].append(str(final_report_path.name))
 
-            # Update metrics
+            # Ensure session_metrics exists and update metrics
+            if "session_metrics" not in metadata:
+                metadata["session_metrics"] = {}
+
             metadata["session_metrics"]["duration_seconds"] = processing_time
             metadata["session_metrics"]["completion_percentage"] = 100
             metadata["session_metrics"]["final_report_generated"] = True
@@ -1249,18 +1489,35 @@ The multi-agent research workflow has successfully produced a high-quality, comp
             complete_dir = Path(f"KEVIN/sessions/{session_id}/complete")
             complete_dir.mkdir(parents=True, exist_ok=True)
 
-            final_report_complete_path = complete_dir / final_report_path.name
-            final_report_path.rename(final_report_complete_path)
+            # Initialize final report path variable
+            final_report_complete_path = None
 
-            # Update file tracking with complete path
-            metadata["file_tracking"]["complete_files"].append(str(final_report_complete_path.name))
+            # Check if final report exists before moving
+            if final_report_path.exists():
+                final_report_complete_path = complete_dir / final_report_path.name
+                final_report_path.rename(final_report_complete_path)
+
+                # Update file tracking with complete path
+                metadata["file_tracking"]["complete_files"].append(str(final_report_complete_path.name))
+            else:
+                self.logger.warning(f"⚠️ Final report file not found: {final_report_path}")
+                # Use the path that was actually created by the workflow
+                actual_final_report = complete_dir / f"FINAL_ENHANCED_REPORT_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+                if actual_final_report.exists():
+                    final_report_complete_path = actual_final_report
+                    metadata["file_tracking"]["complete_files"].append(str(actual_final_report.name))
+                else:
+                    self.logger.warning(f"⚠️ No final report found in complete directory either")
 
             # Save updated metadata
             with open(metadata_path, 'w', encoding='utf-8') as f:
                 json.dump(metadata, f, indent=2, ensure_ascii=False)
 
             self.logger.info(f"✅ Session metadata updated: {session_id}")
-            self.logger.info(f"✅ Final report moved to: {final_report_complete_path}")
+            if final_report_complete_path:
+                self.logger.info(f"✅ Final report moved to: {final_report_complete_path}")
+            else:
+                self.logger.info("ℹ️  No final report was available to move")
         else:
             self.logger.warning(f"⚠️ Session metadata file not found: {metadata_path}")
 
@@ -1292,15 +1549,38 @@ The multi-agent research workflow has successfully produced a high-quality, comp
             elif isinstance(message, ResultMessage):
                 research_content.append(f"Research completed. Cost: ${message.total_cost_usd:.4f}" if message.total_cost_usd else "Research completed.")
 
-        # If no structured results from tools, create a basic research result
+        # If no structured results from tools, check if threshold intervention occurred
         if not successful_results and research_content:
-            successful_results = [
-                {
-                    "url": "https://research.conducted/sdk",
-                    "title": f"Research Results: {query}",
-                    "snippet": research_content[0][:200] + "..." if len(research_content[0]) > 200 else research_content[0]
+            # Check if this is a threshold intervention result
+            content_text = " ".join(research_content).lower()
+            if ("threshold achieved" in content_text or
+                "success threshold" in content_text or
+                "stop searching" in content_text or
+                "threshold intervention" in content_text):
+                # This is a threshold intervention - don't create placeholder results
+                # The real work products should already be created by the search tools
+                self.logger.info("🎯 Threshold intervention detected - work products should be created by search tools")
+                return {
+                    "response": research_content,
+                    "session_id": session_id,
+                    "query": query,
+                    "results": {
+                        "successful_results": []  # Will be populated from actual work products
+                    },
+                    "tool_results": tool_results,
+                    "message_count": len(messages),
+                    "content_summary": "Research stopped due to threshold intervention",
+                    "threshold_intervention": True
                 }
-            ]
+            else:
+                # Create a basic research result for non-intervention cases
+                successful_results = [
+                    {
+                        "url": "https://research.conducted/sdk",
+                        "title": f"Research Results: {query}",
+                        "snippet": research_content[0][:200] + "..." if len(research_content[0]) > 200 else research_content[0]
+                    }
+                ]
 
         # Create research result structure
         research_result = {
@@ -1325,14 +1605,15 @@ The multi-agent research workflow has successfully produced a high-quality, comp
             import os
 
             # Add the hooks directory to the path
-            hooks_path = Path(__file__).parent / ".claude" / "hooks"
+            hooks_path = Path(__file__).parent.parent / ".claude" / "hooks"
             if str(hooks_path) not in sys.path:
                 sys.path.insert(0, str(hooks_path))
 
             from organize_workflow_files import organize_workflow_files
 
-            # Call the organization function
-            result = organize_workflow_files(session_id, "KEVIN/sessions")
+            # Call the organization function with absolute path
+            base_dir = Path(__file__).parent / "KEVIN" / "sessions"
+            result = organize_workflow_files(session_id, str(base_dir))
 
             return result
 
@@ -1410,7 +1691,7 @@ The multi-agent research workflow has successfully produced a high-quality, comp
         print(f"📝 Query: {result['query']}")
         print(f"🔍 Mode: {result['mode']}")
         print(f"🎯 Target Results: {result['target_results']}")
-        print(f"⏱️  Processing Time: {result['processing_time']:.2f} seconds")
+        print(f"⏱️  Processing Time: {result['total_time']:.2f} seconds")
         print(f"🕐️ Total Session Time: {result['total_time']:.2f} seconds")
         print(f"🆔 Session ID: {result['session_id']}")
         print(f"✅ Status: {result['status'].upper()}")

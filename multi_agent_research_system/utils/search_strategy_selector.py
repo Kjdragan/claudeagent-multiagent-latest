@@ -189,13 +189,19 @@ class SearchStrategySelector:
         years_in_query = re.findall(year_pattern, query)
 
         for year in years_in_query:
-            year_int = int(year)
-            if year_int == current_year:
-                time_score = max(time_score, 0.8)
-            elif year_int == current_year - 1:
-                time_score = max(time_score, 0.6)
-            elif year_int >= current_year - 2:
-                time_score = max(time_score, 0.4)
+            try:
+                year_int = int(year)
+                current_year_int = int(current_time.year) if hasattr(current_time, 'year') else int(datetime.now().year)
+
+                if year_int == current_year_int:
+                    time_score = max(time_score, 0.8)
+                elif year_int == current_year_int - 1:
+                    time_score = max(time_score, 0.6)
+                elif year_int >= current_year_int - 2:
+                    time_score = max(time_score, 0.4)
+            except (ValueError, TypeError, AttributeError) as e:
+                # Skip invalid year values
+                continue
 
         # Check for months/seasons indicating recency
         recent_months = ['january', 'february', 'march', 'april', 'may', 'june']

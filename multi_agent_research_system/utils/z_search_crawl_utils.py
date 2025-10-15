@@ -112,10 +112,16 @@ async def execute_serper_search(
         endpoint = "news" if search_type == "news" else "search"
         url = f"https://google.serper.dev/{endpoint}"
 
-        # Build search parameters
+        # Build search parameters - ensure num_results is an integer
+        try:
+            num_results_int = int(num_results)
+        except (ValueError, TypeError):
+            num_results_int = 20  # Default fallback
+            logger.warning(f"Invalid num_results '{num_results}', using default {num_results_int}")
+
         search_params = {
             "q": query,
-            "num": min(num_results, 100),  # Serper limit
+            "num": min(num_results_int, 100),  # Serper limit
             "gl": country,
             "hl": language,
         }
@@ -180,7 +186,10 @@ async def execute_serper_search(
 
     except Exception as e:
         # FAIL-FAST: During development, re-raise critical errors instead of swallowing them
+        import traceback
         logger.error(f"Error in Serper search: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Stack trace: {traceback.format_exc()}")
 
         # Check if this is a critical configuration error that should fail fast
         if "CRITICAL" in str(e) or "API_KEY" in str(e) or "Configuration" in str(e):

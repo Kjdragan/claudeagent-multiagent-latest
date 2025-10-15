@@ -183,6 +183,19 @@ def calculate_enhanced_relevance_score_with_domain_authority(
         Enhanced relevance score between 0.0 and 1.0
     """
     try:
+        # Ensure input types are correct (prevent type conversion errors)
+        if not isinstance(title, str):
+            title = str(title) if title is not None else ""
+        if not isinstance(snippet, str):
+            snippet = str(snippet) if snippet is not None else ""
+        if not isinstance(query_terms, list):
+            query_terms = []
+        if not isinstance(url, str):
+            url = str(url) if url is not None else ""
+
+        # Ensure position is an integer
+        position = int(position) if position is not None else 999
+
         # Calculate base relevance score using documented formula
         position_score = _calculate_position_score(position)
         title_score = calculate_term_frequency_score(title, query_terms)
@@ -238,6 +251,13 @@ def _calculate_position_score(position: int) -> float:
     Returns:
         Position score between 0.0 and 1.0
     """
+    # Ensure position is an integer (fix type conversion issues)
+    try:
+        position = int(position)
+    except (ValueError, TypeError):
+        logger.warning(f"Invalid position value: {position}, using default position 999")
+        position = 999  # Very low score for invalid positions
+
     # Gentle decay for multi-query collation
     if position <= 3:
         # Top 3 positions (top result from each query): no decay
