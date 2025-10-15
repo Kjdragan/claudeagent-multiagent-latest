@@ -75,12 +75,14 @@ class ResearchThresholdMonitorHook(BaseHook):
     """
 
     def __init__(self, config: Optional[ResearchThresholdConfig] = None):
-        """Initialize the research threshold monitor hook."""
+        """Initialize the research threshold monitor hook.
+
+        Monitors research progress and intervenes when success threshold is met.
+        """
         super().__init__(
             name="research_threshold_monitor",
             hook_type="research_monitoring",
-            priority=HookPriority.HIGH,
-            description="Monitors research progress and intervenes when success threshold is met"
+            priority=HookPriority.HIGH
         )
 
         self.config = config or ResearchThresholdConfig()

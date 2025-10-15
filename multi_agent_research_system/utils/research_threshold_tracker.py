@@ -144,14 +144,14 @@ class ResearchThresholdTracker:
                 # Only re-analyze if file is newer than last update
                 last_updated = datetime.fromisoformat(state["last_updated"])
                 if file_mtime > last_updated:
-                    await self._analyze_work_product_file(latest_file, state)
+                    self._analyze_work_product_file(latest_file, state)
 
         except Exception as e:
             self.logger.warning(f"⚠️  Error updating progress from workproducts: {e}")
 
         return state
 
-    async def _analyze_work_product_file(self, file_path: str, state: Dict[str, Any]):
+    def _analyze_work_product_file(self, file_path: str, state: Dict[str, Any]):
         """Analyze a work product file to extract progress."""
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -312,7 +312,7 @@ def get_research_threshold_tracker(threshold: int = 10) -> ResearchThresholdTrac
     return _global_tracker
 
 
-async def check_search_threshold(session_id: str, query: str, search_type: str = "default") -> Optional[str]:
+def check_search_threshold(session_id: str, query: str, search_type: str = "default") -> Optional[str]:
     """
     Check if search should continue based on threshold.
 

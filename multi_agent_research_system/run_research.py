@@ -37,6 +37,7 @@ else:
 
 from core.logging_config import get_log_summary, get_logger, setup_logging
 from core.orchestrator import ResearchOrchestrator
+from utils.playwright_setup import ensure_playwright_installed
 
 
 class ResearchCLI:
@@ -52,6 +53,13 @@ class ResearchCLI:
     async def initialize(self):
         """Initialize the orchestrator."""
         print("🔧 Initializing research system...")
+
+        # First check Playwright installation
+        print("🎭 Checking Playwright browsers...")
+        if not ensure_playwright_installed():
+            print("❌ Failed to setup Playwright browsers")
+            return False
+
         try:
             await self.orchestrator.initialize()
             print("✅ System initialized with 4 agents")

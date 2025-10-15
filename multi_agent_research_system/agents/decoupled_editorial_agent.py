@@ -453,7 +453,7 @@ class DecoupledEditorialAgent:
         editorial_report: dict[str, Any]
     ) -> list[str]:
         """
-        Save editorial outputs to files.
+        Save editorial outputs to KEVIN/sessions/{session_id}/working/ directory.
 
         Args:
             session_id: Session identifier
@@ -466,23 +466,26 @@ class DecoupledEditorialAgent:
         files_created = []
 
         try:
-            # Create session directory
-            session_dir = Path(self.workspace_dir) / "editorial_outputs" / session_id
-            session_dir.mkdir(parents=True, exist_ok=True)
+            # Use KEVIN session structure: KEVIN/sessions/{session_id}/working/
+            session_working_dir = Path(self.workspace_dir) / "KEVIN" / "sessions" / session_id / "working"
+            session_working_dir.mkdir(parents=True, exist_ok=True)
 
-            # Save final content
-            content_file = session_dir / "final_editorial_content.md"
+            # Generate timestamp for file naming consistency
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # Save final editorial content with consistent naming pattern
+            content_file = session_working_dir / f"EDITORIAL_CONTENT_{timestamp}.md"
             with open(content_file, 'w', encoding='utf-8') as f:
                 f.write(final_content)
             files_created.append(str(content_file))
 
-            # Save editorial report
-            report_file = session_dir / "editorial_report.json"
+            # Save editorial report JSON in working directory
+            report_file = session_working_dir / f"EDITORIAL_REPORT_{timestamp}.json"
             with open(report_file, 'w', encoding='utf-8') as f:
                 json.dump(editorial_report, f, indent=2, ensure_ascii=False)
             files_created.append(str(report_file))
 
-            self.logger.info(f"Saved editorial outputs for session {session_id}: {files_created}")
+            self.logger.info(f"Saved editorial outputs to KEVIN structure for session {session_id}: {files_created}")
 
         except Exception as e:
             self.logger.error(f"Error saving editorial outputs for session {session_id}: {e}")
@@ -516,7 +519,7 @@ class EditorialQualityFramework:
         assessment = await self.quality_framework.assess_quality(content, context)
 
         # Add editorial-specific metadata
-        assessment.metadata.update({
+        assessment.content_metadata.update({
             "evaluation_type": "editorial",
             "editorial_focus": True,
             "enhancement_recommended": assessment.overall_score < 75

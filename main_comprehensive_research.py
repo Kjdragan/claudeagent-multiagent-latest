@@ -1842,6 +1842,19 @@ async def main():
         # Setup logging
         cli.setup_logging(args.log_level, args.log_file)
 
+        # Run startup checks FIRST - before any SDK or system initialization
+        cli.logger.info("🔍 Running startup checks...")
+        try:
+            from multi_agent_research_system.utils.startup_checks import run_all_startup_checks
+            if not run_all_startup_checks(verbose=True):
+                cli.logger.error("❌ Startup checks failed. Please resolve issues before continuing.")
+                sys.exit(1)
+            cli.logger.info("✅ All startup checks passed")
+        except Exception as e:
+            cli.logger.error(f"❌ Startup checks encountered an error: {e}")
+            cli.logger.error("Please ensure all dependencies are installed correctly.")
+            sys.exit(1)
+
         # Log startup information
         cli.logger.info(f"🔍 Research Query: {args.query}")
         cli.logger.info(f"📊 Mode: {args.mode}")

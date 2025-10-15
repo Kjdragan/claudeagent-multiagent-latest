@@ -165,7 +165,6 @@ class KevinSessionManager:
         self.sessions_path = self.kevin_base_path / "sessions"
         self.logs_path = self.kevin_base_path / "logs"
         self.reports_path = self.kevin_base_path / "reports"
-        self.work_products_path = self.kevin_base_path / "work_products"
         self.monitoring_path = self.kevin_base_path / "monitoring"
 
         # Session tracking
@@ -189,7 +188,6 @@ class KevinSessionManager:
             self.sessions_path,
             self.logs_path,
             self.reports_path,
-            self.work_products_path,
             self.monitoring_path
         ]
 

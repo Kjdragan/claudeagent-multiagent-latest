@@ -13,6 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from core.logging_config import get_logger, parse_args_and_setup_logging
+from utils.startup_checks import run_all_startup_checks
 
 
 async def main():
@@ -20,6 +21,12 @@ async def main():
     # Parse CLI arguments and setup logging
     args = parse_args_and_setup_logging()
     logger = get_logger("main")
+
+    # Run all startup checks before proceeding
+    logger.info("Running startup checks...")
+    if not run_all_startup_checks(verbose=True):
+        logger.error("Startup checks failed. Exiting.")
+        return 1
 
     logger.info("Starting Multi-Agent Research System")
     logger.info(f"Command line arguments: {vars(args)}")
