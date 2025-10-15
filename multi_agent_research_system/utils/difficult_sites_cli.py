@@ -72,12 +72,12 @@ def cmd_list(args):
         print(f"\nTotal sites: {len(sites)}")
 
         # Show level distribution
-        level_counts = {0: 0, 1: 0, 2: 0, 3: 0}
+        level_counts = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}
         for site in sites.values():
             level_counts[site.level] += 1
 
         print("\nLevel Distribution:")
-        level_names = ["Basic (0)", "Enhanced (1)", "Advanced (2)", "Stealth (3)"]
+        level_names = ["Basic (0)", "Enhanced (1)", "Advanced (2)", "Stealth (3)", "Permanent Block (4)"]
         for i, (count, name) in enumerate(zip(level_counts.values(), level_names)):
             if count > 0:
                 print(f"  {name}: {count} sites")
@@ -95,12 +95,13 @@ def cmd_add(args):
     manager = get_escalation_manager()
 
     # Validate level
-    if not 0 <= args.level <= 3:
-        print(f"❌ Error: Level must be 0-3, got {args.level}")
+    if not 0 <= args.level <= 4:
+        print(f"❌ Error: Level must be 0-4, got {args.level}")
         print("  0 = Basic (Basic SERP API and simple crawl)")
         print("  1 = Enhanced (Enhanced headers + JavaScript rendering)")
         print("  2 = Advanced (Advanced proxy rotation + browser automation)")
         print("  3 = Stealth (Stealth mode with full browser simulation)")
+        print("  4 = Permanent Block (Do not attempt to crawl - poor content quality)")
         return 1
 
     # Add the site
@@ -292,6 +293,7 @@ Anti-bot Levels:
   1 = Enhanced (Enhanced headers + JavaScript rendering)
   2 = Advanced (Advanced proxy rotation + browser automation)
   3 = Stealth (Stealth mode with full browser simulation)
+  4 = Permanent Block (Do not attempt to crawl - poor content quality)
         """
     )
 
@@ -309,7 +311,7 @@ Anti-bot Levels:
     # Add command
     add_parser = subparsers.add_parser('add', help='Add a new difficult site')
     add_parser.add_argument('domain', help='Domain name (e.g., linkedin.com)')
-    add_parser.add_argument('level', type=int, help='Anti-bot level (0-3)')
+    add_parser.add_argument('level', type=int, help='Anti-bot level (0-4)')
     add_parser.add_argument('reason', help='Reason for the difficulty level')
 
     # Remove command

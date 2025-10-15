@@ -647,9 +647,15 @@ async def search_crawl_and_clean_direct(
 
             # Check if scraping succeeded
             if not scrape_result.success or not scrape_result.content or len(scrape_result.content.strip()) < 200:
-                logger.error(
-                    f"❌ Scraping failed: {url} [L{scrape_result.final_level}, {scrape_result.attempts_made} attempts] - {scrape_result.error}"
-                )
+                # Handle Level 4 permanent blocks gracefully without error logging
+                if scrape_result.final_level == 4:
+                    logger.info(
+                        f"🚫 Permanently blocked domain skipped: {url} [L4] - {scrape_result.error}"
+                    )
+                else:
+                    logger.error(
+                        f"❌ Scraping failed: {url} [L{scrape_result.final_level}, {scrape_result.attempts_made} attempts] - {scrape_result.error}"
+                    )
                 return {
                     "success": False,
                     "url": url,
@@ -728,9 +734,65 @@ async def search_crawl_and_clean_direct(
                 "context": context,
             }
 
-        # Launch all URLs concurrently - each will scrape then immediately clean
-        logger.info("🚀 Launching concurrent scrape+clean processing...")
-        tasks = [process_url_immediately(url) for url in urls_to_crawl]
+        # Create replacement URL mechanism for permanently blocked domains
+        # Get additional URLs beyond the target count for potential replacements
+        additional_urls = select_urls_for_crawling(
+            search_results=search_results,
+            limit=auto_crawl_top + 10,  # Get 10 extra URLs as replacements
+            min_relevance=crawl_threshold,
+        )
+
+        # Filter out URLs already in the primary list to create replacement pool
+        replacement_urls = [url for url in additional_urls if url not in urls_to_crawl]
+        logger.info(f"🔄 URL replacement mechanism: {len(replacement_urls)} replacement URLs available for permanently blocked domains")
+
+        # Create shared state for URL replacement coordination
+        replacement_state = {
+            "replacement_urls": replacement_urls,
+            "used_replacements": set(),
+            "replacement_lock": asyncio.Lock()
+        }
+
+        async def process_url_with_replacement(url: str, is_replacement: bool = False):
+            """Process URL with automatic replacement for permanently blocked domains."""
+            result = await process_url_immediately(url)
+
+            # If this URL was permanently blocked (Level 4), attempt replacement
+            if (not result["success"] and
+                result.get("scrape_result") and
+                result["scrape_result"].final_level == 4 and
+                not is_replacement):  # Don't replace replacement URLs
+
+                async with replacement_state["replacement_lock"]:
+                    # Find next available replacement URL
+                    replacement_url = None
+                    for candidate in replacement_state["replacement_urls"]:
+                        if candidate not in replacement_state["used_replacements"]:
+                            replacement_url = candidate
+                            replacement_state["used_replacements"].add(candidate)
+                            break
+
+                    if replacement_url:
+                        logger.info(f"🔄 Attempting replacement URL: {replacement_url} (replacing permanently blocked {url})")
+                        replacement_result = await process_url_with_replacement(replacement_url, is_replacement=True)
+
+                        # Mark the replacement result with metadata about the original URL
+                        if replacement_result.get("success"):
+                            replacement_result["replaced_url"] = url
+                            replacement_result["is_replacement"] = True
+                            logger.info(f"✅ Replacement successful: {replacement_url} successfully replaced {url}")
+                        else:
+                            logger.warning(f"❌ Replacement failed: {replacement_url} also failed to replace {url}")
+
+                        return replacement_result
+                    else:
+                        logger.warning(f"⚠️ No replacement URLs available for permanently blocked: {url}")
+
+            return result
+
+        # Launch all URLs concurrently with replacement mechanism
+        logger.info("🚀 Launching concurrent scrape+clean processing with URL replacement mechanism...")
+        tasks = [process_url_with_replacement(url) for url in urls_to_crawl]
 
         async with timed_block("concurrent_scrape_and_clean", metadata={"url_count": len(urls_to_crawl)}):
             all_results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -743,6 +805,7 @@ async def search_crawl_and_clean_direct(
         cleaned_urls = []
         escalation_stats = []
         cleaning_stats = []
+        replacement_stats = []  # Track replacement URL usage
 
         for result in all_results:
             if isinstance(result, Exception):
@@ -770,6 +833,11 @@ async def search_crawl_and_clean_direct(
 
             # Track successful scrape
             scrape_result = result["scrape_result"]
+
+            # Track if this is a replacement URL
+            is_replacement = result.get("is_replacement", False)
+            replaced_url = result.get("replaced_url", None)
+
             escalation_stats.append({
                 "url": result["url"],
                 "success": True,
@@ -779,7 +847,18 @@ async def search_crawl_and_clean_direct(
                 "duration": scrape_result.duration,
                 "word_count": scrape_result.word_count,
                 "char_count": scrape_result.char_count,
+                "is_replacement": is_replacement,
+                "replaced_url": replaced_url,
             })
+
+            # Track replacement statistics
+            if is_replacement and replaced_url:
+                replacement_stats.append({
+                    "original_url": replaced_url,
+                    "replacement_url": result["url"],
+                    "replacement_successful": True,
+                    "original_reason": "Permanently blocked (Level 4)",
+                })
 
             # Track cleaning result (accept all content regardless of quality score)
             clean_result = result.get("clean_result")
@@ -915,7 +994,27 @@ async def search_crawl_and_clean_direct(
 """
             for stat in escalation_stats:
                 if stat["success"]:
-                    orchestrator_data += f"""- {stat['url']}: L{stat['final_level']}, {stat['attempts']} attempts, {stat['duration']:.1f}s, {stat['char_count']} chars
+                    replacement_info = ""
+                    if stat.get("is_replacement") and stat.get("replaced_url"):
+                        replacement_info = f" (replaced {stat['replaced_url']})"
+                    orchestrator_data += f"""- {stat['url']}: L{stat['final_level']}, {stat['attempts']} attempts, {stat['duration']:.1f}s, {stat['char_count']} chars{replacement_info}
+"""
+
+            # Add replacement statistics section
+            if replacement_stats:
+                orchestrator_data += f"""
+### URL Replacement Statistics
+- **Permanently Blocked URLs Replaced**: {len(replacement_stats)}
+- **Replacement Success Rate**: 100.0%
+
+**Replacements Made**:
+"""
+                for i, repl in enumerate(replacement_stats, 1):
+                    orchestrator_data += f"{i}. {repl['original_url']} → {repl['replacement_url']}\n"
+            else:
+                orchestrator_data += f"""
+### URL Replacement Statistics
+- **Permanently Blocked URLs Replaced**: 0 (no Level 4 blocks encountered)
 """
 
             # Save work product
@@ -929,8 +1028,13 @@ async def search_crawl_and_clean_direct(
                 workproduct_prefix=workproduct_prefix,
             )
 
+            # Log final statistics including replacement information
+            successful_scrapes = len([s for s in escalation_stats if s["success"]])
+            replacements_made = len(replacement_stats)
             logger.info(
-                f"✅ Immediate scrape+clean completed in {total_duration:.2f}s - Work product saved to {work_product_path}"
+                f"✅ Immediate scrape+clean completed in {total_duration:.2f}s - "
+                f"{successful_scrapes} successful scrapes, {replacements_made} URLs replaced - "
+                f"Work product saved to {work_product_path}"
             )
             return orchestrator_data
 

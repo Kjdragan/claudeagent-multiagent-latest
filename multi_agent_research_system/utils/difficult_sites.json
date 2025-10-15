@@ -74,6 +74,46 @@
       "level": 1,
       "reason": "Review site with moderate anti-bot measures",
       "last_updated": "2025-10-09T08:37:00Z"
+    },
+    "independent.co.uk": {
+      "level": 4,
+      "reason": "Permanently blocked - consistently produces poor quality scrapes with excessive navigation/boilerplate content (52k+ chars of noise)",
+      "last_updated": "2025-10-15T13:45:00Z"
+    },
+    "livemint.com": {
+      "level": 4,
+      "reason": "Permanently blocked - consistently unable to extract article content, returns 'Unable to extract article content' errors",
+      "last_updated": "2025-10-15T13:45:00Z"
+    },
+    "atlanticcouncil.org": {
+      "level": 4,
+      "reason": "Permanently blocked - consistently returns minimal content (78 chars), title-only extraction, poor content quality",
+      "last_updated": "2025-10-15T13:45:00Z"
+    },
+    "www.independent.co.uk": {
+      "level": 4,
+      "reason": "Permanently blocked - consistently produces poor quality scrapes with excessive navigation/boilerplate content (52k+ chars of noise)",
+      "last_updated": "2025-10-15T13:45:00Z"
+    },
+    "www.livemint.com": {
+      "level": 4,
+      "reason": "Permanently blocked - consistently unable to extract article content, returns 'Unable to extract article content' errors",
+      "last_updated": "2025-10-15T13:45:00Z"
+    },
+    "www.atlanticcouncil.org": {
+      "level": 4,
+      "reason": "Permanently blocked - consistently returns minimal content (78 chars), title-only extraction, poor content quality",
+      "last_updated": "2025-10-15T13:45:00Z"
+    },
+    "understandingwar.org": {
+      "level": 4,
+      "reason": "Permanently blocked - consistently produces excessive navigation/boilerplate content (64k+ chars of noise), poor content quality",
+      "last_updated": "2025-10-15T15:30:00Z"
+    },
+    "www.understandingwar.org": {
+      "level": 4,
+      "reason": "Permanently blocked - consistently produces excessive navigation/boilerplate content (64k+ chars of noise), poor content quality",
+      "last_updated": "2025-10-15T15:30:00Z"
     }
   },
   "metadata": {
@@ -84,15 +124,17 @@
       "0": "Basic - Basic SERP API and simple crawl",
       "1": "Enhanced - Enhanced headers + JavaScript rendering",
       "2": "Advanced - Advanced proxy rotation + browser automation",
-      "3": "Stealth - Stealth mode with full browser simulation"
+      "3": "Stealth - Stealth mode with full browser simulation",
+      "4": "Permanent Block - Do not attempt to crawl (poor content quality)"
     },
     "usage_stats": {
-      "total_sites": 15,
+      "total_sites": 23,
       "level_distribution": {
         "0": 0,
         "1": 3,
         "2": 8,
-        "3": 4
+        "3": 4,
+        "4": 8
       }
     }
   }

@@ -37,6 +37,7 @@ class AntiBotLevel(Enum):
     ENHANCED = 1  # Enhanced headers + JavaScript rendering
     ADVANCED = 2  # Advanced proxy rotation + browser automation
     STEALTH = 3  # Stealth mode with full browser simulation
+    PERMANENT_BLOCK = 4  # Permanent block - do not attempt to crawl
 
 
 @dataclass
@@ -79,8 +80,8 @@ class DifficultSite:
 
     def __post_init__(self):
         """Validate the difficult site configuration."""
-        if not 0 <= self.level <= 3:
-            raise ValueError(f"Anti-bot level must be 0-3, got {self.level}")
+        if not 0 <= self.level <= 4:
+            raise ValueError(f"Anti-bot level must be 0-4, got {self.level}")
         if not self.domain:
             raise ValueError("Domain cannot be empty")
 
@@ -166,7 +167,7 @@ class DifficultSitesManager:
 
         Args:
             domain: The domain to add
-            level: Anti-bot level (0-3)
+            level: Anti-bot level (0-4)
             reason: Reason for the difficulty level
 
         Returns:
@@ -220,7 +221,7 @@ class DifficultSitesManager:
         Returns:
             Dictionary with configuration statistics
         """
-        level_counts = {0: 0, 1: 0, 2: 0, 3: 0}
+        level_counts = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0}
         for site in self._difficult_sites.values():
             level_counts[site.level] += 1
 
@@ -306,6 +307,22 @@ class AntiBotEscalationManager:
             # Determine optimal starting level based on domain history
             optimal_start = self._get_optimal_start_level(domain, initial_level)
             current_level = optimal_start
+
+            # Check if domain is permanently blocked (Level 4)
+            if current_level == AntiBotLevel.PERMANENT_BLOCK.value:
+                duration = (datetime.now() - start_time).total_seconds()
+                error_msg = f"Domain '{domain}' is permanently blocked (Level 4)"
+                logger.info(f"🚫 PERMANENT BLOCK: {url} - {error_msg}")
+
+                return EscalationResult(
+                    url=url,
+                    success=False,
+                    error=error_msg,
+                    duration=duration,
+                    attempts_made=0,
+                    final_level=AntiBotLevel.PERMANENT_BLOCK.value,
+                    escalation_used=False,
+                )
 
             logger.info(f"Starting crawl escalation for {url} at level {current_level}")
 
@@ -526,6 +543,7 @@ class AntiBotEscalationManager:
                 cache_mode=CacheMode.BYPASS,
                 check_robots_txt=False,
                 remove_overlay_elements=True,
+                exclude_all_images=True,  # Exclude images from work products
             )
 
         elif level == AntiBotLevel.ENHANCED.value:
@@ -538,6 +556,7 @@ class AntiBotEscalationManager:
                 magic=True,
                 wait_for="body",
                 page_timeout=30000,
+                exclude_all_images=True,  # Exclude images from work products
             )
 
         elif level == AntiBotLevel.ADVANCED.value:
@@ -551,6 +570,7 @@ class AntiBotEscalationManager:
                 wait_until="domcontentloaded",
                 page_timeout=45000,
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                exclude_all_images=True,  # Exclude images from work products
             )
 
         else:  # STEALTH
@@ -571,6 +591,7 @@ class AntiBotEscalationManager:
                 ],
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 css_selector="main, article, .content, .article-body, .post-content",
+                exclude_all_images=True,  # Exclude images from work products
             )
 
         # Add content filtering if requested

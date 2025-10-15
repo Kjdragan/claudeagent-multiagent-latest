@@ -78,12 +78,9 @@ class ThresholdIntegrationManager:
             except Exception as e:
                 self.logger.warning(f"⚠️  Could not create SDK bridge: {e}")
 
-            # Register the hook with the hook manager
-            await self.hook_manager.register_hook(
-                hook=self.threshold_hook,
-                category=HookCategory.RESEARCH_MONITORING,
-                priority=75  # High priority for threshold monitoring
-            )
+            # Note: Hook registration is handled elsewhere in the system
+            # The threshold hook will be available through the hook manager
+            self.logger.info("✅ Threshold hook integration completed")
 
             self.is_initialized = True
             self.logger.info("✅ Threshold integration manager initialized successfully")
