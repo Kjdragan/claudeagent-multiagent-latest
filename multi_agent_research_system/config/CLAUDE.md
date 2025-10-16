@@ -858,22 +858,80 @@ def test_environment_overrides():
     assert settings.enhanced_search.default_anti_bot_level == 2
 ```
 
+## Critical Configuration Issues
+
+### Tool Registration Problems ❌
+
+**Issue**: Corpus tools are defined in `enhanced_agents.py:285-425` but never registered with the SDK client
+
+**Root Causes**:
+- Tools are behind an `if SDK_AVAILABLE` guard that prevents registration
+- Missing MCP server creation with `create_sdk_mcp_server()`
+- Missing `mcp_servers` and `allowed_tools` configuration in SDK options
+- Tool definitions exist but are not integrated into the runtime
+
+**Impact**: Enhanced report agent fails hook validation because required corpus tools are not available
+
+**Files Affected**:
+- `config/enhanced_agents.py` (tool definitions exist but not registered)
+- Missing: `mcp_tools/corpus_tools.py` (proper MCP server implementation)
+- Missing: `core/sdk_client_manager.py` (SDK client with corpus server registration)
+
+### SDK Integration Gaps ❌
+
+**Current Status**:
+- ✅ Search tools properly registered and functional
+- ❌ Corpus tools defined but never registered
+- ❌ Agent definitions reference non-existent tools
+- ❌ No SDK client manager for proper tool registration
+
+### Hook Validation Configuration Issues ❌
+
+**Problem**: Hook validation system requires tools that agents don't have access to
+
+**Required Tools (Missing from Agent Toolkit)**:
+- `build_research_corpus`
+- `analyze_research_corpus`
+- `synthesize_from_corpus`
+- `generate_comprehensive_report`
+
+**Available Tools (Used Instead)**:
+- `get_session_data`
+- `create_research_report`
+- `Write`
+
 ## System Status
 
-### Current Implementation Status: ✅ Functional Configuration System
+### Current Implementation Status: ⚠️ Partially Functional Configuration System
 
-- **Multi-Layer Configuration**: Working integration of legacy, SDK, and enhanced configurations
-- **Environment Variable Support**: Comprehensive environment variable management
-- **Path Management**: Environment-aware path detection and session-based organization
-- **Agent Definitions**: Claude Agent SDK integration with tool configuration
-- **Validation System**: Configuration validation with error handling and fallbacks
-- **Debug Support**: Comprehensive debugging information and validation tools
+- **Multi-Layer Configuration**: ✅ Working integration of legacy, SDK, and enhanced configurations
+- **Environment Variable Support**: ✅ Comprehensive environment variable management
+- **Path Management**: ✅ Environment-aware path detection and session-based organization
+- **Agent Definitions**: ⚠️ Claude Agent SDK integration with tool configuration (tools missing registration)
+- **Validation System**: ⚠️ Configuration validation works, but hook validation fails due to missing tools
+- **Debug Support**: ✅ Comprehensive debugging information and validation tools
+
+### Critical Issues Requiring Immediate Fix
+
+1. **Tool Registration Failure**: Corpus tools exist but aren't registered with SDK client
+2. **SDK Integration Gap**: Missing MCP server creation and SDK options configuration
+3. **Hook Validation Mismatch**: Required tools don't exist in agent toolkits
+4. **Coroutine Usage**: Tool wrappers call async functions without await
+5. **No Error Recovery**: System cannot proceed when validation fails
 
 ### Known Limitations
 
 - **Multiple Configuration Systems**: Multiple overlapping configuration implementations
 - **Complex Integration**: Complex integration between legacy and enhanced configurations
-- **Documentation Gaps**: Some configuration options lack comprehensive documentation
+- **Tool Registration Gap**: Critical missing piece preventing end-to-end workflows
 - **Testing Coverage**: Limited test coverage for all configuration scenarios
 
-This documentation reflects the actual configuration system implementation based on analysis of the real code files in the directory.
+### Next Steps for Configuration System
+
+1. **Implement Corpus MCP Server**: Create proper MCP server for corpus tools
+2. **Fix SDK Client Registration**: Register corpus server with SDK options
+3. **Update Agent Definitions**: Include corpus tools in agent configurations
+4. **Add Error Recovery**: Implement fallback strategies for validation failures
+5. **Test Integration**: Validate that all tools are properly registered and functional
+
+This documentation reflects the actual configuration system implementation based on analysis of the real code files and critical issues identified in the current system state.
