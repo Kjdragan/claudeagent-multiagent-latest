@@ -145,6 +145,7 @@ class ComprehensiveResearchCLI:
             # Import required SDK components
             from claude_agent_sdk import create_sdk_mcp_server, ClaudeAgentOptions, ClaudeSDKClient
             from claude_agent_sdk import tool
+            from claude_agent_sdk import AgentDefinition
             import sys
             import os
 
@@ -153,24 +154,33 @@ class ComprehensiveResearchCLI:
             if str(project_root) not in sys.path:
                 sys.path.insert(0, str(project_root))
 
-            # Import the search servers
+            # Import the search server creation functions and agent definitions
             try:
-                from multi_agent_research_system.mcp_tools.zplayground1_search import zplayground1_server
-                from multi_agent_research_system.mcp_tools.enhanced_search_scrape_clean import enhanced_search_server
-                self.logger.info("✅ Imported search servers")
+                from multi_agent_research_system.mcp_tools.zplayground1_search import create_zplayground1_mcp_server
+                from multi_agent_research_system.mcp_tools.enhanced_search_scrape_clean import create_enhanced_search_mcp_server
+                from multi_agent_research_system.config.agents import get_research_agent_definition
+                self.logger.info("✅ Imported search server creation functions and agent definitions")
             except ImportError as e:
-                self.logger.error(f"❌ Failed to import search servers: {e}")
+                self.logger.error(f"❌ Failed to import components: {e}")
                 raise
 
-            # Use the imported server configuration
-            search_server = zplayground1_server
-            self.logger.info("✅ Using zplayground1 search MCP server")
+            # Get the research agent definition
+            research_agent_def = get_research_agent_definition()
+            self.logger.info("✅ Loaded research agent definition")
+
+            # Create the MCP servers
+            zplayground1_server = create_zplayground1_mcp_server()
+            enhanced_search_server = create_enhanced_search_mcp_server()
+            self.logger.info("✅ Created MCP servers")
 
             # Configure agent options with both search servers
             options = ClaudeAgentOptions(
                 mcp_servers={
-                    "search": search_server,
+                    "search": zplayground1_server,
                     "enhanced_search": enhanced_search_server
+                },
+                agents={
+                    "research_agent": research_agent_def
                 },
                 allowed_tools=[
                     "mcp__search__zplayground1_search_scrape_clean",
@@ -181,11 +191,11 @@ class ComprehensiveResearchCLI:
                 max_turns=50,
                 continue_conversation=True  # Enable agent state and message sharing
             )
-            self.logger.info("✅ Configured Claude agent options")
+            self.logger.info("✅ Configured Claude agent options with research agent")
 
             # Create client
             self.client = ClaudeSDKClient(options=options)
-            self.logger.info("✅ Claude SDK client created with search tool")
+            self.logger.info("✅ Claude SDK client created with search tool and research agent")
 
         except Exception as e:
             self.logger.error(f"❌ Failed to initialize SDK client: {e}")
@@ -662,29 +672,26 @@ class ComprehensiveResearchCLI:
             research_prompt = f"""
             You are a research specialist. Your task is to conduct comprehensive research on: {query}
 
-            Please use the enhanced_search_server tool to gather relevant information about this topic.
-            The tool will help you search for and analyze content from multiple sources.
+            **IMPORTANT**: You MUST use the search tool to gather information. Use the available tool:
+            mcp__search__zplayground1_search_scrape_clean
+
+            This tool will perform complete search, scraping, and content cleaning in one operation.
 
             CRITICAL PARAMETER REQUIREMENTS:
             1. ALWAYS include session_id: "{session_id}" exactly as provided
-            2. For search_type parameter, use: "{mode_param}" (NOT "comprehensive")
-            3. Valid search_type values are: "web" or "news" only
+            2. For search_mode parameter, use: "{mode_param}" (NOT "comprehensive")
+            3. Valid search_mode values are: "web" or "news" only
 
-            CORRECT Tool usage example:
-            enhanced_search_scrape_clean({{
+            **EXACT TOOL CALL TO MAKE:**
+            mcp__search__zplayground1_search_scrape_clean({{
                 "query": "{query}",
                 "session_id": "{session_id}",
-                "search_type": "{mode_param}",
-                "num_results": 30,
-                "auto_crawl_top": 20,
-                "max_concurrent": 15,
-                "crawl_threshold": 0.1
+                "search_mode": "{mode_param}",
+                "num_results": 15,
+                "anti_bot_level": 1
             }})
 
-            WRONG - DO NOT USE:
-            - search_mode (use search_type instead)
-            - "comprehensive" as a value (use "web" or "news")
-            - High crawl_threshold values (use 0.1 to ensure sufficient URLs for crawling)
+            **DO NOT USE**: Any other tool names or parameters
 
             **IMPORTANT - SUCCESS THRESHOLD:**
             - Stop making additional search calls after you achieve 10+ successful scrapes
@@ -706,9 +713,23 @@ class ComprehensiveResearchCLI:
             Remember: Quality over quantity - stop when you have sufficient research (10+ successful scrapes).
             """
 
-            # Send query to SDK client with proper session ID
-            self.logger.info(f"🔄 Sending research query to SDK client with session_id: {session_id}")
-            await self.client.query(research_prompt, session_id=session_id)
+            # Execute research agent with proper session ID
+            self.logger.info(f"🔄 Executing research agent with session_id: {session_id}")
+
+            # Create a task for the research agent
+            research_task = f"""
+            Research the following topic: {query}
+
+            Session ID: {session_id}
+            Mode: {mode}
+
+            Use the mcp__search__zplayground1_search_scrape_clean tool to conduct comprehensive research.
+            Set search_mode to "{mode}" and num_results to 15.
+            Make sure to include the session_id parameter.
+            """
+
+            # Use the research agent with the correct SDK method
+            await self.client.query(research_task, session_id=session_id)
 
             # Collect response messages using proper streaming iteration
             collected_messages = []
@@ -919,7 +940,7 @@ This is a fallback response as the full agent-based processing encountered issue
         """Generate targeted URLs using SERP API"""
         try:
             # For now, return empty list - this will be enhanced later
-            # The enhanced_search_scrape_clean tool will handle URL generation internally
+            # The zplayground1_search_scrape_clean tool will handle URL generation internally
             self.logger.info("URL generation delegated to research tool")
             return []
 

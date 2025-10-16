@@ -16,6 +16,100 @@ The Multi-Agent Research System is a functional AI-powered platform that deliver
 - **Basic Quality Assessment**: Simple scoring and feedback mechanisms
 - **URL Replacement System**: Handles permanently blocked domains through replacement
 
+## MCP Tool Setup for Claude Agent SDK
+
+### Critical Learning: Tool Registration and Agent Configuration
+
+Through debugging the research pipeline, we discovered that MCP (Model Context Protocol) tools require **three critical components** to work properly with agents in the Claude Agent SDK:
+
+#### 1. MCP Server Registration
+MCP servers must be registered with the SDK client:
+```python
+from claude_agent_sdk import ClaudeAgentOptions
+from multi_agent_research_system.mcp_tools.zplayground1_search import zplayground1_server
+
+options = ClaudeAgentOptions(
+    mcp_servers={
+        "search": zplayground1_server,  # Register the MCP server
+        "enhanced_search": enhanced_search_server
+    }
+)
+```
+
+#### 2. Agent Definition with Tools
+Agents must be properly defined with the correct tools in their `AgentDefinition`:
+```python
+from claude_agent_sdk import AgentDefinition
+
+def get_research_agent_definition() -> AgentDefinition:
+    return AgentDefinition(
+        description="Research Agent specializing in web research",
+        prompt="You are a Research Agent...",
+        tools=[
+            "mcp__search__zplayground1_search_scrape_clean",  # Correct tool name
+            "analyze_sources",
+            "generate_report"
+        ],
+        model="sonnet"
+    )
+```
+
+#### 3. Allowed Tools Configuration
+Tools must be explicitly allowed in the `ClaudeAgentOptions`:
+```python
+options = ClaudeAgentOptions(
+    mcp_servers={"search": zplayground1_server},
+    agents={"research_agent": research_agent_def},
+    allowed_tools=[
+        "mcp__search__zplayground1_search_scrape_clean",  # Must match MCP tool name
+        "mcp__enhanced_search__enhanced_search_scrape_clean",
+        "mcp__enhanced_search__enhanced_news_search"
+    ]
+)
+```
+
+### Tool Naming Convention
+
+MCP tools are automatically prefixed with the server name:
+- **Server Name**: `zplayground1_search_scrape_clean`
+- **MCP Key**: `"search"`
+- **Final Tool Name**: `mcp__search__zplayground1_search_scrape_clean`
+
+The pattern is: `mcp__{mcp_key}__{tool_name}`
+
+### Agent Execution Pattern
+
+Agents must be executed using the correct SDK method:
+```python
+# Register agent with client
+client = ClaudeSDKClient(options=options)
+
+# Execute agent (method name varies by SDK version)
+await client.execute_agent("research_agent", task, session_id=session_id)
+# OR
+await client.run_agent("research_agent", task, session_id=session_id)
+# OR
+await client.query(task, agent="research_agent", session_id=session_id)
+```
+
+### Common Pitfalls
+
+1. **Tool Name Mismatch**: Agent definition tool names must match the actual MCP tool names
+2. **Missing Agent Registration**: Agents must be registered in the `agents` parameter
+3. **Missing Allowed Tools**: Tools must be listed in `allowed_tools` parameter
+4. **Wrong Execution Method**: Different SDK versions use different method names
+
+### Debugging Checklist
+
+When MCP tools are not working with agents:
+
+1. ✅ Verify MCP server is properly imported and registered
+2. ✅ Check agent definition includes correct tool names
+3. ✅ Confirm tools are listed in `allowed_tools`
+4. ✅ Verify agent is registered in `agents` parameter
+5. ✅ Check tool name follows `mcp__{key}__{name}` pattern
+6. ✅ Test with correct SDK method name for agent execution
+
 ## Key Components
 
 ### Core System Architecture

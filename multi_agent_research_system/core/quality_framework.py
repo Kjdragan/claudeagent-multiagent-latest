@@ -46,6 +46,7 @@ class QualityAssessment:
     weaknesses: list[str]
     actionable_recommendations: list[str]
     enhancement_priority: list[tuple[str, int]]  # (criterion_name, priority_score)
+    recommendations: list[str]  # MISSING FIELD - ADDING TO FIX ATTRIBUTE ERROR
 
     def get_criterion_score(self, criterion_name: str) -> int:
         """Get the score for a specific criterion."""
@@ -74,7 +75,8 @@ class QualityAssessment:
             "strengths": self.strengths,
             "weaknesses": self.weaknesses,
             "actionable_recommendations": self.actionable_recommendations,
-            "enhancement_priority": self.enhancement_priority
+            "enhancement_priority": self.enhancement_priority,
+            "recommendations": self.recommendations  # ADD MISSING FIELD
         }
 
 
@@ -996,7 +998,8 @@ class QualityFramework:
             strengths=strengths,
             weaknesses=weaknesses,
             actionable_recommendations=prioritized_recommendations,
-            enhancement_priority=enhancement_priority
+            enhancement_priority=enhancement_priority,
+            recommendations=prioritized_recommendations  # Add missing field
         )
 
     def determine_quality_level(self, score: int) -> QualityLevel:

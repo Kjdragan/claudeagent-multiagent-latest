@@ -1035,7 +1035,7 @@ class ResearchOrchestrator:
         session_id: str | None = None,
         timeout_seconds: int = 120
     ) -> dict[str, Any]:
-        """Execute a query using natural language agent selection (CORRECT PATTERN).
+        """Execute a query using natural language agent selection with enhanced report agent hooks.
 
         Args:
             agent_name: Name of the agent to use
@@ -1049,7 +1049,13 @@ class ResearchOrchestrator:
         if not self.client:
             raise RuntimeError("Client not initialized. Call initialize() first.")
 
-        # Construct natural language agent selection prompt
+        # ENHANCED: Use hook-enabled enhanced report agent for report generation
+        if agent_name == "report_agent":
+            return await self._execute_enhanced_report_agent_query(
+                prompt, session_id, timeout_seconds
+            )
+
+        # Construct natural language agent selection prompt for other agents
         full_prompt = f"Use the {agent_name} agent to {prompt}"
 
         self.logger.info(f"🔍 Querying {agent_name} with natural language selection")
@@ -1063,7 +1069,8 @@ class ResearchOrchestrator:
             "tool_executions": [],
             "errors": [],
             "query_start_time": datetime.now().isoformat(),
-            "success": False
+            "success": False,
+            "enhanced_mode": False  # Flag to indicate if enhanced mode was used
         }
 
         try:
@@ -1115,6 +1122,166 @@ class ResearchOrchestrator:
             query_result["success"] = False
             query_result["query_end_time"] = datetime.now().isoformat()
             self.logger.error(f"❌ {agent_name} query failed: {e}")
+            raise
+
+    async def _execute_enhanced_report_agent_query(
+        self,
+        prompt: str,
+        session_id: str | None,
+        timeout_seconds: int
+    ) -> dict[str, Any]:
+        """Execute enhanced report agent query with corpus-based tools and hook validation.
+
+        Args:
+            prompt: The task prompt for the enhanced report agent
+            session_id: Session ID for tracking and corpus access
+            timeout_seconds: Query timeout in seconds
+
+        Returns:
+            Dict with query results including hook validation and corpus usage
+        """
+        self.logger.info(f"🎯 Using Enhanced Report Agent with hooks for session {session_id}")
+
+        query_result = {
+            "agent_name": "enhanced_report_agent",
+            "session_id": session_id,
+            "prompt_sent": prompt,
+            "messages_collected": [],
+            "substantive_responses": 0,
+            "tool_executions": [],
+            "hook_validations": [],
+            "corpus_usage": {},
+            "errors": [],
+            "query_start_time": datetime.now().isoformat(),
+            "success": False,
+            "enhanced_mode": True  # Flag to indicate enhanced mode was used
+        }
+
+        try:
+            # Construct enhanced prompt that emphasizes corpus usage and hook compliance
+            enhanced_prompt = f"""You are the Enhanced Report Agent with advanced corpus-based tools and hook validation.
+
+TASK: {prompt}
+
+MANDATORY WORKFLOW:
+1. Use build_research_corpus tool to create structured corpus from session data
+2. Use analyze_research_corpus tool to validate corpus quality  
+3. Use synthesize_from_corpus tool to generate content synthesis
+4. Use generate_comprehensive_report tool to create final report
+5. Ensure all hooks validate successfully (data integration, citations, quality scores)
+
+HOOK VALIDATION REQUIREMENTS:
+- Corpus must exist and have sufficient quality (minimum 0.7 score)
+- Report must integrate multiple sources with proper citations
+- Template responses are BLOCKED by validation hooks
+- Quality scores must meet minimum thresholds
+- All mandatory steps must be executed
+
+Session ID: {session_id}
+"""
+
+            # Send enhanced query to client
+            await self.client.query(enhanced_prompt)
+
+            # Collect responses with enhanced tracking
+            corpus_built = False
+            corpus_analyzed = False
+            synthesis_completed = False
+            report_generated = False
+
+            async for message in self.client.receive_response():
+                message_info = {
+                    "message_type": type(message).__name__,
+                    "timestamp": datetime.now().isoformat()
+                }
+
+                # Extract content information
+                if hasattr(message, 'content') and message.content:
+                    content_texts = []
+                    for block in message.content:
+                        if hasattr(block, 'text') and block.text:
+                            content_texts.append(block.text)
+                    if content_texts:
+                        message_info["content_texts"] = content_texts
+                        query_result["substantive_responses"] += 1
+
+                # Extract tool use information with enhanced tracking
+                tool_executions, hook_validations = self._extract_tool_executions_from_message(
+                    message, "enhanced_report_agent", session_id
+                )
+                
+                if tool_executions:
+                    message_info["tool_use"] = tool_executions[0]
+                    query_result["tool_executions"].extend(tool_executions)
+
+                    # Track corpus workflow progress
+                    for tool in tool_executions:
+                        tool_name = tool.get("name", "")
+                        if tool_name == "build_research_corpus" and tool.get("success"):
+                            corpus_built = True
+                            query_result["corpus_usage"]["corpus_id"] = tool.get("result", {}).get("corpus_id")
+                            query_result["corpus_usage"]["total_chunks"] = tool.get("result", {}).get("total_chunks", 0)
+                            query_result["corpus_usage"]["sources_processed"] = tool.get("result", {}).get("total_sources", 0)
+                            
+                        elif tool_name == "analyze_research_corpus" and tool.get("success"):
+                            corpus_analyzed = True
+                            quality_score = tool.get("result", {}).get("overall_quality_score", 0)
+                            query_result["corpus_usage"]["quality_score"] = quality_score
+                            query_result["corpus_usage"]["ready_for_synthesis"] = quality_score >= 0.7
+                            
+                        elif tool_name == "synthesize_from_corpus" and tool.get("success"):
+                            synthesis_completed = True
+                            query_result["corpus_usage"]["synthesis_quality"] = tool.get("result", {}).get("quality_score", 0)
+                            
+                        elif tool_name == "generate_comprehensive_report" and tool.get("success"):
+                            report_generated = True
+                            query_result["corpus_usage"]["report_quality"] = tool.get("result", {}).get("estimated_quality_score", 0)
+                            query_result["corpus_usage"]["sources_integrated"] = tool.get("result", {}).get("sources_integrated", 0)
+
+                if hook_validations:
+                    message_info["hook_validations"] = hook_validations
+                    query_result["hook_validations"].extend(hook_validations)
+
+                query_result["messages_collected"].append(message_info)
+
+                # Stop when we get ResultMessage (conversation complete)
+                if hasattr(message, 'total_cost_usd'):
+                    self.logger.debug("ResultMessage received, stopping collection")
+                    break
+
+                # Safety limit to prevent infinite loops
+                if len(query_result["messages_collected"]) >= 50:
+                    self.logger.warning(f"Message limit reached for enhanced report agent query")
+                    break
+
+            # Evaluate workflow completion
+            workflow_complete = (
+                corpus_built and corpus_analyzed and synthesis_completed and report_generated
+            )
+            
+            if workflow_complete:
+                query_result["success"] = True
+                self.logger.info(f"✅ Enhanced Report Agent workflow completed successfully")
+                self.logger.info(f"   Corpus: {query_result['corpus_usage'].get('corpus_id', 'N/A')}")
+                self.logger.info(f"   Sources: {query_result['corpus_usage'].get('sources_processed', 0)}")
+                self.logger.info(f"   Quality: {query_result['corpus_usage'].get('quality_score', 0):.3f}")
+            else:
+                query_result["success"] = False
+                query_result["errors"].append("Enhanced workflow incomplete")
+                self.logger.warning(f"⚠️ Enhanced Report Agent workflow incomplete:")
+                self.logger.warning(f"   Corpus built: {corpus_built}")
+                self.logger.warning(f"   Corpus analyzed: {corpus_analyzed}")
+                self.logger.warning(f"   Synthesis completed: {synthesis_completed}")
+                self.logger.warning(f"   Report generated: {report_generated}")
+
+            query_result["query_end_time"] = datetime.now().isoformat()
+            return query_result
+
+        except Exception as e:
+            query_result["errors"].append(str(e))
+            query_result["success"] = False
+            query_result["query_end_time"] = datetime.now().isoformat()
+            self.logger.error(f"❌ Enhanced Report Agent query failed: {e}")
             raise
 
     def _extract_quality_indicators(self, research_result: dict[str, Any]) -> dict[str, Any]:

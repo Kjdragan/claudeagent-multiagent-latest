@@ -93,6 +93,37 @@ class HooksConfiguration:
         "manage_agent_state"
     ])
 
+    # Enhanced report agent hooks
+    report_agent_hooks: List[str] = field(default_factory=lambda: [
+        "validate_research_data_usage",
+        "enforce_citation_requirements",
+        "validate_data_integration",
+        "quality_score_validation",
+        "track_research_pipeline_compliance",
+        "validate_report_quality_standards",
+        "prevent_template_responses",
+        "ensure_corpus_based_generation"
+    ])
+
+    # Flow adherence enforcement hooks
+    flow_adherence_enforcement_hooks: List[str] = field(default_factory=lambda: [
+        "validate_gap_research_completion",
+        "enforce_mandatory_research_execution",
+        "detect_compliance_violations",
+        "auto_correct_workflow_violations",
+        "ensure_corpus_based_generation",
+        "prevent_template_responses",
+        "enforce_source_integration"
+    ])
+
+    # Hook enforcement configuration
+    enable_hook_enforcement: bool = True
+    hook_failure_action: Literal["warn", "retry", "fail", "escalate"] = "retry"
+    max_hook_retry_attempts: int = 3
+    hook_timeout_seconds: float = 30.0
+    log_hook_failures: bool = True
+    enable_hook_performance_tracking: bool = True
+
 
 @dataclass
 class ObservabilityConfiguration:

@@ -515,6 +515,7 @@ async def search_crawl_and_clean_direct(
     anti_bot_level: int = 1,
     workproduct_dir: str = None,
     workproduct_prefix: str = "",
+    auto_build_corpus: bool = True,  # New parameter for automatic corpus building
 ) -> str:
     """
     Combined search, crawl, and clean operation using zPlayground1 technology.
@@ -522,8 +523,9 @@ async def search_crawl_and_clean_direct(
     This function:
     1. Performs search + crawl + clean in a single optimized flow
     2. Saves detailed work product to workproducts directory
-    3. Returns full detailed data for orchestrator agent analysis
-    4. Uses parallel processing and anti-bot detection
+    3. Automatically builds research corpus for enhanced report agents (NEW)
+    4. Returns full detailed data for orchestrator agent analysis
+    5. Uses parallel processing and anti-bot detection
 
     Args:
         query: Search query
@@ -536,6 +538,7 @@ async def search_crawl_and_clean_direct(
         anti_bot_level: Progressive anti-bot level (0-3)
         workproduct_dir: Directory for work products
         workproduct_prefix: Prefix for workproduct naming (e.g., "editor research")
+        auto_build_corpus: Whether to automatically build research corpus (NEW)
 
     Returns:
         Full detailed content for orchestrator agent processing
@@ -543,7 +546,7 @@ async def search_crawl_and_clean_direct(
     try:
         start_time = datetime.now()
         logger.info(
-            f"Starting enhanced search+crawl+clean for query: '{query}' (anti_bot_level: {anti_bot_level})"
+            f"Starting enhanced search+crawl+clean for query: '{query}' (anti_bot_level: {anti_bot_level}, auto_build_corpus: {auto_build_corpus})"
         )
 
         # Initialize performance timer for this session
@@ -1028,6 +1031,41 @@ async def search_crawl_and_clean_direct(
                 workproduct_prefix=workproduct_prefix,
             )
 
+            # NEW: Step 6 - Automatic corpus building with hook validation
+            corpus_info = ""
+            if auto_build_corpus and len(cleaned_content_list) > 0:
+                try:
+                    logger.info(f"🏗️ Building research corpus from {len(cleaned_content_list)} sources...")
+                    
+                    # Import and use ResearchCorpusManager
+                    from utils.research_corpus_manager import ResearchCorpusManager
+
+                    corpus_manager = ResearchCorpusManager(session_id=session_id)
+                    corpus_data = await corpus_manager.build_corpus_from_workproduct(work_product_path)
+                    
+                    corpus_info = f"""
+### Research Corpus Information (NEW)
+- **Corpus ID**: {corpus_data['corpus_id']}
+- **Total Content Chunks**: {corpus_data['total_chunks']}
+- **Sources Processed**: {corpus_data['metadata']['total_sources']}
+- **Content Coverage**: {corpus_data['metadata']['content_coverage']:.2%}
+- **Average Relevance Score**: {corpus_data['metadata']['average_relevance_score']:.3f}
+- **Corpus File**: {corpus_data['corpus_file']}
+- **Ready for Enhanced Report Agent**: ✅ Yes (quality score: {corpus_data['metadata']['average_relevance_score']:.3f})
+
+🎯 **Enhanced Report Agent can now use corpus-based tools to generate data-driven reports with hook validation!**
+"""
+                    logger.info(f"✅ Research corpus built successfully: {corpus_data['corpus_id']} ({corpus_data['total_chunks']} chunks)")
+                    
+                except Exception as corpus_error:
+                    logger.warning(f"⚠️ Failed to build research corpus: {corpus_error}")
+                    corpus_info = f"""
+### Research Corpus Information (NEW)
+- **Status**: ❌ Failed to build corpus
+- **Error**: {str(corpus_error)}
+- **Fallback**: Report agent can still use standard processing
+"""
+
             # Log final statistics including replacement information
             successful_scrapes = len([s for s in escalation_stats if s["success"]])
             replacements_made = len(replacement_stats)
@@ -1036,6 +1074,10 @@ async def search_crawl_and_clean_direct(
                 f"{successful_scrapes} successful scrapes, {replacements_made} URLs replaced - "
                 f"Work product saved to {work_product_path}"
             )
+            
+            # Add corpus information to the final output
+            orchestrator_data += corpus_info
+            
             return orchestrator_data
 
         else:
@@ -1053,6 +1095,25 @@ async def search_crawl_and_clean_direct(
                 workproduct_prefix=workproduct_prefix,
             )
 
+            # Try to build corpus even with no cleaned content (for search results only)
+            corpus_info = ""
+            if auto_build_corpus:
+                try:
+                    from utils.research_corpus_manager import ResearchCorpusManager
+                    corpus_manager = ResearchCorpusManager(session_id=session_id)
+                    corpus_data = await corpus_manager.build_corpus_from_workproduct(work_product_path)
+                    
+                    corpus_info = f"""
+### Research Corpus Information (NEW)
+- **Corpus ID**: {corpus_data['corpus_id']}
+- **Total Content Chunks**: {corpus_data['total_chunks']}
+- **Sources Processed**: {corpus_data['metadata']['total_sources']}
+- **Content Coverage**: {corpus_data['metadata']['content_coverage']:.2%}
+- **Ready for Enhanced Report Agent**: ✅ Limited (search results only)
+"""
+                except Exception as corpus_error:
+                    logger.warning(f"Failed to build corpus from search results only: {corpus_error}")
+
             failed_result = f"""{search_section}
 
 ---
@@ -1061,6 +1122,7 @@ async def search_crawl_and_clean_direct(
 **Anti-Bot Level**: {anti_bot_level}
 **Execution Time**: {total_duration:.2f}s
 **Work Product Saved**: {work_product_path}
+{corpus_info}
 """
 
             logger.warning(

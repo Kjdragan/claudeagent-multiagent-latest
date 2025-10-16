@@ -14,15 +14,21 @@ from dataclasses import dataclass
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 try:
-    from claude_agent_sdk import AgentDefinition
-except ImportError:
-    # Fallback class for when the SDK is not available
-    print("Warning: claude_agent_sdk not found. Using fallback AgentDefinition class.")
+    # Try to import from global context first (main script already imported it)
+    import importlib
+    AgentDefinition = importlib.import_module('claude_agent_sdk').AgentDefinition
+except (ImportError, AttributeError):
+    try:
+        # Fallback to direct import
+        from claude_agent_sdk import AgentDefinition
+    except ImportError:
+        # Fallback class for when the SDK is not available
+        print("Warning: claude_agent_sdk not found. Using fallback AgentDefinition class.")
 
-    @dataclass
-    class AgentDefinition:
-        description: str
-        prompt: str
+        @dataclass
+        class AgentDefinition:
+            description: str
+            prompt: str
         tools: list[str] | None = None
         model: str = "sonnet"
 
@@ -51,15 +57,16 @@ Research Standards:
 - Gather sufficient depth to support comprehensive reporting
 
 MANDATORY RESEARCH PROCESS:
-1. IMMEDIATELY execute: conduct_research with the research topic
-2. Set num_results to 15 for comprehensive coverage
-3. Set auto_crawl_top to 8 for detailed content extraction
-4. Set crawl_threshold to 0.3 for relevance filtering
-5. Save research findings using save_report
-6. Create structured search results using create_research_report
+1. IMMEDIATELY execute: mcp__search__zplayground1_search_scrape_clean with the research topic
+2. Set search_mode to "web" for comprehensive coverage
+3. Set num_results to 15 for comprehensive coverage
+4. Set anti_bot_level to 1 for basic anti-bot detection
+5. Set session_id to your current session ID
+6. The tool will automatically save research findings to your session directory
+7. Create structured reports using create_research_report with the search results
 
 Available Tools:
-- conduct_research: **PRIMARY TOOL** - Comprehensive research including web search, content extraction, and analysis
+- mcp__search__zplayground1_search_scrape_clean: **PRIMARY TOOL** - Real web search with SERP API, content crawling, and AI cleaning
 - analyze_sources: Source credibility analysis and validation
 - generate_report: Transform research findings into structured reports
 - save_report: Save reports with proper formatting
@@ -68,48 +75,47 @@ Available Tools:
 - Read/Write/Edit: Save and organize research findings
 - Bash: Execute commands for data processing if needed
 
-🚀 **INTELLIGENT RESEARCH SYSTEM**:
-✅ conduct_research tool handles all research complexity internally
-✅ Comprehensive web search with intelligent content extraction
-✅ Source validation and credibility analysis
-✅ AI content cleaning and relevance filtering
-✅ Smart compression to stay within token limits
-✅ Complete work product generation
-✅ Single tool call with all intelligence built-in
+🚀 **REAL SEARCH PIPELINE**:
+✅ mcp__search__zplayground1_search_scrape_clean uses actual SERP API
+✅ Real web crawling with Crawl4AI and anti-bot detection
+✅ GPT-5-nano powered content cleaning and relevance filtering
+✅ Automatic workproduct generation and session storage
+✅ Real search results from actual websites
+✅ Complete research pipeline in a single tool call
 
 🔧 **RESEARCH EXECUTION**:
-- **PRIMARY**: Use conduct_research for comprehensive research
+- **PRIMARY**: Use mcp__search__zplayground1_search_scrape_clean for real web research
 - **ANALYSIS**: Use analyze_sources for source credibility validation
 - **GENERATION**: Use generate_report to transform findings into structured reports
 - **SAVING**: Use save_report to persist research findings
 - **SESSION ACCESS**: Use get_session_data to access session information
 
 RESEARCH EXECUTION SEQUENCE:
-1. **PRIMARY**: Execute conduct_research immediately upon receiving topic
-2. **ANALYSIS**: Use analyze_sources to validate source credibility
+1. **PRIMARY**: Execute mcp__search__zplayground1_search_scrape_clean immediately upon receiving topic
+2. **ANALYSIS**: Use analyze_sources to validate source credibility from search results
 3. **GENERATION**: Create structured reports using generate_report
 4. **SAVING**: Persist findings using save_report
 5. **SESSION ACCESS**: Access session data using get_session_data
 6. **SUCCESS REQUIREMENT**: Ensure research generates valid content for downstream processing
 
 PROCESS RELIABILITY REQUIREMENTS:
-- **RETRY LOGIC**: If conduct_research fails, try with different parameters or approach
+- **RETRY LOGIC**: If mcp__search__zplayground1_search_scrape_clean fails, try with different parameters or approach
 - **ERROR HANDLING**: If primary research method fails, immediately try alternative approaches
 - **SUCCESS VALIDATION**: Ensure you actually retrieve content before considering research complete
 - **PROGRESSIVE ENHANCEMENT**: Start with broad research, then analyze sources for credibility
 - **COORDINATION**: Save research in structured format that other agents can easily read using get_session_data
 - **SESSION TRACKING**: Monitor your research usage and stay within session limits
 
-REQUIREMENTS: You must generate actual research content with specific facts, data points, sources, and analysis. Save your findings using save_report for other agents to access via get_session_data. IMPORTANT: Always use .md file extensions for all generated content. Do not acknowledge the task - EXECUTE the research.
+REQUIREMENTS: You must generate actual research content with specific facts, data points, sources, and analysis. The MCP tool will automatically save findings to your session directory for other agents to access via get_session_data. IMPORTANT: Always use .md file extensions for all generated content. Do not acknowledge the task - EXECUTE the research.
 
 FAILURE RECOVERY:
-- If conduct_research fails, try with different query terms or narrower scope
+- If mcp__search__zplayground1_search_scrape_clean fails, try with different query terms or narrower scope
 - Always ensure some research content is generated, even if limited
 - Document any research limitations but focus on what you can achieve
 
 Always provide source attribution, confidence levels, and organize findings for easy use by other agents.""",
         tools=[
-            "conduct_research",
+            "mcp__search__zplayground1_search_scrape_clean",
             "analyze_sources",
             "generate_report",
             "save_report",
@@ -203,7 +209,6 @@ FAILURE RECOVERY:
 
 Always prioritize depth, accuracy, clarity, and logical organization. Generate reports that demonstrate thorough research analysis and professional writing standards.""",
         tools=[
-            "conduct_research",
             "analyze_sources",
             "generate_report",
             "save_report",

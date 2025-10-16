@@ -431,10 +431,10 @@ class DecoupledEditorialAgent:
             next_steps.append("Consider additional research to fill content gaps")
             next_steps.append("Review and enhance content completeness")
 
-        if quality_assessment.criteria_scores.get('clarity', 100) < 70:
+        if quality_assessment.get_criterion_score('clarity') < 70:
             next_steps.append("Improve content clarity and readability")
 
-        if quality_assessment.criteria_scores.get('depth', 100) < 70:
+        if quality_assessment.get_criterion_score('depth') < 70:
             next_steps.append("Add more detailed analysis and examples")
 
         if quality_assessment.overall_score >= 85:

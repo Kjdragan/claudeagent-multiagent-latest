@@ -1,4 +1,4 @@
-"""Custom tools for the research system using Claude Agent SDK @tool decorator.
+"""Custom tools for the research system using Claude Agent SDK @sdk_tool decorator.
 
 This module defines specialized tools that agents can use for research,
 report generation, and coordination tasks.
@@ -41,18 +41,25 @@ except ImportError:
     _logger = None
 
 try:
-    from claude_agent_sdk import tool
-except ImportError:
-    # Fallback decorator for when the SDK is not available
-    import sys
-    print("Warning: claude_agent_sdk not found. Using fallback tool decorator.")
+    # Try to import from global context first (main script already imported it)
+    import importlib
+    sdk_tool = importlib.import_module('claude_agent_sdk').tool
+except (ImportError, AttributeError):
     try:
-        # Try to import logging from the core module
-        sys.path.append(os.path.dirname(__file__))
-        from .logging_config import get_logger
-        get_logger("research_tools").warning("Using fallback tool decorator - SDK not available")
+        # Fallback to direct import
+        from claude_agent_sdk import tool
+        sdk_tool = tool
     except ImportError:
-        pass
+        # Fallback decorator for when the SDK is not available
+        import sys
+        print("Warning: claude_agent_sdk not found. Using fallback tool decorator.")
+        try:
+            # Try to import logging from the core module
+            sys.path.append(os.path.dirname(__file__))
+            from .logging_config import get_logger
+            get_logger("research_tools").warning("Using fallback tool decorator - SDK not available")
+        except ImportError:
+            pass
 
     def tool(name: str, description: str, params_schema: dict):
         """Fallback tool decorator for when SDK is not available."""
@@ -65,7 +72,7 @@ except ImportError:
 
 
 # Research Tools
-@tool("conduct_research", "Conduct comprehensive research on a specified topic", {
+@sdk_tool("conduct_research", "Conduct comprehensive research on a specified topic", {
     "topic": str,
     "depth": str,
     "focus_areas": list[str],
@@ -134,7 +141,7 @@ async def conduct_research(args: dict[str, Any]) -> dict[str, Any]:
         _logger.info(f"Research completed for topic: {topic}, found {len(research_result['findings'])} findings")
 
 
-@tool("analyze_sources", "Analyze and validate the credibility of research sources", {
+@sdk_tool("analyze_sources", "Analyze and validate the credibility of research sources", {
     "sources": list[dict[str, Any]]
 })
 async def analyze_sources(args: dict[str, Any]) -> dict[str, Any]:
@@ -170,7 +177,7 @@ async def analyze_sources(args: dict[str, Any]) -> dict[str, Any]:
 
 
 # Report Generation Tools
-@tool("generate_report", "Generate a structured report from research findings", {
+@sdk_tool("generate_report", "Generate a structured report from research findings", {
     "research_data": dict[str, Any],
     "format": str,
     "audience": str,
@@ -211,7 +218,7 @@ async def generate_report(args: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@tool("revise_report", "Revise and improve a report based on feedback", {
+@sdk_tool("revise_report", "Revise and improve a report based on feedback", {
     "current_report": dict[str, Any],
     "feedback": list[str],
     "additional_research": Optional[dict[str, Any]]
@@ -241,7 +248,7 @@ async def revise_report(args: dict[str, Any]) -> dict[str, Any]:
 
 
 # Editor Tools
-@tool("review_report", "Review and assess report quality", {
+@sdk_tool("review_report", "Review and assess report quality", {
     "report": dict[str, Any],
     "review_criteria": list[str]
 })
@@ -298,7 +305,7 @@ async def review_report(args: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@tool("identify_research_gaps", "Identify information gaps that need additional research", {
+@sdk_tool("identify_research_gaps", "Identify information gaps that need additional research", {
     "report": dict[str, Any],
     "required_completeness": str
 })
@@ -332,7 +339,7 @@ async def identify_research_gaps(args: dict[str, Any]) -> dict[str, Any]:
 
 
 # Coordination Tools
-@tool("manage_session", "Manage research session state and progress", {
+@sdk_tool("manage_session", "Manage research session state and progress", {
     "session_id": str,
     "action": str,
     "data": dict[str, Any]
@@ -376,7 +383,7 @@ async def manage_session(args: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@tool("save_report", "Save report to file system with proper formatting", {
+@sdk_tool("save_report", "Save report to file system with proper formatting", {
     "report": dict[str, Any],
     "session_id": str,
     "format": str,
@@ -463,7 +470,7 @@ def convert_to_markdown(report: dict[str, Any], format_type: str = "markdown") -
 
 
 # Session Management Tools
-@tool("get_session_data", "Access research data and session information", {
+@sdk_tool("get_session_data", "Access research data and session information", {
     "session_id": str,
     "data_type": str
 })
@@ -638,7 +645,7 @@ async def get_session_data(args: dict[str, Any]) -> dict[str, Any]:
         }
 
 
-@tool("create_research_report", "Create and save comprehensive reports", {
+@sdk_tool("create_research_report", "Create and save comprehensive reports", {
     "report_type": str,
     "content": str,
     "session_id": str,

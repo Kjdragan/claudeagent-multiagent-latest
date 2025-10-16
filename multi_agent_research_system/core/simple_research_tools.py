@@ -32,17 +32,25 @@ except ImportError:
     _logger = None
 
 try:
-    from claude_agent_sdk import tool
-except ImportError:
-    # Fallback decorator for when the SDK is not available
-    def tool(name, description, parameters):
-        def decorator(func):
-            return func
-        return decorator
-    print("Warning: claude_agent_sdk not found. Using fallback tool decorator.")
+    # Try to import from global context first (main script already imported it)
+    import importlib
+    sdk_tool = importlib.import_module('claude_agent_sdk').tool
+except (ImportError, AttributeError):
+    try:
+        # Fallback to direct import
+        from claude_agent_sdk import tool
+        sdk_tool = tool
+    except ImportError:
+        # Fallback decorator for when the SDK is not available
+        def tool(name, description, parameters):
+            def decorator(func):
+                return func
+            return decorator
+        sdk_tool = tool
+        print("Warning: claude_agent_sdk not found. Using fallback tool decorator.")
 
 
-@tool("save_research_findings", "Save research findings to session storage", {
+@sdk_tool("save_research_findings", "Save research findings to session storage", {
     "topic": str,
     "findings": str,
     "sources": str,
@@ -102,7 +110,7 @@ async def save_research_findings(args: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@tool("create_research_report", "Create formatted report content and provide the filepath where it should be saved", {
+@sdk_tool("create_research_report", "Create formatted report content and provide the filepath where it should be saved", {
     "topic": str,
     "content": str,
     "session_id": str,
@@ -213,7 +221,7 @@ The Write tool will automatically create any necessary directories."""
     }
 
 
-@tool("get_session_data", "Retrieve data from a research session", {
+@sdk_tool("get_session_data", "Retrieve data from a research session", {
     "session_id": str,
     "data_type": str
 })
@@ -371,7 +379,7 @@ async def get_session_data(args: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@tool("request_gap_research", "Request orchestrator to execute gap-filling research for identified information gaps", {
+@sdk_tool("request_gap_research", "Request orchestrator to execute gap-filling research for identified information gaps", {
     "gaps": list[str],
     "session_id": str,
     "priority": str,

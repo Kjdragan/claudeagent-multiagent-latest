@@ -32,19 +32,27 @@ except ImportError:
     _logger = None
 
 try:
-    from claude_agent_sdk import tool
-except ImportError:
-    # Fallback decorator for when the SDK is not available
-    def tool(name, description, parameters):
-        def decorator(func):
-            return func
-        return decorator
-    print("Warning: claude_agent_sdk not found. Using fallback tool decorator.")
+    # Try to import from global context first (main script already imported it)
+    import importlib
+    sdk_tool = importlib.import_module('claude_agent_sdk').tool
+except (ImportError, AttributeError):
+    try:
+        # Fallback to direct import
+        from claude_agent_sdk import tool
+        sdk_tool = tool
+    except ImportError:
+        # Fallback decorator for when the SDK is not available
+        def tool(name, description, parameters):
+            def decorator(func):
+                return func
+            return decorator
+        sdk_tool = tool
+        print("Warning: claude_agent_sdk not found. Using fallback tool decorator.")
 
 
 
 
-@tool("save_webfetch_content", "Save WebFetch content with source URLs", {
+@sdk_tool("save_webfetch_content", "Save WebFetch content with source URLs", {
     "url": str,
     "content": str,
     "session_id": str,
@@ -101,7 +109,7 @@ async def save_webfetch_content(args: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@tool("create_search_verification_report", "Create verification report showing real search vs LLM content", {
+@sdk_tool("create_search_verification_report", "Create verification report showing real search vs LLM content", {
     "topic": str,
     "session_id": str,
     "verification_data": str
