@@ -790,6 +790,17 @@ class ResearchOrchestrator:
                         "Read", "Write", "Glob", "Grep"
                     ]
 
+                    # CRITICAL FIX: Add corpus tools for report agent
+                    if agent_name == "report_agent":
+                        corpus_tools = [
+                            "mcp__corpus__build_research_corpus",
+                            "mcp__corpus__analyze_research_corpus",
+                            "mcp__corpus__synthesize_from_corpus",
+                            "mcp__corpus__generate_comprehensive_report"
+                        ]
+                        extended_tools.extend(corpus_tools)
+                        self.logger.info("✅ Corpus tools added to report_agent (CRITICAL FIX)")
+
                 # Add zPlayground1 search tool if available
                 if zplayground1_server is not None:
                     zplayground1_tools = [
@@ -826,6 +837,19 @@ class ResearchOrchestrator:
             else:
                 self.logger.warning("⚠️ Enhanced search MCP server not available, using standard tools")
 
+            # CRITICAL FIX: Add corpus server following existing pattern
+            try:
+                from multi_agent_research_system.mcp_tools.corpus_tools import corpus_server
+                if corpus_server is not None:
+                    mcp_servers_config["corpus"] = corpus_server
+                    self.logger.info("✅ Corpus MCP server added to configuration (CRITICAL FIX)")
+                else:
+                    self.logger.error("❌ Corpus MCP server not available - report generation will fail")
+
+            except Exception as e:
+                self.logger.error(f"❌ Failed to import corpus server: {e}")
+                self.logger.warning("⚠️ Report generation will fail due to missing corpus tools")
+
             # Create single options with all agents configured properly - WORKING PATTERN
             options = ClaudeAgentOptions(
                 agents=agents_config,
@@ -839,7 +863,12 @@ class ResearchOrchestrator:
                     "mcp__research_tools__save_research_findings",
                     "mcp__research_tools__create_research_report",
                     "mcp__research_tools__get_session_data",
-                    "mcp__research_tools__serp_search"
+                    "mcp__research_tools__serp_search",
+                    # CRITICAL FIX: Add corpus tools that were missing
+                    "mcp__corpus__build_research_corpus",
+                    "mcp__corpus__analyze_research_corpus",
+                    "mcp__corpus__synthesize_from_corpus",
+                    "mcp__corpus__generate_comprehensive_report"
                 ],
                 # Debugging features
                 stderr=self._create_debug_callback("multi_agent"),

@@ -15,6 +15,7 @@ Key Features:
 import json
 import os
 import re
+import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -37,15 +38,20 @@ class ResearchCorpusManager:
         self.standardizer = ResearchDataStandardizer()
         self.research_corpus_path = f"KEVIN/sessions/{session_id}/research_corpus.json"
 
-    async def build_corpus_from_workproduct(self, workproduct_path: str) -> dict:
+    async def build_corpus_from_workproduct(self, workproduct_path: str, corpus_id: Optional[str] = None) -> dict:
         """Build structured corpus from existing search workproduct."""
 
         try:
+            # CRITICAL FIX: Generate corpus_id if not provided (was missing)
+            if corpus_id is None:
+                corpus_id = f"corpus_{uuid.uuid4().hex[:12]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
             # 1. Parse existing workproduct using ResearchDataStandardizer
             parsed_data = self.standardizer.parse_search_workproduct(workproduct_path)
 
-            # 2. Create enhanced corpus structure
+            # 2. Create enhanced corpus structure with CRITICAL FIX: include corpus_id
             corpus = {
+                "corpus_id": corpus_id,  # CRITICAL FIX: Was missing
                 "session_id": self.session_id,
                 "build_timestamp": datetime.now().isoformat(),
                 "workproduct_path": workproduct_path,
@@ -55,13 +61,37 @@ class ResearchCorpusManager:
                 "key_findings": self._extract_key_findings(parsed_data),
                 "topic_summary": self._generate_topic_summary(parsed_data),
                 "source_analysis": self._analyze_source_diversity(parsed_data),
-                "quality_metrics": self._calculate_quality_metrics(parsed_data)
+                "quality_metrics": self._calculate_quality_metrics(parsed_data),
+                # CRITICAL FIX: Add comprehensive metadata that was missing
+                "metadata": {
+                    "total_sources": 0,  # Will be calculated below
+                    "total_chunks": 0,  # Will be calculated below
+                    "word_count": 0,  # Will be calculated below
+                    "quality_score": 0.0,  # Will be calculated below
+                    "last_updated": datetime.now().isoformat(),
+                    "corpus_path": self.research_corpus_path
+                }
             }
+
+            # CRITICAL FIX: Calculate and populate metadata that was missing
+            sources = corpus.get("sources", [])
+            content_chunks = corpus.get("content_chunks", [])
+
+            corpus["metadata"]["total_sources"] = len(sources)
+            corpus["metadata"]["total_chunks"] = len(content_chunks)
+            corpus["metadata"]["word_count"] = sum(
+                len(source.get("cleaned_content", "").split()) for source in sources
+            )
+            corpus["metadata"]["quality_score"] = corpus.get("quality_metrics", {}).get("overall_score", 0.0)
 
             # 3. Save structured corpus for agent access
             await self._save_corpus(corpus)
 
             print(f"✅ Research corpus built: {len(corpus.get('sources', []))} sources, {len(corpus.get('content_chunks', []))} chunks")
+            print(f"✅ Corpus ID: {corpus_id}")
+            print(f"✅ Total words: {corpus['metadata']['word_count']}")
+            print(f"✅ Quality score: {corpus['metadata']['quality_score']:.2f}")
+
             return corpus
 
         except Exception as e:
