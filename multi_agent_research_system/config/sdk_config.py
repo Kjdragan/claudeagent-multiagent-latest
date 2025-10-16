@@ -310,7 +310,7 @@ class ClaudeAgentSDKConfig:
         """Load configuration from environment variables."""
         # API keys
         self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY") or self.anthropic_api_key
-        self.serper_api_key = os.getenv("SERPER_API_KEY") or self.serper_api_key
+        self.serper_api_key = os.getenv("SERP_API_KEY") or self.serper_api_key
         self.openai_api_key = os.getenv("OPENAI_API_KEY") or self.openai_api_key
 
         # Environment
@@ -399,7 +399,7 @@ class ClaudeAgentSDKConfig:
             if not self.anthropic_api_key:
                 missing_keys.append("ANTHROPIC_API_KEY")
             if not self.serper_api_key:
-                missing_keys.append("SERPER_API_KEY")
+                missing_keys.append("SERP_API_KEY")
 
             if missing_keys:
                 raise ValueError(f"Missing required API keys for production: {missing_keys}")

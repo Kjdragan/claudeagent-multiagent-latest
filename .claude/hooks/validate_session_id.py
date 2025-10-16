@@ -6,7 +6,10 @@ This hook validates session IDs to ensure they follow the expected UUID format
 and prevents the creation of date-based session IDs that cause file organization issues.
 """
 
+import argparse
+import json
 import re
+import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -291,11 +294,120 @@ def post_session_creation(context: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def main():
+    """Main hook function with argument parsing for Claude Code integration."""
+    parser = argparse.ArgumentParser(description='Validate session ID format and structure')
+    parser.add_argument('--validate-session-id', action='store_true',
+                       help='Validate session ID from stdin input')
+    parser.add_argument('--session-id', type=str,
+                       help='Session ID to validate directly')
+
+    args = parser.parse_args()
+
+    try:
+        if args.session_id:
+            # Direct session ID validation
+            session_id = args.session_id
+            validation_result = validate_session_id(session_id)
+
+            print(f"Session ID validation for: {session_id}")
+            print(f"Valid: {validation_result['valid']}")
+            if validation_result['valid']:
+                print(f"Format: {validation_result.get('format', 'unknown')}")
+                print(f"Reason: {validation_result['reason']}")
+            else:
+                print(f"Error: {validation_result['error']}")
+                if 'corrected_id' in validation_result:
+                    print(f"Suggested correction: {validation_result['corrected_id']}")
+                print(f"Suggestion: {validation_result['suggestion']}")
+
+            # Exit with appropriate code
+            sys.exit(0 if validation_result['valid'] else 1)
+
+        elif args.validate_session_id:
+            # Read session ID from stdin with robust UTF-8 handling
+            try:
+                # Try reading with UTF-8 encoding first
+                input_bytes = sys.stdin.buffer.read()
+                if input_bytes:
+                    # Decode with UTF-8 and error handling
+                    input_text = input_bytes.decode('utf-8', errors='replace').strip()
+
+                    # Parse JSON if it looks like JSON
+                    try:
+                        input_data = json.loads(input_text)
+                        session_id = input_data.get('session_id') or input_data.get('id', '')
+                    except json.JSONDecodeError:
+                        # Treat as plain text session ID
+                        session_id = input_text
+                else:
+                    # No input, check latest session
+                    sessions_dir = Path("KEVIN/sessions")
+                    if sessions_dir.exists():
+                        latest_sessions = sorted([d.name for d in sessions_dir.iterdir() if d.is_dir()],
+                                              reverse=True)
+                        if latest_sessions:
+                            session_id = latest_sessions[0]
+                        else:
+                            print("No sessions found to validate")
+                            sys.exit(0)
+                    else:
+                        print("No sessions directory found")
+                        sys.exit(0)
+
+            except Exception as e:
+                print(f"Error reading input: {e}")
+                sys.exit(1)
+
+            if not session_id:
+                print("No session ID provided")
+                sys.exit(1)
+
+            # Validate the session ID
+            validation_result = validate_session_id(session_id)
+
+            print(f"✅ Session ID validation for: {session_id}")
+            print(f"   Valid: {validation_result['valid']}")
+            if validation_result['valid']:
+                print(f"   Format: {validation_result.get('format', 'unknown')}")
+                print(f"   Reason: {validation_result['reason']}")
+            else:
+                print(f"   ❌ Error: {validation_result['error']}")
+                if 'corrected_id' in validation_result:
+                    print(f"   💡 Suggested correction: {validation_result['corrected_id']}")
+                print(f"   💡 Suggestion: {validation_result['suggestion']}")
+
+            # Output JSON for potential downstream processing
+            output_result = {
+                "session_id": session_id,
+                "validation": validation_result,
+                "timestamp": datetime.now().isoformat()
+            }
+            print(json.dumps(output_result, indent=2))
+
+            # Exit with appropriate code
+            sys.exit(0 if validation_result['valid'] else 1)
+
+        else:
+            # No valid arguments provided, show help
+            parser.print_help()
+            sys.exit(0)
+
+    except Exception as e:
+        print(f"❌ Session ID validation error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
+
+
 # Export hook functions
 __all__ = [
     "validate_session_id",
     "ensure_session_id_format",
     "validate_session_directory_structure",
     "pre_session_creation",
-    "post_session_creation"
+    "post_session_creation",
+    "main"
 ]

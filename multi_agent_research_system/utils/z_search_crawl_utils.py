@@ -83,22 +83,22 @@ async def execute_serper_search(
     try:
         import httpx
 
-        # FAIL-FAST: Check for correct API key name - must be SERPER_API_KEY
-        serper_api_key = os.getenv("SERPER_API_KEY")  # Note: SERPER_API_KEY, not SERP_API_KEY
+        # FAIL-FAST: Check for correct API key name - must be SERP_API_KEY
+        serp_api_key = os.getenv("SERP_API_KEY")  # Note: SERP_API_KEY, not SERPER_API_KEY
 
-        if not serper_api_key:
+        if not serp_api_key:
             # During development, fail hard and fast with clear error message
-            error_msg = "CRITICAL: SERPER_API_KEY not found in environment variables!"
+            error_msg = "CRITICAL: SERP_API_KEY not found in environment variables!"
             logger.error(f"❌ {error_msg}")
-            logger.error("Search functionality cannot work without SERPER_API_KEY!")
-            logger.error("Expected environment variable: SERPER_API_KEY")
-            logger.error("Set with: export SERPER_API_KEY='your-serper-api-key'")
+            logger.error("Search functionality cannot work without SERP_API_KEY!")
+            logger.error("Expected environment variable: SERP_API_KEY")
+            logger.error("Set with: export SERP_API_KEY='your-serp-api-key'")
 
             # Check if user has the wrong API key name
-            if os.getenv("SERP_API_KEY"):
-                logger.error("🚨 FOUND SERP_API_KEY but system expects SERPER_API_KEY!")
+            if os.getenv("SERPER_API_KEY"):
+                logger.error("🚨 FOUND SERPER_API_KEY but system expects SERP_API_KEY!")
                 logger.error(
-                    "Please rename your environment variable from SERP_API_KEY to SERPER_API_KEY"
+                    "Please rename your environment variable from SERPER_API_KEY to SERP_API_KEY"
                 )
 
             # During development, fail immediately instead of returning empty results
@@ -126,7 +126,7 @@ async def execute_serper_search(
             "hl": language,
         }
 
-        headers = {"X-API-KEY": serper_api_key, "Content-Type": "application/json"}
+        headers = {"X-API-KEY": serp_api_key, "Content-Type": "application/json"}
 
         logger.info(f"Executing {search_type} search for: {query}")
 

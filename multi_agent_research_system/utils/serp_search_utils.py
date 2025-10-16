@@ -170,9 +170,9 @@ async def execute_serp_search(
         List of SearchResult objects
     """
     try:
-        serper_api_key = os.getenv("SERPER_API_KEY")
-        if not serper_api_key:
-            logger.warning("SERPER_API_KEY not found in environment variables")
+        serp_api_key = os.getenv("SERP_API_KEY")
+        if not serp_api_key:
+            logger.warning("SERP_API_KEY not found in environment variables")
             return []
 
         # Choose endpoint based on search type
@@ -194,7 +194,7 @@ async def execute_serp_search(
         }
 
         headers = {
-            "X-API-KEY": serper_api_key,
+            "X-API-KEY": serp_api_key,
             "Content-Type": "application/json"
         }
 
@@ -1121,7 +1121,7 @@ Failed to execute enhanced query search: {str(e)}
 **Session**: {session_id}
 
 **Troubleshooting**:
-- Check SERPER_API_KEY is configured
+- Check SERP_API_KEY is configured
 - Verify network connectivity
 - Ensure query parameters are valid
 

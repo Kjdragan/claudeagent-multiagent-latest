@@ -6,7 +6,9 @@ This hook ensures that session metrics are properly initialized and maintained
 throughout the research workflow to prevent key errors.
 """
 
+import argparse
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
@@ -474,6 +476,131 @@ def post_session_update(context: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def main():
+    """Main hook function with argument parsing for Claude Code integration."""
+    parser = argparse.ArgumentParser(description='Validate and ensure session metrics structure')
+    parser.add_argument('--validate-structure', action='store_true',
+                       help='Validate session metrics structure from stdin')
+    parser.add_argument('--ensure-metrics', action='store_true',
+                       help='Ensure session metrics are properly initialized')
+    parser.add_argument('--session-id', type=str,
+                       help='Session ID to process directly')
+
+    args = parser.parse_args()
+
+    try:
+        if args.session_id:
+            # Process specific session
+            session_id = args.session_id
+            if args.ensure_metrics:
+                # Load and ensure metrics for this session
+                load_result = load_and_validate_session_metadata(session_id)
+                if load_result["metadata"]:
+                    updated_metadata = ensure_session_metrics(load_result["metadata"])
+                    save_result = save_session_metadata_with_validation(session_id, updated_metadata)
+
+                    print(f"✅ Session metrics ensured for: {session_id}")
+                    print(f"   Saved: {save_result['saved']}")
+                    if save_result['saved']:
+                        print(f"   Path: {save_result['metadata_path']}")
+                else:
+                    print(f"❌ Could not load metadata for session: {session_id}")
+                    sys.exit(1)
+            else:
+                # Just validate the session
+                load_result = load_and_validate_session_metadata(session_id)
+                if load_result["metadata"]:
+                    validation = load_result["validation"]
+                    print(f"✅ Session metrics validation for: {session_id}")
+                    print(f"   Valid: {validation['valid']}")
+                    if not validation['valid']:
+                        print(f"   Issues: {len(validation['issues'])}")
+                        for issue in validation['issues']:
+                            print(f"     - {issue['message']}")
+                else:
+                    print(f"❌ Could not load metadata for session: {session_id}")
+                    sys.exit(1)
+
+        elif args.validate_structure or args.ensure_metrics:
+            # Read from stdin with robust UTF-8 handling
+            try:
+                input_bytes = sys.stdin.buffer.read()
+                if input_bytes:
+                    input_text = input_bytes.decode('utf-8', errors='replace').strip()
+
+                    # Parse JSON if it looks like JSON
+                    try:
+                        input_data = json.loads(input_text)
+                    except json.JSONDecodeError:
+                        # Treat as plain text session ID
+                        input_data = {"session_id": input_text.strip()}
+                else:
+                    # No input, check latest session
+                    sessions_dir = Path("KEVIN/sessions")
+                    if sessions_dir.exists():
+                        latest_sessions = sorted([d.name for d in sessions_dir.iterdir() if d.is_dir()],
+                                              reverse=True)
+                        if latest_sessions:
+                            input_data = {"session_id": latest_sessions[0]}
+                        else:
+                            print("No sessions found to process")
+                            sys.exit(0)
+                    else:
+                        print("No sessions directory found")
+                        sys.exit(0)
+
+            except Exception as e:
+                print(f"Error reading input: {e}")
+                sys.exit(1)
+
+            session_id = input_data.get('session_id')
+            if not session_id:
+                print("No session ID provided")
+                sys.exit(1)
+
+            # Process the session
+            if args.ensure_metrics:
+                load_result = load_and_validate_session_metadata(session_id)
+                if load_result["metadata"]:
+                    updated_metadata = ensure_session_metrics(load_result["metadata"])
+                    save_result = save_session_metadata_with_validation(session_id, updated_metadata)
+
+                    print(f"✅ Session metrics ensured for: {session_id}")
+                    print(f"   Saved: {save_result['saved']}")
+                    if save_result['saved']:
+                        print(f"   Path: {save_result['metadata_path']}")
+                else:
+                    print(f"❌ Could not load metadata for session: {session_id}")
+                    sys.exit(1)
+            else:
+                # Validate session metrics across all sessions
+                validation_results = validate_session_metrics_across_sessions()
+
+                print(f"✅ Session metrics validation completed")
+                print(f"   Total sessions: {validation_results['total_sessions']}")
+                print(f"   Valid sessions: {validation_results['valid_sessions']}")
+                print(f"   Sessions needing correction: {validation_results['sessions_needing_correction']}")
+
+                if validation_results['sessions_needing_correction'] > 0:
+                    print(f"   Sessions with issues:")
+                    for session_id, result in validation_results['validation_results'].items():
+                        if result['metadata'] and not result['validation']['valid']:
+                            print(f"     - {session_id}: {len(result['validation']['issues'])} issues")
+
+        else:
+            # No valid arguments provided, show help
+            parser.print_help()
+            sys.exit(0)
+
+    except Exception as e:
+        print(f"❌ Session metrics validation error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
+
+
 # Export hook functions
 __all__ = [
     "validate_session_metrics_structure",
@@ -484,5 +611,6 @@ __all__ = [
     "update_session_metrics",
     "validate_session_metrics_across_sessions",
     "pre_session_update",
-    "post_session_update"
+    "post_session_update",
+    "main"
 ]

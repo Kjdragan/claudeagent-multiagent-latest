@@ -6,7 +6,10 @@ This hook validates content cleaner method calls and ensures the correct
 methods are used for the ModernWebContentCleaner class.
 """
 
+import argparse
 import inspect
+import json
+import sys
 from typing import Any, Dict, Optional, Union
 from pathlib import Path
 
@@ -446,10 +449,148 @@ def pre_method_call(context: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def main():
+    """Main hook function with argument parsing for Claude Code integration."""
+    parser = argparse.ArgumentParser(description='Validate content cleaner usage and methods')
+    parser.add_argument('--check-methods', action='store_true',
+                       help='Check content cleaner methods from stdin')
+    parser.add_argument('--validate-imports', type=str,
+                       help='Validate content cleaner imports in specified file')
+    parser.add_argument('--fix-usage', type=str,
+                       help='Fix content cleaner usage in specified file')
+    parser.add_argument('--dry-run', action='store_true',
+                       help='Dry run for fix-usage (show changes without applying)')
+
+    args = parser.parse_args()
+
+    try:
+        if args.validate_imports:
+            # Validate imports in a specific file
+            file_path = args.validate_imports
+            validation_result = validate_content_cleaner_imports(file_path)
+
+            print(f"✅ Content cleaner import validation for: {file_path}")
+            print(f"   Valid: {validation_result['valid']}")
+
+            if not validation_result['valid']:
+                print(f"   Error: {validation_result.get('error', 'Unknown error')}")
+
+            if validation_result.get('issues'):
+                print(f"   Issues found: {len(validation_result['issues'])}")
+                for issue in validation_result['issues']:
+                    print(f"     - {issue['message']}")
+                    if 'suggestion' in issue:
+                        print(f"       💡 {issue['suggestion']}")
+
+            if validation_result.get('imports'):
+                print(f"   Found imports: {validation_result['imports']}")
+
+            if validation_result.get('method_calls'):
+                print(f"   Method calls found: {len(validation_result['method_calls'])}")
+                for call in validation_result['method_calls']:
+                    print(f"     - Line {call['line']}: {call['method']} in '{call['context']}'")
+
+            sys.exit(0 if validation_result['valid'] else 1)
+
+        elif args.fix_usage:
+            # Fix usage in a specific file
+            file_path = args.fix_usage
+            fix_result = fix_content_cleaner_usage(file_path, dry_run=args.dry_run)
+
+            print(f"✅ Content cleaner usage fix for: {file_path}")
+            print(f"   Fixed: {fix_result['fixed']}")
+            print(f"   Dry run: {fix_result['dry_run']}")
+
+            if fix_result.get('changes_made'):
+                print(f"   Changes made: {len(fix_result['changes_made'])}")
+                for change in fix_result['changes_made']:
+                    if change['type'] == 'method_correction':
+                        print(f"     - Method '{change['incorrect']}' → '{change['correct']}'")
+
+            if not fix_result['fixed'] and 'error' in fix_result:
+                print(f"   Error: {fix_result['error']}")
+
+        elif args.check_methods:
+            # Read method call info from stdin with robust UTF-8 handling
+            try:
+                input_bytes = sys.stdin.buffer.read()
+                if input_bytes:
+                    input_text = input_bytes.decode('utf-8', errors='replace').strip()
+
+                    # Parse JSON if it looks like JSON
+                    try:
+                        input_data = json.loads(input_text)
+                    except json.JSONDecodeError:
+                        # Treat as plain text method name
+                        input_data = {"method_name": input_text.strip()}
+                else:
+                    # No input, show help
+                    print("No method call data provided")
+                    parser.print_help()
+                    sys.exit(0)
+
+            except Exception as e:
+                print(f"Error reading input: {e}")
+                sys.exit(1)
+
+            method_name = input_data.get('method_name')
+            if not method_name:
+                print("No method name provided")
+                sys.exit(1)
+
+            # For demonstration, validate common method patterns
+            incorrect_methods = ["clean_content", "clean", "process_content", "parse_content"]
+            correct_method = "clean_article_content"
+
+            if method_name in incorrect_methods:
+                print(f"❌ Incorrect content cleaner method detected: {method_name}")
+                print(f"   💡 Correct method: {correct_method}")
+                print(f"   💡 Suggestion: Replace '{method_name}' with '{correct_method}'")
+
+                # Output JSON for potential downstream processing
+                result = {
+                    "method_name": method_name,
+                    "valid": False,
+                    "correction": {
+                        "incorrect_method": method_name,
+                        "correct_method": correct_method,
+                        "message": f"Use '{correct_method}' instead of '{method_name}'"
+                    }
+                }
+                print(json.dumps(result, indent=2))
+                sys.exit(1)
+            else:
+                print(f"✅ Content cleaner method validation for: {method_name}")
+                print(f"   Valid: True")
+                print(f"   Reason: Method name appears correct")
+
+                result = {
+                    "method_name": method_name,
+                    "valid": True,
+                    "reason": "Method name appears valid"
+                }
+                print(json.dumps(result, indent=2))
+                sys.exit(0)
+
+        else:
+            # No valid arguments provided, show help
+            parser.print_help()
+            sys.exit(0)
+
+    except Exception as e:
+        print(f"❌ Content cleaner validation error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
+
+
 # Export hook functions
 __all__ = [
     "validate_modern_web_content_cleaner_usage",
     "validate_content_cleaner_imports",
     "fix_content_cleaner_usage",
-    "pre_method_call"
+    "pre_method_call",
+    "main"
 ]

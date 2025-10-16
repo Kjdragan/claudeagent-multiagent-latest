@@ -137,8 +137,32 @@ def main():
                 sys.exit(0)  # Exit gracefully, not as an error
 
   
-        # Read JSON input from stdin
-        input_data = json.loads(sys.stdin.read())
+        # Read JSON input from stdin with robust UTF-8 handling
+        try:
+            # Try reading with UTF-8 encoding first
+            input_bytes = sys.stdin.buffer.read()
+            if not input_bytes:
+                raise ValueError("No input data provided")
+
+            # Decode with UTF-8 and error handling
+            input_text = input_bytes.decode('utf-8', errors='replace').strip()
+        except (AttributeError, UnicodeDecodeError):
+            # Fallback to standard read with encoding handling
+            try:
+                with sys.stdin as f:
+                    input_text = f.read().strip()
+            except UnicodeDecodeError:
+                # Last resort: read as bytes and decode loosely
+                input_text = sys.stdin.buffer.read().decode('utf-8', errors='replace').strip()
+
+        if not input_text:
+            raise ValueError("No input data provided")
+
+        # Parse JSON with error handling
+        try:
+            input_data = json.loads(input_text)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON input: {e}. Input data: {input_text[:200]}...")
 
         # Validate project environment
         if not validate_project_environment(current_dir):

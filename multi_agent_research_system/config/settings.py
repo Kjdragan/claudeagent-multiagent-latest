@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     google_api_key: Optional[str] = Field(None, env="GOOGLE_API_KEY", description="Google AI API key")
 
     # External Services
-    serper_api_key: str = Field(..., env="SERPER_API_KEY", description="Serper search API key")
+    serp_api_key: str = Field(..., env="SERP_API_KEY", description="SERP API key")
     youtube_api_key: Optional[str] = Field(None, env="YOUTUBE_API_KEY", description="YouTube Data API key")
 
     # System Settings
@@ -152,8 +152,8 @@ class Settings(BaseSettings):
         if not self.openai_api_key or self.openai_api_key.strip() == "your_openai_key_here":
             missing.append("OPENAI_API_KEY")
 
-        if not self.serper_api_key or self.serper_api_key.strip() == "your_serper_key_here":
-            missing.append("SERPER_API_KEY")
+        if not self.serp_api_key or self.serp_api_key.strip() == "your_serp_key_here":
+            missing.append("SERP_API_KEY")
 
         return missing
 
@@ -229,7 +229,7 @@ except Exception as e:
             logging.basicConfig(level=logging.INFO)
 
         def get_missing_api_keys(self):
-            return ["OPENAI_API_KEY", "SERPER_API_KEY"]
+            return ["OPENAI_API_KEY", "SERP_API_KEY"]
 
     settings = DefaultSettings()
     settings.setup_logging()

@@ -430,12 +430,32 @@ KEVIN/sessions/{results['session_id']}/
 
 if __name__ == "__main__":
     try:
-        # Read session data from stdin (may come from validation script or direct)
-        input_data = sys.stdin.read().strip()
+        # Read session data from stdin with robust UTF-8 handling
+        try:
+            # Try reading with UTF-8 encoding first
+            input_bytes = sys.stdin.buffer.read()
+            if not input_bytes:
+                raise ValueError("No input data provided")
+
+            # Decode with UTF-8 and error handling
+            input_data = input_bytes.decode('utf-8', errors='replace').strip()
+        except (AttributeError, UnicodeDecodeError):
+            # Fallback to standard read with encoding handling
+            try:
+                with sys.stdin as f:
+                    input_data = f.read().strip()
+            except UnicodeDecodeError:
+                # Last resort: read as bytes and decode loosely
+                input_data = sys.stdin.buffer.read().decode('utf-8', errors='replace').strip()
+
         if not input_data:
             raise ValueError("No input data provided")
 
-        payload: dict = json.loads(input_data)
+        # Parse JSON with error handling
+        try:
+            payload: dict = json.loads(input_data)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON input: {e}. Input data: {input_data[:200]}...")
 
         # Handle input from validation script
         if payload.get("validation_passed"):

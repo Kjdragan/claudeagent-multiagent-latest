@@ -701,30 +701,30 @@ class ResearchOrchestrator:
             self.logger.info(f"   Server Name: {self.mcp_server.get('name', 'Unknown')}")
             self.logger.info(f"   Available Tools: {len([save_research_findings, create_research_report, get_session_data, request_gap_research, save_webfetch_content, create_search_verification_report, serp_search])} tools")
 
-            # Debug SERPER API configuration - using SERPER_API_KEY as confirmed by user
-            serper_key = os.getenv('SERPER_API_KEY', 'NOT_SET')
-            serper_status = 'SET' if serper_key != 'NOT_SET' else 'NOT_SET'
+            # Debug SERP API configuration - using SERP_API_KEY as confirmed by implementation guide
+            serp_key = os.getenv('SERP_API_KEY', 'NOT_SET')
+            serp_status = 'SET' if serp_key != 'NOT_SET' else 'NOT_SET'
             openai_key = os.getenv('OPENAI_API_KEY', 'NOT_SET')
             openai_status = 'SET' if openai_key != 'NOT_SET' else 'NOT_SET'
 
             # FAIL-FAST VALIDATION: Critical API keys must be present
             critical_errors = []
 
-            if serper_key == 'NOT_SET':
-                critical_errors.append("CRITICAL: SERPER_API_KEY is missing! Web search functionality will not work.")
-                self.logger.error("❌ CRITICAL FAILURE: SERPER_API_KEY is NOT SET!")
+            if serp_key == 'NOT_SET':
+                critical_errors.append("CRITICAL: SERP_API_KEY is missing! Web search functionality will not work.")
+                self.logger.error("❌ CRITICAL FAILURE: SERP_API_KEY is NOT SET!")
 
             if openai_key == 'NOT_SET':
                 critical_errors.append("CRITICAL: OPENAI_API_KEY is missing! Content processing will fail.")
                 self.logger.error("❌ CRITICAL FAILURE: OPENAI_API_KEY is NOT SET!")
 
-            # Check for SERP_API_KEY vs SERPER_API_KEY discrepancy (reverse check)
-            serp_key_alt = os.getenv('SERP_API_KEY', 'NOT_SET')
-            if serp_key_alt != 'NOT_SET' and serper_key == 'NOT_SET':
-                critical_errors.append("CRITICAL: Found SERP_API_KEY but system expects SERPER_API_KEY - API key name mismatch!")
-                self.logger.error("❌ CRITICAL FAILURE: API key name mismatch! Found SERP_API_KEY but expect SERPER_API_KEY")
-            elif serper_key == 'NOT_SET' and serp_key_alt == 'NOT_SET':
-                critical_errors.append("CRITICAL: Neither SERPER_API_KEY nor SERP_API_KEY found in environment!")
+            # Check for SERPER_API_KEY vs SERP_API_KEY discrepancy (reverse check)
+            serper_key_alt = os.getenv('SERPER_API_KEY', 'NOT_SET')
+            if serper_key_alt != 'NOT_SET' and serp_key == 'NOT_SET':
+                critical_errors.append("CRITICAL: Found SERPER_API_KEY but system expects SERP_API_KEY - API key name mismatch!")
+                self.logger.error("❌ CRITICAL FAILURE: API key name mismatch! Found SERPER_API_KEY but expect SERP_API_KEY")
+            elif serp_key == 'NOT_SET' and serper_key_alt == 'NOT_SET':
+                critical_errors.append("CRITICAL: Neither SERP_API_KEY nor SERPER_API_KEY found in environment!")
                 self.logger.error("❌ CRITICAL FAILURE: No search API key found!")
 
             # Fail fast and hard if critical API configuration is missing
@@ -735,20 +735,20 @@ class ResearchOrchestrator:
                     self.logger.error(f"  - {error}")
                 self.logger.error("")
                 self.logger.error("To fix these errors:")
-                self.logger.error("1. Set SERPER_API_KEY environment variable for search functionality")
+                self.logger.error("1. Set SERP_API_KEY environment variable for search functionality")
                 self.logger.error("2. Set OPENAI_API_KEY environment variable for content processing")
                 self.logger.error("3. Ensure API keys are valid and have proper permissions")
                 self.logger.error("")
                 self.logger.error("Example:")
-                self.logger.error("export SERPER_API_KEY='your-serper-api-key'")
+                self.logger.error("export SERP_API_KEY='your-serp-api-key'")
                 self.logger.error("export OPENAI_API_KEY='your-openai-api-key'")
                 self.logger.error("")
 
                 # During development, fail hard and fast
                 raise RuntimeError(f"CRITICAL CONFIGURATION FAILURE: {'; '.join(critical_errors)}")
 
-            self.logger.info("   SERPER API Search: Enabled (high-performance replacement for WebPrime MCP)")
-            self.logger.info(f"   SERPER_API_KEY Status: {serper_status}")
+            self.logger.info("   SERP API Search: Enabled (high-performance replacement for WebPrime MCP)")
+            self.logger.info(f"   SERP_API_KEY Status: {serp_status}")
             self.logger.info(f"   OPENAI_API_KEY Status: {openai_status}")
             self.logger.info("   Expected Tools: serp_search, research_tools")
 
@@ -826,13 +826,21 @@ class ResearchOrchestrator:
             else:
                 self.logger.warning("⚠️ Enhanced search MCP server not available, using standard tools")
 
-            # Create single options with all agents configured properly
+            # Create single options with all agents configured properly - WORKING PATTERN
             options = ClaudeAgentOptions(
                 agents=agents_config,
                 mcp_servers=mcp_servers_config,
                 # Use correct settings for proper response handling
                 include_partial_messages=False,
                 permission_mode="bypassPermissions",
+                # Add allowed_tools parameter as specified in implementation guide
+                allowed_tools=[
+                    "mcp__zplayground1_search__zplayground1_search_scrape_clean",
+                    "mcp__research_tools__save_research_findings",
+                    "mcp__research_tools__create_research_report",
+                    "mcp__research_tools__get_session_data",
+                    "mcp__research_tools__serp_search"
+                ],
                 # Debugging features
                 stderr=self._create_debug_callback("multi_agent"),
                 extra_args={"debug-to-stderr": None},

@@ -14,35 +14,6 @@
     "deny": []
   },
   "hooks": {
-    "PreToolUse": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo 'Session ID validation hook triggered' && uv run python .claude/hooks/validate_session_id.py --validate-session-id"
-          }
-        ],
-        "matcher": "session_id|create_session|session.*create"
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo 'Content cleaner validation hook triggered' && uv run python .claude/hooks/validate_content_cleaner.py --check-methods"
-          }
-        ],
-        "matcher": "ModernWebContentCleaner|content_cleaner|clean_content"
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo 'Session metrics validation hook triggered' && uv run python .claude/hooks/ensure_session_metrics.py --validate-structure"
-          }
-        ],
-        "matcher": "session_metrics|metadata.*update"
-      }
-    ],
     "PostToolUse": [
       {
         "hooks": [
@@ -55,15 +26,6 @@
       }
     ],
     "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo 'Session metrics post-validation hook triggered' && uv run python .claude/hooks/ensure_session_metrics.py --ensure-metrics"
-          }
-        ],
-        "matcher": "workflow.*completion.*final|session.*complete.*final|final.*report.*generated"
-      },
       {
         "hooks": [
           {
