@@ -57,53 +57,69 @@ class LLMGapResearchEvaluator:
         # Prompts configured by strictness level
         self.prompts = {
             "lenient": {
-                "system": "You are a research assistant evaluating if search results are sufficient.",
+                "system": "You are a research assistant evaluating comprehensive multi-query search results.",
                 "evaluation": """
-Review this search workproduct and determine if additional research is needed.
+Review this search workproduct created by our advanced 3-query system:
+- 1 primary query + 2 orthogonal queries executed in parallel
+- ~50-60 URLs analyzed from intelligent multi-factor ranking
+- Multiple sources and diverse perspectives
+
+Determine if additional research is needed.
+
+CRITICAL CONTEXT:
+Our system ALREADY performs comprehensive research. Gap research should be EXTREMELY RARE.
 
 CONSIDER:
-- Are there MAJOR information gaps that would significantly impact understanding?
-- Is the coverage substantially incomplete for the research topic?
-- Are critical aspects completely missing?
+- Are there MAJOR critical information gaps that severely impact understanding?
+- Is essential information completely absent (not just underutilized by report)?
+- Is coverage fundamentally incomplete despite 50+ URLs analyzed?
 
 RETURN DECISION:
-- "SUFFICIENT" if research adequately covers the topic (even with minor gaps)
-- "MORE_RESEARCH_NEEDED" only if major gaps significantly impact understanding
+- "SUFFICIENT" if research covers the topic reasonably (default assumption with 3-query system)
+- "MORE_RESEARCH_NEEDED" ONLY if truly critical information is completely missing from 50+ URLs
 
-If MORE_RESEARCH_NEEDED, provide 1-2 specific search queries to fill gaps.
+If MORE_RESEARCH_NEEDED, provide 1 specific search query for the critical gap.
 
 RESPOND IN EXACT FORMAT:
 DECISION: [SUFFICIENT|MORE_RESEARCH_NEEDED]
 REASONING: [Brief explanation]
-QUERIES: [query1; query2] (only if MORE_RESEARCH_NEEDED)
+QUERIES: [query1] (only if MORE_RESEARCH_NEEDED)
 CONFIDENCE: [0.0-1.0]
 """,
-                "expected_keywords": ["sufficient", "adequate", "adequately covers", "minor gaps"]
+                "expected_keywords": ["sufficient", "adequate", "comprehensive coverage", "reasonable"]
             },
             "standard": {
-                "system": "You are a research evaluator assessing search result completeness.",
+                "system": "You are a research evaluator assessing comprehensive multi-query search results.",
                 "evaluation": """
-Review this search workproduct and evaluate if additional research is needed.
+Review this search workproduct created by our advanced 3-query expansion system:
+- PRIMARY query (enhanced for relevance) → 30 URLs
+- ORTHOGONAL query 1 (complementary perspective) → 10 URLs  
+- ORTHOGONAL query 2 (alternative angle) → 10 URLs
+- Total: ~50 URLs from intelligent multi-factor ranking
+
+Evaluate if additional research is needed.
+
+IMPORTANT CONTEXT:
+We use comprehensive 3-query research. Gap research should be RARE (< 10% of cases).
 
 ASSESSMENT CRITERIA:
-- Information completeness for the research topic
-- Source diversity and quality
-- Coverage of key aspects and perspectives
-- Temporal relevance (if applicable)
+- Is critical information completely missing from 50+ URLs?
+- Would understanding be significantly impaired without additional research?
+- Is the gap in the RESEARCH itself, not just report's use of research?
 
 DECISION GUIDELINES:
-- "SUFFICIENT" if research provides good coverage with decent sources
-- "MORE_RESEARCH_NEEDED" if significant gaps exist that impact understanding
+- "SUFFICIENT" if research from 50+ URLs provides reasonable coverage (default)
+- "MORE_RESEARCH_NEEDED" ONLY if critical gaps exist despite comprehensive 3-query search
 
-If MORE_RESEARCH_NEEDED, provide 1-2 specific search queries to address gaps.
+If MORE_RESEARCH_NEEDED, provide 1-2 specific search queries for critical gaps only.
 
 RESPOND IN EXACT FORMAT:
 DECISION: [SUFFICIENT|MORE_RESEARCH_NEEDED]
-REASONING: [Brief explanation]
+REASONING: [Brief explanation noting what's missing from 50+ URLs]
 QUERIES: [query1; query2] (only if MORE_RESEARCH_NEEDED)
 CONFIDENCE: [0.0-1.0]
 """,
-                "expected_keywords": ["good coverage", "decent sources", "sufficient", "adequate"]
+                "expected_keywords": ["sufficient", "reasonable coverage", "comprehensive", "adequate"]
             },
             "strict": {
                 "system": "You are a rigorous research quality evaluator.",

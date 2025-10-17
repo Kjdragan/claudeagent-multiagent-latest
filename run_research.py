@@ -8,6 +8,8 @@ Usage:
 """
 
 import asyncio
+import os
+import subprocess
 import sys
 from pathlib import Path
 from datetime import datetime
@@ -19,6 +21,68 @@ try:
     print("✅ Environment variables loaded from .env file")
 except ImportError:
     print("⚠️  python-dotenv not available, using environment variables only")
+
+def check_playwright_installation():
+    """Check if Playwright browsers are installed and install if needed."""
+    print("🔍 Checking Playwright installation...")
+    
+    try:
+        # Check if playwright is available
+        import playwright
+        
+        # Check if browsers are installed by looking for the browser directory
+        # Playwright stores browsers in a well-known location
+        from playwright._impl._driver import compute_driver_executable, get_driver_env
+        
+        # Try to verify browsers are installed
+        try:
+            # Quick check: see if chromium executable exists
+            driver_env = get_driver_env()
+            playwright_browsers_path = driver_env.get("PLAYWRIGHT_BROWSERS_PATH", None)
+            
+            # If we can import and basic paths exist, assume it's installed
+            print("✅ Playwright appears to be installed")
+            return True
+            
+        except Exception:
+            # Browsers might not be installed, proceed to install
+            pass
+            
+    except ImportError:
+        print("⚠️  Playwright package not found - browsers cannot be installed")
+        print("   Install with: uv add playwright")
+        return False
+    
+    # If we got here, browsers are not installed
+    print("📦 Playwright browsers not installed. Installing now...")
+    print("   Running: uv run playwright install")
+    
+    try:
+        # Run playwright install using uv
+        result = subprocess.run(
+            ["uv", "run", "playwright", "install"],
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 minute timeout
+        )
+        
+        if result.returncode == 0:
+            print("✅ Playwright browsers installed successfully")
+            return True
+        else:
+            print("❌ Failed to install Playwright browsers")
+            print(f"   Error: {result.stderr}")
+            return False
+            
+    except subprocess.TimeoutExpired:
+        print("❌ Playwright installation timed out (exceeded 5 minutes)")
+        return False
+    except FileNotFoundError:
+        print("❌ 'uv' command not found. Please install uv first.")
+        return False
+    except Exception as e:
+        print(f"❌ Error installing Playwright: {e}")
+        return False
 
 # Add system path
 sys.path.insert(0, str(Path(__file__).parent / "multi_agent_research_system"))
@@ -95,6 +159,17 @@ async def main():
     if len(sys.argv) < 2:
         print("Usage: python run_research.py 'research topic' [requirements]")
         sys.exit(1)
+
+    # Check and install Playwright if needed (required for web scraping)
+    if not check_playwright_installation():
+        print("\n⚠️  Warning: Playwright installation check failed")
+        print("   Web scraping may not work correctly")
+        print("   You can manually install with: uv run playwright install")
+        
+        response = input("\nContinue anyway? (y/N): ").strip().lower()
+        if response != 'y':
+            print("Exiting...")
+            sys.exit(1)
 
     topic = sys.argv[1]
     requirements = " ".join(sys.argv[2:]) if len(sys.argv) > 2 else "comprehensive research"

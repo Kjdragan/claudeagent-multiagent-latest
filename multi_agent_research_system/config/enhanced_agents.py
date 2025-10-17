@@ -911,45 +911,57 @@ FLOW ADHERENCE:
         """Create enhanced report agent with SDK tools and hooks."""
         return EnhancedAgentDefinition(
             agent_type=AgentType.REPORT,
-            name="Enhanced Report Agent with SDK Tools",
-            description="Advanced report generation agent with research corpus integration, data synthesis, and comprehensive hook-based validation",
-            system_prompt="""You are an Enhanced Report Agent with advanced SDK tools for research corpus management and comprehensive report generation.
+            name="Enhanced Report Agent with Workproduct Tools",
+            description="Advanced report generation agent with direct workproduct access, data synthesis, and comprehensive hook-based validation",
+            system_prompt="""You are an Enhanced Report Agent with direct access to research workproducts for comprehensive report generation.
 
-MANDATORY ENHANCED REPORT PROCESS:
-1. Build research corpus using build_research_corpus tool from session data
-2. Analyze corpus quality using analyze_research_corpus tool
-3. Synthesize content using synthesize_from_corpus tool
-4. Generate comprehensive report using generate_comprehensive_report tool
-5. Ensure proper source integration and citations
-6. Validate report meets quality standards and integrates real data
-7. Save final report using Write tool with absolute paths
+MANDATORY WORKPRODUCT-BASED REPORT PROCESS:
 
-ENHANCED CAPABILITIES:
-- Research corpus building from search workproducts
-- Quality analysis and synthesis from structured data
-- Template response prevention through data integration
-- Hook-enforced citation and quality requirements
-- Comprehensive report generation with multiple formats
+**STAGE 2 (Initial Report Generation)**:
+1. Call get_workproduct_summary to see available research data
+2. Call get_all_workproduct_articles to access full article content
+3. Synthesize information into comprehensive report (>1000 words)
+4. Include specific facts, data points, and citations from articles
+5. Save to working/COMPREHENSIVE_{timestamp}.md
+
+**STAGE 4 (Final Enhanced Report)**:
+1. Call get_all_workproduct_articles for ALL research (original + gap)
+2. Review editorial feedback from Stage 3
+3. Integrate ALL editorial feedback points:
+   - Incorporate specific data points editor identified
+   - Fix temporal accuracy issues
+   - Improve source attribution
+   - Fill identified gaps
+4. Generate enhanced comprehensive report (>1500 words)
+5. Save to complete/FINAL_ENHANCED_{timestamp}.md
+
+DIRECT WORKPRODUCT ACCESS:
+- get_workproduct_summary: Quick overview of available data
+- get_all_workproduct_articles: Full content access (PRIMARY TOOL)
+- get_workproduct_article: Single article by URL/index
+- read_full_workproduct: Complete markdown file
 
 QUALITY STANDARDS:
-- Integrate specific data from research corpus
+- Integrate specific data from workproduct articles
 - Include proper citations for all sources
-- Meet minimum quality scores through hook validation
+- Use actual facts, figures, and data points
 - Generate comprehensive, data-driven reports
-- Avoid template responses through enforced data usage""",
+- Avoid template responses - use real research data""",
             behavior_guidelines=[
-                "Build comprehensive research corpus from session data",
-                "Analyze corpus quality before synthesis",
-                "Synthesize content from actual research data",
+                "Access research workproducts directly",
+                "Use get_all_workproduct_articles to get full content",
+                "Synthesize content from actual article data",
                 "Generate reports with proper source integration",
-                "Ensure data-driven content generation"
+                "Ensure data-driven content generation",
+                "Integrate editorial feedback (Stage 4)"
             ],
             quality_standards=[
-                "Research corpus integration",
-                "Data synthesis and analysis",
+                "Direct workproduct access and integration",
+                "Data synthesis from articles",
                 "Source citation and integration", 
                 "Quality score compliance",
-                "Template response prevention"
+                "Template response prevention",
+                "Editorial feedback integration"
             ],
             tools=[
                 ToolConfiguration(
@@ -958,36 +970,30 @@ QUALITY STANDARDS:
                     post_execution_hooks=["validate_session_data", "log_data_access"]
                 ),
                 ToolConfiguration(
-                    tool_name="build_research_corpus",
+                    tool_name="get_workproduct_summary",
+                    execution_policy=ToolExecutionPolicy.PERMISSIVE,
+                    required_parameters=["session_id"],
+                    post_execution_hooks=["log_data_access"]
+                ),
+                ToolConfiguration(
+                    tool_name="get_all_workproduct_articles",
                     execution_policy=ToolExecutionPolicy.MANDATORY,
                     required_parameters=["session_id"],
-                    optional_parameters=["workproduct_path"],
                     validation_hooks=["validate_research_data_usage"],
-                    post_execution_hooks=["track_research_pipeline_compliance", "quality_score_validation"]
+                    post_execution_hooks=["validate_data_integration", "quality_score_validation"]
                 ),
                 ToolConfiguration(
-                    tool_name="analyze_research_corpus",
-                    execution_policy=ToolExecutionPolicy.MANDATORY,
-                    required_parameters=["corpus_id"],
-                    optional_parameters=["analysis_type"],
-                    validation_hooks=["validate_research_data_usage"],
-                    post_execution_hooks=["quality_score_validation", "track_research_pipeline_compliance"]
+                    tool_name="get_workproduct_article",
+                    execution_policy=ToolExecutionPolicy.PERMISSIVE,
+                    required_parameters=["session_id"],
+                    optional_parameters=["url", "index"],
+                    post_execution_hooks=["log_data_access"]
                 ),
                 ToolConfiguration(
-                    tool_name="synthesize_from_corpus",
-                    execution_policy=ToolExecutionPolicy.MANDATORY,
-                    required_parameters=["corpus_id"],
-                    optional_parameters=["synthesis_type", "focus_areas"],
-                    validation_hooks=["validate_research_data_usage", "enforce_citation_requirements"],
-                    post_execution_hooks=["validate_data_integration", "quality_score_validation", "track_research_pipeline_compliance"]
-                ),
-                ToolConfiguration(
-                    tool_name="generate_comprehensive_report",
-                    execution_policy=ToolExecutionPolicy.MANDATORY,
-                    required_parameters=["corpus_id", "synthesis_result"],
-                    optional_parameters=["report_format"],
-                    validation_hooks=["validate_research_data_usage", "enforce_citation_requirements"],
-                    post_execution_hooks=["validate_data_integration", "quality_score_validation", "validate_report_quality_standards", "track_research_pipeline_compliance"]
+                    tool_name="read_full_workproduct",
+                    execution_policy=ToolExecutionPolicy.PERMISSIVE,
+                    required_parameters=["session_id"],
+                    post_execution_hooks=["log_data_access"]
                 ),
                 ToolConfiguration(
                     tool_name="Read",
@@ -1026,13 +1032,13 @@ QUALITY STANDARDS:
             flow_adherence=FlowAdherenceConfiguration(
                 enabled=True,
                 mandatory_steps=[
-                    "build_research_corpus",
-                    "analyze_corpus_quality",
-                    "synthesize_from_corpus",
+                    "get_workproduct_summary",
+                    "get_all_workproduct_articles",
+                    "synthesize_from_articles",
                     "generate_comprehensive_report",
                     "save_final_report"
                 ],
-                required_tools=["build_research_corpus", "analyze_research_corpus", "synthesize_from_corpus", "generate_comprehensive_report"],
+                required_tools=["get_all_workproduct_articles"],
                 validation_methods=["content_analysis", "tool_execution_tracking", "quality_score_validation"],
                 enforcement_strategies=["automatic_execution", "blocking_validation", "quality_enforcement"],
                 compliance_logging=True,
@@ -1061,21 +1067,35 @@ QUALITY STANDARDS:
             description="Advanced editorial agent with comprehensive quality assessment, gap identification, and mandatory gap research execution enforcement",
             system_prompt="""You are an Enhanced Editorial Agent with MANDATORY FLOW ADHERENCE enforcement, responsible for comprehensive quality assessment, gap identification, and ENSURING research execution compliance.
 
-MANDATORY THREE-STEP WORKFLOW:
-STEP 1: ANALYZE AVAILABLE DATA
-- Execute get_session_data to access all available information
-- Thoroughly analyze research data and existing reports
-- Identify strengths, weaknesses, and content gaps
+MANDATORY EDITORIAL REVIEW WORKFLOW:
 
-STEP 2: IDENTIFY SPECIFIC GAPS
-- Document specific information gaps with precise details
-- Prioritize gaps by importance and impact
-- Create detailed research plan for gap filling
+**STEP 1: ACCESS ORIGINAL RESEARCH DATA (CRITICAL)**
+- Call get_workproduct_summary to see what research data was available
+- Call get_all_workproduct_articles to review full source content
+- This lets you verify what data was available when report was created
+- Essential for assessing whether report properly utilized research
 
-STEP 3: REQUEST GAP RESEARCH (MANDATORY)
-- EXECUTE request_gap_research tool for ALL identified gaps
-- NEVER document gaps without executing research requests
-- System will AUTO-DETECT and FORCE EXECUTION of unrequested gap research
+**STEP 2: REVIEW GENERATED REPORT**
+- Use Read tool to examine the initial report
+- Compare report content against available research data
+- Identify specific examples of data that should have been used but wasn't
+
+**STEP 3: ASSESS DATA INTEGRATION**
+- Did report use specific facts, figures, statistics from workproduct?
+- Is temporal accuracy correct (October 2025)?
+- Are sources cited properly (not generically)?
+- What specific data was available but not incorporated?
+
+**STEP 4: IDENTIFY GAPS AND PROVIDE FEEDBACK**
+- Document specific research data that should be incorporated
+- Provide concrete examples from workproduct articles
+- Identify gaps where additional research would help
+- If significant gaps, request targeted gap research
+
+**STEP 5: REQUEST GAP RESEARCH (IF NEEDED)**
+- EXECUTE request_gap_research tool for identified gaps
+- System will AUTO-DETECT and FORCE EXECUTION if needed
+- Gap research creates NEW workproducts for final report
 
 CRITICAL COMPLIANCE REQUIREMENTS:
 - Documentation without tool execution is INSUFFICIENT
@@ -1111,6 +1131,25 @@ QUALITY ENHANCEMENT CRITERIA:
                     tool_name="get_session_data",
                     execution_policy=ToolExecutionPolicy.VALIDATION_REQUIRED,
                     post_execution_hooks=["validate_data_analysis", "log_gap_assessment_start"]
+                ),
+                ToolConfiguration(
+                    tool_name="get_workproduct_summary",
+                    execution_policy=ToolExecutionPolicy.PERMISSIVE,
+                    required_parameters=["session_id"],
+                    post_execution_hooks=["log_data_access"]
+                ),
+                ToolConfiguration(
+                    tool_name="get_all_workproduct_articles",
+                    execution_policy=ToolExecutionPolicy.PERMISSIVE,
+                    required_parameters=["session_id"],
+                    post_execution_hooks=["log_data_access", "validate_data_review"]
+                ),
+                ToolConfiguration(
+                    tool_name="get_workproduct_article",
+                    execution_policy=ToolExecutionPolicy.PERMISSIVE,
+                    required_parameters=["session_id"],
+                    optional_parameters=["url", "index"],
+                    post_execution_hooks=["log_data_access"]
                 ),
                 ToolConfiguration(
                     tool_name="analyze_sources",

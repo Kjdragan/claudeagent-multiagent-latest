@@ -1,100 +1,51 @@
 """
-Corpus MCP Tools for Enhanced Report Generation
+DEPRECATED: Corpus MCP Tools - REMOVED
 
-This module provides Model Context Protocol (MCP) tools for corpus management,
-addressing the critical gap identified in the debug analysis where corpus tools
-were defined but never registered with the SDK client.
+This module has been deprecated and removed as of October 17, 2025.
 
-Key Features:
-- Proper async/await patterns (fixing coroutine misuse)
-- SDK-compatible tool definitions
-- Complete corpus workflow: build → analyze → synthesize → generate
-- Error handling and fallback mechanisms
-- Integration with existing ResearchCorpusManager
+REASON FOR REMOVAL:
+The corpus generation system proved to be:
+- Unreliable (failed to extract content from workproducts)
+- Complex (multi-stage pipeline with many failure points)
+- Slow (added 5+ minutes of processing time)
+- Redundant (workproducts already contain all necessary data)
 
-Critical Fixes Applied:
-1. Removed if SDK_AVAILABLE guard that prevented registration
-2. Added proper await for async functions
-3. Created MCP server for SDK registration
-4. Implemented complete tool workflow
+NEW ARCHITECTURE:
+Report generation now uses direct workproduct access instead of corpus files.
+See workproduct_tools.py for the replacement functionality.
+
+MIGRATION PATH:
+- Old: Research → Build Corpus → Analyze → Synthesize → Generate Report
+- New: Research → Read Workproduct → Generate Report
+
+For workproduct-based tools, see:
+- multi_agent_research_system/mcp_tools/workproduct_tools.py
+- multi_agent_research_system/utils/workproduct_reader.py
+
+This file is kept for reference only and should not be imported.
 """
 
-import json
 import logging
-import os
-import uuid
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict
 
-from claude_agent_sdk import create_sdk_mcp_server, tool
-from multi_agent_research_system.utils.research_corpus_manager import ResearchCorpusManager
-
-# Configure logging
 logger = logging.getLogger(__name__)
 
-# Initialize for global access
-_corpus_managers: Dict[str, ResearchCorpusManager] = {}
+# Empty implementations to prevent import errors during transition
+_corpus_managers: Dict[str, None] = {}
 
 
-def get_corpus_manager(session_id: str) -> ResearchCorpusManager:
-    """Get or create corpus manager for session."""
-    if session_id not in _corpus_managers:
-        _corpus_managers[session_id] = ResearchCorpusManager(session_id)
-    return _corpus_managers[session_id]
+# All corpus tool functions have been removed.
+# For workproduct-based report generation, see:
+# - workproduct_tools.py (MCP tools)
+# - workproduct_reader.py (utility class)
 
-
-def find_research_workproduct(session_id: str) -> Optional[str]:
-    """
-    Find research workproduct files in multiple locations.
-
-    Priority order:
-    1. working/RESEARCH_*.md (standard format)
-    2. research/search_workproduct_*.md (search workproduct format)
-    3. working/COMPREHENSIVE_*.md (comprehensive reports)
-
-    Args:
-        session_id: The session ID to search for
-
-    Returns:
-        Path to the most recent workproduct file, or None if not found
-    """
-    session_dir = Path("KEVIN/sessions") / session_id
-
-    if not session_dir.exists():
-        logger.warning(f"Session directory not found: {session_dir}")
-        return None
-
-    # Priority 1: Standard RESEARCH files in working directory
-    working_files = list(session_dir.glob("working/RESEARCH_*.md"))
-    if working_files:
-        latest_file = max(working_files, key=lambda x: x.stat().st_mtime)
-        logger.info(f"Found standard research workproduct: {latest_file}")
-        return str(latest_file)
-
-    # Priority 2: Search workproduct files in research directory
-    research_files = list(session_dir.glob("research/search_workproduct_*.md"))
-    if research_files:
-        latest_file = max(research_files, key=lambda x: x.stat().st_mtime)
-        logger.info(f"Found search workproduct: {latest_file}")
-        return str(latest_file)
-
-    # Priority 3: Comprehensive reports in working directory
-    comprehensive_files = list(session_dir.glob("working/COMPREHENSIVE_*.md"))
-    if comprehensive_files:
-        latest_file = max(comprehensive_files, key=lambda x: x.stat().st_mtime)
-        logger.info(f"Found comprehensive report: {latest_file}")
-        return str(latest_file)
-
-    # Priority 4: Any markdown files in working directory
-    working_md_files = list(session_dir.glob("working/*.md"))
-    if working_md_files:
-        latest_file = max(working_md_files, key=lambda x: x.stat().st_mtime)
-        logger.info(f"Found fallback markdown file: {latest_file}")
-        return str(latest_file)
-
-    logger.warning(f"No research workproduct files found for session {session_id}")
-    return None
+def _deprecated_stub():
+    """All corpus functions have been removed. Use workproduct_tools.py instead."""
+    logger.warning("Corpus tools are deprecated. Use workproduct_tools.py instead.")
+    raise DeprecationWarning(
+        "Corpus system has been removed. "
+        "Use workproduct_tools.py and workproduct_reader.py instead."
+    )
 
 
 @tool("build_research_corpus", "Build structured research corpus from session data", {
@@ -296,6 +247,82 @@ async def analyze_research_corpus_tool(args: Dict[str, Any]) -> Dict[str, Any]:
         }
 
 
+async def _synthesize_corpus_content(args: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Internal helper to synthesize comprehensive report from analyzed corpus.
+    This is the actual implementation that can be called by other functions.
+    """
+    corpus_id = args["corpus_id"]
+    report_type = args.get("report_type", "comprehensive")
+    audience = args.get("audience", "general")
+
+    logger.info(f"Synthesizing report from corpus {corpus_id} (type: {report_type}, audience: {audience})")
+
+    # Find corpus file
+    corpus_file = None
+    session_id = None
+    corpus_data = None
+
+    sessions_dir = Path("KEVIN/sessions")
+    if sessions_dir.exists():
+        for session_dir in sessions_dir.iterdir():
+            if session_dir.is_dir():
+                potential_corpus = session_dir / "research_corpus.json"
+                if potential_corpus.exists():
+                    try:
+                        with open(potential_corpus, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                            if data.get("corpus_id") == corpus_id:
+                                corpus_file = potential_corpus
+                                session_id = session_dir.name
+                                corpus_data = data
+                                break
+                    except Exception:
+                        continue
+
+    if not corpus_data:
+        return {
+            "corpus_id": corpus_id,
+            "status": "error",
+            "error": f"Corpus data not found for corpus_id: {corpus_id}"
+        }
+
+    # Generate synthesized content
+    synthesized_content = _generate_synthesized_content(corpus_data, report_type, audience)
+
+    # Calculate content metrics
+    word_count = len(synthesized_content.split())
+    estimated_tokens = int(word_count * 1.3)  # Rough token estimate
+
+    # Create synthesis metadata
+    metadata = {
+        "report_type": report_type,
+        "audience": audience,
+        "synthesis_timestamp": datetime.now().isoformat(),
+        "word_count": word_count,
+        "estimated_tokens": estimated_tokens,
+        "based_on_corpus": corpus_id,
+        "session_id": session_id,
+        "corpus_sources": len(corpus_data.get("sources", [])),
+        "corpus_chunks": len(corpus_data.get("content_chunks", []))
+    }
+
+    # Assess synthesis quality
+    synthesis_quality = _assess_synthesis_quality(synthesized_content, corpus_data)
+
+    return {
+        "corpus_id": corpus_id,
+        "session_id": session_id,
+        "status": "success",
+        "synthesized_content": synthesized_content,
+        "metadata": metadata,
+        "synthesis_quality": synthesis_quality,
+        "word_count": word_count,
+        "estimated_tokens": estimated_tokens,
+        "synthesized_at": datetime.now().isoformat()
+    }
+
+
 @tool("synthesize_from_corpus", "Synthesize comprehensive report from corpus", {
     "corpus_id": str,
     "report_type": Optional[str],
@@ -304,85 +331,16 @@ async def analyze_research_corpus_tool(args: Dict[str, Any]) -> Dict[str, Any]:
 async def synthesize_from_corpus_tool(args: Dict[str, Any]) -> Dict[str, Any]:
     """
     Synthesize comprehensive report from analyzed corpus.
-
+    
     This tool provides the synthesis functionality that connects corpus analysis
     to report generation.
     """
     try:
-        corpus_id = args["corpus_id"]
-        report_type = args.get("report_type", "comprehensive")
-        audience = args.get("audience", "general")
-
-        logger.info(f"Synthesizing report from corpus {corpus_id} (type: {report_type}, audience: {audience})")
-
-        # Find corpus file
-        corpus_file = None
-        session_id = None
-        corpus_data = None
-
-        sessions_dir = Path("KEVIN/sessions")
-        if sessions_dir.exists():
-            for session_dir in sessions_dir.iterdir():
-                if session_dir.is_dir():
-                    potential_corpus = session_dir / "research_corpus.json"
-                    if potential_corpus.exists():
-                        try:
-                            with open(potential_corpus, 'r', encoding='utf-8') as f:
-                                data = json.load(f)
-                                if data.get("corpus_id") == corpus_id:
-                                    corpus_file = potential_corpus
-                                    session_id = session_dir.name
-                                    corpus_data = data
-                                    break
-                        except Exception:
-                            continue
-
-        if not corpus_data:
-            return {
-                "corpus_id": corpus_id,
-                "status": "error",
-                "error": f"Corpus data not found for corpus_id: {corpus_id}"
-            }
-
-        # Generate synthesized content
-        synthesized_content = _generate_synthesized_content(corpus_data, report_type, audience)
-
-        # Calculate content metrics
-        word_count = len(synthesized_content.split())
-        estimated_tokens = int(word_count * 1.3)  # Rough token estimate
-
-        # Create synthesis metadata
-        metadata = {
-            "report_type": report_type,
-            "audience": audience,
-            "synthesis_timestamp": datetime.now().isoformat(),
-            "word_count": word_count,
-            "estimated_tokens": estimated_tokens,
-            "based_on_corpus": corpus_id,
-            "session_id": session_id,
-            "corpus_sources": len(corpus_data.get("sources", [])),
-            "corpus_chunks": len(corpus_data.get("content_chunks", []))
-        }
-
-        # Assess synthesis quality
-        synthesis_quality = _assess_synthesis_quality(synthesized_content, corpus_data)
-
-        return {
-            "corpus_id": corpus_id,
-            "session_id": session_id,
-            "status": "success",
-            "synthesized_content": synthesized_content,
-            "metadata": metadata,
-            "synthesis_quality": synthesis_quality,
-            "word_count": word_count,
-            "estimated_tokens": estimated_tokens,
-            "synthesized_at": datetime.now().isoformat()
-        }
-
+        return await _synthesize_corpus_content(args)
     except Exception as e:
-        logger.error(f"Failed to synthesize from corpus {corpus_id}: {e}")
+        logger.error(f"Failed to synthesize from corpus: {e}")
         return {
-            "corpus_id": corpus_id,
+            "corpus_id": args.get("corpus_id"),
             "status": "error",
             "error": str(e)
         }
@@ -407,8 +365,8 @@ async def generate_comprehensive_report_tool(args: Dict[str, Any]) -> Dict[str, 
 
         logger.info(f"Generating comprehensive report from corpus {corpus_id} for session {session_id}")
 
-        # First, synthesize content from corpus
-        synthesis_result = await synthesize_from_corpus_tool({
+        # First, synthesize content from corpus - call the actual function, not the decorated tool
+        synthesis_result = await _synthesize_corpus_content({
             "corpus_id": corpus_id,
             "report_type": "comprehensive",
             "audience": "general"

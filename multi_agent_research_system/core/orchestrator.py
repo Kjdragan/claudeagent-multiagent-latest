@@ -498,6 +498,14 @@ class ResearchOrchestrator:
         # Initialize KEVIN directory reference
         self.kevin_dir = None
 
+        # PHASE 3: Initialize tool execution tracker for MCP lifecycle management
+        from multi_agent_research_system.core.tool_execution_tracker import get_tool_execution_tracker
+        self.tool_tracker = get_tool_execution_tracker(
+            default_timeout=180,  # 3 minutes default
+            warning_threshold=90   # Warn at 90 seconds
+        )
+        self.logger.info("✅ Tool execution tracker initialized (Phase 3)")
+
         self.logger.info("ResearchOrchestrator initialized")
         self.structured_logger.info("ResearchOrchestrator initialization completed",
                                    event_type="orchestrator_ready",
@@ -790,26 +798,42 @@ class ResearchOrchestrator:
                         "Read", "Write", "Glob", "Grep"
                     ]
 
-                    # CRITICAL FIX: Add corpus tools for report agent
+                    # WORKPRODUCT FIX: Add workproduct tools for report agent
                     if agent_name == "report_agent":
-                        corpus_tools = [
-                            "mcp__corpus__build_research_corpus",
-                            "mcp__corpus__analyze_research_corpus",
-                            "mcp__corpus__synthesize_from_corpus",
-                            "mcp__corpus__generate_comprehensive_report"
+                        workproduct_tools = [
+                            "mcp__workproduct__get_workproduct_summary",
+                            "mcp__workproduct__get_all_workproduct_articles",
+                            "mcp__workproduct__get_workproduct_article",
+                            "mcp__workproduct__read_full_workproduct"
                         ]
-                        extended_tools.extend(corpus_tools)
-                        self.logger.info("✅ Corpus tools added to report_agent (CRITICAL FIX)")
+                        extended_tools.extend(workproduct_tools)
+                        self.logger.info("✅ Workproduct tools added to report_agent (REPLACES CORPUS)")
 
-                # Add zPlayground1 search tool if available
-                if zplayground1_server is not None:
-                    zplayground1_tools = [
-                        "mcp__zplayground1_search__zplayground1_search_scrape_clean"  # Single comprehensive tool
-                    ]
-                    extended_tools.extend(zplayground1_tools)
-                    self.logger.info(f"✅ zPlayground1 search tool added to {agent_name}")
-                else:
-                    self.logger.warning(f"⚠️ zPlayground1 search tool not available for {agent_name}")
+                # Add search tools ONLY to research_agent (report_agent should use workproduct only)
+                if agent_name in ["research_agent", "editor_agent", "ui_coordinator"]:
+                    # Add Enhanced Search tools FIRST (PRIMARY - includes advanced query expansion)
+                    if enhanced_search_server is not None:
+                        enhanced_search_tools = [
+                            "mcp__enhanced_search__expanded_query_search_and_extract",  # PRIMARY: Advanced 3-query system
+                            "mcp__enhanced_search__enhanced_search_scrape_clean",       # Backup: Standard search
+                            "mcp__enhanced_search__enhanced_news_search"                # Specialized: News search
+                        ]
+                        extended_tools.extend(enhanced_search_tools)
+                        self.logger.info(f"✅ Enhanced search tools added to {agent_name} (PRIMARY: advanced query expansion)")
+                    else:
+                        self.logger.warning(f"⚠️ Enhanced search tools not available for {agent_name}")
+
+                    # Add zPlayground1 search tool as FALLBACK only
+                    if zplayground1_server is not None:
+                        zplayground1_tools = [
+                            "mcp__zplayground1_search__zplayground1_search_scrape_clean"  # FALLBACK: Simple single-query search
+                        ]
+                        extended_tools.extend(zplayground1_tools)
+                        self.logger.info(f"✅ zPlayground1 search tool added to {agent_name} (FALLBACK only)")
+                    else:
+                        self.logger.warning(f"⚠️ zPlayground1 search tool not available for {agent_name}")
+                elif agent_name == "report_agent":
+                    self.logger.info(f"✅ report_agent uses workproduct tools only (no search tools - prevents duplicate research)")
 
                 agents_config[agent_name] = AgentDefinition(
                     description=agent_def.description,
@@ -837,18 +861,30 @@ class ResearchOrchestrator:
             else:
                 self.logger.warning("⚠️ Enhanced search MCP server not available, using standard tools")
 
-            # CRITICAL FIX: Add corpus server following existing pattern
+            # WORKPRODUCT FIX: Add workproduct server (replaces deprecated corpus server)
             try:
-                from multi_agent_research_system.mcp_tools.corpus_tools import corpus_server
-                if corpus_server is not None:
-                    mcp_servers_config["corpus"] = corpus_server
-                    self.logger.info("✅ Corpus MCP server added to configuration (CRITICAL FIX)")
+                from multi_agent_research_system.mcp_tools.workproduct_tools import workproduct_server
+                if workproduct_server is not None:
+                    mcp_servers_config["workproduct"] = workproduct_server
+                    self.logger.info("✅ Workproduct MCP server added to configuration (REPLACES CORPUS)")
                 else:
-                    self.logger.error("❌ Corpus MCP server not available - report generation will fail")
+                    self.logger.error("❌ Workproduct MCP server not available - report generation will fail")
+            except ImportError as e:
+                self.logger.error(f"❌ Failed to import workproduct_server: {e}")
+                self.logger.error("   Report generation tools will not be available")
+
+            # PHASE 1 FIX: Add critique server for editorial agent
+            try:
+                from multi_agent_research_system.mcp_tools.critique_tools import critique_server
+                if critique_server is not None:
+                    mcp_servers_config["critique"] = critique_server
+                    self.logger.info("✅ Critique MCP server added to configuration (EDITORIAL FIX)")
+                else:
+                    self.logger.error("❌ Critique MCP server not available - editorial critique will fail")
 
             except Exception as e:
-                self.logger.error(f"❌ Failed to import corpus server: {e}")
-                self.logger.warning("⚠️ Report generation will fail due to missing corpus tools")
+                self.logger.error(f"❌ Failed to import critique server: {e}")
+                self.logger.warning("⚠️ Editorial critique generation will fail due to missing critique tools")
 
             # Create single options with all agents configured properly - WORKING PATTERN
             options = ClaudeAgentOptions(
@@ -864,11 +900,17 @@ class ResearchOrchestrator:
                     "mcp__research_tools__create_research_report",
                     "mcp__research_tools__get_session_data",
                     "mcp__research_tools__serp_search",
-                    # CRITICAL FIX: Add corpus tools that were missing
-                    "mcp__corpus__build_research_corpus",
-                    "mcp__corpus__analyze_research_corpus",
-                    "mcp__corpus__synthesize_from_corpus",
-                    "mcp__corpus__generate_comprehensive_report"
+                    "mcp__research_tools__request_gap_research",
+                    # WORKPRODUCT FIX: Add workproduct tools (replaces corpus)
+                    "mcp__workproduct__get_workproduct_summary",
+                    "mcp__workproduct__get_all_workproduct_articles",
+                    "mcp__workproduct__get_workproduct_article",
+                    "mcp__workproduct__read_full_workproduct",
+                    # PHASE 1 FIX: Add critique tools for editorial agent
+                    "mcp__critique__review_report",
+                    "mcp__critique__analyze_content_quality",
+                    "mcp__critique__identify_research_gaps",
+                    "mcp__critique__generate_critique"
                 ],
                 # Debugging features
                 stderr=self._create_debug_callback("multi_agent"),
@@ -1170,11 +1212,11 @@ class ResearchOrchestrator:
         Returns:
             Dict with validation results
         """
-        required_corpus_tools = [
-            "mcp__corpus__build_research_corpus",
-            "mcp__corpus__analyze_research_corpus",
-            "mcp__corpus__synthesize_from_corpus",
-            "mcp__corpus__generate_comprehensive_report"
+        required_workproduct_tools = [
+            "mcp__workproduct__get_workproduct_summary",
+            "mcp__workproduct__get_all_workproduct_articles",
+            "mcp__workproduct__get_workproduct_article",
+            "mcp__workproduct__read_full_workproduct"
         ]
 
         validation_result = {
@@ -1186,40 +1228,40 @@ class ResearchOrchestrator:
         }
 
         try:
-            # CRITICAL FIX: Check if corpus server is properly registered in multiple ways
-            corpus_server_available = False
+            # WORKPRODUCT FIX: Check if workproduct server is properly registered
+            workproduct_server_available = False
 
             # Method 1: Check client.mcp_servers
             if hasattr(self.client, 'mcp_servers') and isinstance(self.client.mcp_servers, dict):
-                if "corpus" in self.client.mcp_servers:
-                    corpus_server_available = True
-                    self.logger.info("✅ Corpus server found in client.mcp_servers")
+                if "workproduct" in self.client.mcp_servers:
+                    workproduct_server_available = True
+                    self.logger.info("✅ Workproduct server found in client.mcp_servers")
 
             # Method 2: Check options.mcp_servers
-            if not corpus_server_available and hasattr(self.client, 'options') and hasattr(self.client.options, 'mcp_servers'):
-                if isinstance(self.client.options.mcp_servers, dict) and "corpus" in self.client.options.mcp_servers:
-                    corpus_server_available = True
-                    self.logger.info("✅ Corpus server found in client.options.mcp_servers")
+            if not workproduct_server_available and hasattr(self.client, 'options') and hasattr(self.client.options, 'mcp_servers'):
+                if isinstance(self.client.options.mcp_servers, dict) and "workproduct" in self.client.options.mcp_servers:
+                    workproduct_server_available = True
+                    self.logger.info("✅ Workproduct server found in client.options.mcp_servers")
 
-            # Method 3: Check allowed_tools for corpus tools as fallback
-            if not corpus_server_available:
+            # Method 3: Check allowed_tools for workproduct tools as fallback
+            if not workproduct_server_available:
                 allowed_tools = getattr(self.client.options, 'allowed_tools', [])
-                corpus_tools_in_allowed = [tool for tool in required_corpus_tools if tool in allowed_tools]
-                if len(corpus_tools_in_allowed_tools) >= 2:  # At least some corpus tools available
-                    corpus_server_available = True
-                    self.logger.info(f"✅ Corpus tools found in allowed_tools: {len(corpus_tools_in_allowed_tools)}")
+                workproduct_tools_in_allowed = [tool for tool in required_workproduct_tools if tool in allowed_tools]
+                if len(workproduct_tools_in_allowed) >= 2:  # At least some workproduct tools available
+                    workproduct_server_available = True
+                    self.logger.info(f"✅ Workproduct tools found in allowed_tools: {len(workproduct_tools_in_allowed)}")
 
-            if not corpus_server_available:
+            if not workproduct_server_available:
                 validation_result["all_tools_available"] = False
-                validation_result["missing_tools"].extend(required_corpus_tools)
-                self.logger.error("❌ Corpus MCP server not registered with client")
+                validation_result["missing_tools"].extend(required_workproduct_tools)
+                self.logger.error("❌ Workproduct MCP server not registered with client")
                 self.logger.error(f"   Available servers: {list(getattr(self.client, 'mcp_servers', {}).keys())}")
                 self.logger.error(f"   Options servers: {list(getattr(getattr(self.client, 'options', {}), 'mcp_servers', {}).keys())}")
                 return validation_result
 
             # Validate each tool is in allowed_tools
             allowed_tools = getattr(self.client.options, 'allowed_tools', [])
-            for tool in required_corpus_tools:
+            for tool in required_workproduct_tools:
                 if tool in allowed_tools:
                     validation_result["available_tools"].append(tool)
                 else:
@@ -1227,9 +1269,9 @@ class ResearchOrchestrator:
                     validation_result["missing_tools"].append(tool)
 
             if validation_result["all_tools_available"]:
-                self.logger.info(f"✅ All {len(required_corpus_tools)} corpus tools validated and available")
+                self.logger.info(f"✅ All {len(required_workproduct_tools)} workproduct tools validated and available")
             else:
-                self.logger.warning(f"⚠️ {len(validation_result['missing_tools'])} corpus tools missing: {validation_result['missing_tools']}")
+                self.logger.warning(f"⚠️ {len(validation_result['missing_tools'])} workproduct tools missing: {validation_result['missing_tools']}")
 
         except Exception as e:
             validation_result["all_tools_available"] = False
@@ -1264,7 +1306,7 @@ class ResearchOrchestrator:
             "substantive_responses": 0,
             "tool_executions": [],
             "hook_validations": [],
-            "corpus_usage": {},
+            "workproduct_usage": {},
             "errors": [],
             "query_start_time": datetime.now().isoformat(),
             "success": False,
@@ -1272,37 +1314,36 @@ class ResearchOrchestrator:
         }
 
         try:
-            # CRITICAL FIX: Validate corpus tools availability before requiring them
+            # WORKPRODUCT FIX: Validate workproduct tools availability before requiring them
             tool_validation = await self._validate_corpus_tools_availability(session_id)
 
             if not tool_validation["all_tools_available"]:
-                error_msg = f"Corpus tools validation failed: Missing {tool_validation['missing_tools']}"
+                error_msg = f"Workproduct tools validation failed: Missing {tool_validation['missing_tools']}"
                 self.logger.error(f"❌ {error_msg}")
                 query_result["errors"].append(error_msg)
                 query_result["tool_validation"] = tool_validation
 
-                # Fall back to standard report generation without corpus tools
-                self.logger.info("🔄 Falling back to standard report generation without corpus tools")
+                # Fall back to standard report generation without workproduct tools
+                self.logger.info("🔄 Falling back to standard report generation without workproduct tools")
                 return await self._execute_standard_report_agent_query(prompt, session_id, timeout_seconds)
 
             # Construct enhanced prompt that emphasizes corpus usage and hook compliance
-            enhanced_prompt = f"""You are the Enhanced Report Agent with advanced corpus-based tools and hook validation.
+            enhanced_prompt = f"""You are the Enhanced Report Agent with workproduct-based tools and validation.
 
 TASK: {prompt}
 
 MANDATORY WORKFLOW:
-1. Use build_research_corpus tool to create structured corpus from session data
-2. Use analyze_research_corpus tool to validate corpus quality
-3. Use synthesize_from_corpus tool to generate content synthesis
-4. Use generate_comprehensive_report tool to create final report
-5. Ensure all hooks validate successfully (data integration, citations, quality scores)
+1. FIRST: Call get_all_workproduct_articles to retrieve ALL research data
+2. Review the articles and extract key information
+3. Generate comprehensive report incorporating specific facts, figures, and sources from the research
+4. Ensure proper source attribution with specific citations
 
-HOOK VALIDATION REQUIREMENTS:
-- Corpus must exist and have sufficient quality (minimum 0.7 score)
-- Report must integrate multiple sources with proper citations
-- Template responses are BLOCKED by validation hooks
-- Quality scores must meet minimum thresholds
-- All mandatory steps must be executed
+REQUIREMENTS:
+- MUST call get_all_workproduct_articles - this is your PRIMARY data source
+- Use specific facts, dates, numbers from the workproduct articles
+- Include proper source citations (outlet names, dates)
+- Avoid generic statements - use concrete details from research
+- Report should reflect current events from the research timeframe
 
 Session ID: {session_id}
 """
@@ -1310,10 +1351,9 @@ Session ID: {session_id}
             # Send enhanced query to client
             await self.client.query(enhanced_prompt)
 
-            # Collect responses with enhanced tracking
-            corpus_built = False
-            corpus_analyzed = False
-            synthesis_completed = False
+            # Collect responses with workproduct tracking
+            workproduct_accessed = False
+            all_articles_retrieved = False
             report_generated = False
 
             async for message in self.client.receive_response():
@@ -1341,29 +1381,23 @@ Session ID: {session_id}
                     message_info["tool_use"] = tool_executions[0]
                     query_result["tool_executions"].extend(tool_executions)
 
-                    # Track corpus workflow progress
+                    # Track workproduct workflow progress
                     for tool in tool_executions:
                         tool_name = tool.get("name", "")
-                        if tool_name == "build_research_corpus" and tool.get("success"):
-                            corpus_built = True
-                            query_result["corpus_usage"]["corpus_id"] = tool.get("result", {}).get("corpus_id")
-                            query_result["corpus_usage"]["total_chunks"] = tool.get("result", {}).get("total_chunks", 0)
-                            query_result["corpus_usage"]["sources_processed"] = tool.get("result", {}).get("total_sources", 0)
+                        if tool_name == "get_workproduct_summary" and tool.get("success"):
+                            workproduct_accessed = True
+                            query_result["workproduct_usage"]["summary_retrieved"] = True
+                            query_result["workproduct_usage"]["article_count"] = tool.get("result", {}).get("article_count", 0)
                             
-                        elif tool_name == "analyze_research_corpus" and tool.get("success"):
-                            corpus_analyzed = True
-                            quality_score = tool.get("result", {}).get("overall_quality_score", 0)
-                            query_result["corpus_usage"]["quality_score"] = quality_score
-                            query_result["corpus_usage"]["ready_for_synthesis"] = quality_score >= 0.7
+                        elif tool_name == "get_all_workproduct_articles" and tool.get("success"):
+                            all_articles_retrieved = True
+                            articles = tool.get("result", {}).get("articles", [])
+                            query_result["workproduct_usage"]["articles_retrieved"] = len(articles)
+                            query_result["workproduct_usage"]["total_sources"] = len(set([a.get("source", "") for a in articles]))
                             
-                        elif tool_name == "synthesize_from_corpus" and tool.get("success"):
-                            synthesis_completed = True
-                            query_result["corpus_usage"]["synthesis_quality"] = tool.get("result", {}).get("quality_score", 0)
-                            
-                        elif tool_name == "generate_comprehensive_report" and tool.get("success"):
+                        elif tool_name in ["Write", "create_research_report"] and tool.get("success"):
                             report_generated = True
-                            query_result["corpus_usage"]["report_quality"] = tool.get("result", {}).get("estimated_quality_score", 0)
-                            query_result["corpus_usage"]["sources_integrated"] = tool.get("result", {}).get("sources_integrated", 0)
+                            query_result["workproduct_usage"]["report_created"] = True
 
                 if hook_validations:
                     message_info["hook_validations"] = hook_validations
@@ -1383,22 +1417,21 @@ Session ID: {session_id}
 
             # Evaluate workflow completion
             workflow_complete = (
-                corpus_built and corpus_analyzed and synthesis_completed and report_generated
+                all_articles_retrieved and report_generated
             )
             
             if workflow_complete:
                 query_result["success"] = True
                 self.logger.info(f"✅ Enhanced Report Agent workflow completed successfully")
-                self.logger.info(f"   Corpus: {query_result['corpus_usage'].get('corpus_id', 'N/A')}")
-                self.logger.info(f"   Sources: {query_result['corpus_usage'].get('sources_processed', 0)}")
-                self.logger.info(f"   Quality: {query_result['corpus_usage'].get('quality_score', 0):.3f}")
+                self.logger.info(f"   Articles retrieved: {query_result['workproduct_usage'].get('articles_retrieved', 0)}")
+                self.logger.info(f"   Sources: {query_result['workproduct_usage'].get('total_sources', 0)}")
+                self.logger.info(f"   Report created: {report_generated}")
             else:
                 query_result["success"] = False
                 query_result["errors"].append("Enhanced workflow incomplete")
                 self.logger.warning(f"⚠️ Enhanced Report Agent workflow incomplete:")
-                self.logger.warning(f"   Corpus built: {corpus_built}")
-                self.logger.warning(f"   Corpus analyzed: {corpus_analyzed}")
-                self.logger.warning(f"   Synthesis completed: {synthesis_completed}")
+                self.logger.warning(f"   Workproduct accessed: {workproduct_accessed}")
+                self.logger.warning(f"   All articles retrieved: {all_articles_retrieved}")
                 self.logger.warning(f"   Report generated: {report_generated}")
 
             query_result["query_end_time"] = datetime.now().isoformat()
@@ -2048,22 +2081,78 @@ CRITICAL: Execute the create_research_report tool to generate and save the repor
         return True
 
     def _validate_editorial_completion(self, editorial_result: dict[str, Any]) -> bool:
-        """Validate that editorial review stage completed successfully.
+        """
+        Validate that editorial review stage completed successfully.
+        
+        PHASE 1 FIX: Enhanced to validate output type using OutputValidator.
+        Ensures editorial agent produced critique, not report content.
 
         Args:
             editorial_result: Result from execute_agent_query
 
         Returns:
-            True if editorial review completed successfully, False otherwise
+            True if editorial review completed successfully and produced valid critique
         """
         # Check basic success
         if not editorial_result.get("success", False):
+            self.logger.warning("Editorial validation failed: Basic success check failed")
             return False
 
         # Check for substantive responses
         if editorial_result.get("substantive_responses", 0) < 1:
+            self.logger.warning("Editorial validation failed: No substantive responses")
             return False
 
+        # PHASE 1 FIX: Validate editorial output type
+        try:
+            from multi_agent_research_system.core.output_validator import get_output_validator
+            from pathlib import Path
+            
+            validator = get_output_validator()
+            
+            # Try to find editorial output files
+            session_id = editorial_result.get("session_id")
+            if session_id and session_id in self.active_sessions:
+                session_data = self.active_sessions[session_id]
+                working_dir = self._get_session_working_dir(session_id)
+                
+                if working_dir and working_dir.exists():
+                    # Look for editorial critique files
+                    editorial_files = list(working_dir.glob("EDITORIAL_CRITIQUE_*.md"))
+                    if not editorial_files:
+                        # Also check for old naming pattern
+                        editorial_files = list(working_dir.glob("EDITORIAL_ANALYSIS_*.md"))
+                    
+                    if editorial_files:
+                        # Validate the most recent editorial file
+                        latest_editorial = max(editorial_files, key=lambda x: x.stat().st_mtime)
+                        
+                        try:
+                            with open(latest_editorial, 'r', encoding='utf-8') as f:
+                                content = f.read()
+                            
+                            validation_result = validator.validate_editorial_output(content, session_id)
+                            
+                            if not validation_result.is_valid:
+                                self.logger.error(f"❌ Editorial output validation FAILED (score: {validation_result.score:.2f})")
+                                self.logger.error(f"   File: {latest_editorial.name}")
+                                self.logger.error(f"   Output type: {validation_result.output_type}")
+                                self.logger.error(f"   Issues: {validation_result.issues}")
+                                return False
+                            else:
+                                self.logger.info(f"✅ Editorial output validation passed (score: {validation_result.score:.2f})")
+                                return True
+                        except Exception as e:
+                            self.logger.error(f"Error reading editorial file: {e}")
+                            # Continue with basic validation
+                    else:
+                        self.logger.warning("No editorial output files found - validation skipped")
+            
+        except Exception as e:
+            self.logger.error(f"Error in editorial output validation: {e}")
+            # Fall back to basic validation
+        
+        # If no files found or validation skipped, use basic validation
         return True
 
     async def verify_tool_execution(self, agent_name: str = "research_agent") -> dict[str, Any]:
@@ -3577,6 +3666,8 @@ Session ID: {session_id}
 
                 Research results have been collected and are available in the session data.
 
+                **STRICTLY PROHIBITED**: DO NOT execute any search or scraping tools. All necessary research has already been completed by the research_agent.
+
                 **MANDATORY FIRST STEP**: Use mcp__research_tools__get_session_data tool with data_type="research" to access ALL research work products
 
                 **RESEARCH DATA INCORPORATION REQUIREMENTS**:
@@ -3647,7 +3738,6 @@ Session ID: {session_id}
             # CRITICAL FIX: Add circuit breaker logic to prevent cascading failures
           if attempt == max_attempts - 1:
               self.logger.error(f"❌ CIRCUIT BREAKER: Report generation failed after {max_attempts} attempts")
-              self.logger.error(f"   Last error: {e}")
               self.logger.error(f"   Stage: report_generation")
               self.logger.error(f"   Session: {session_id}")
 
@@ -3656,7 +3746,7 @@ Session ID: {session_id}
               session_data["circuit_breaker_events"].append({
                   "stage": "report_generation",
                   "timestamp": datetime.now().isoformat(),
-                  "error": str(e),
+                  "error": "Report generation validation failed - required work not completed",
                   "attempts": max_attempts,
                   "final_attempt": attempt + 1
               })
@@ -3685,9 +3775,9 @@ Session ID: {session_id}
         session_data["workflow_history"].append({
             "stage": "report_generation",
             "completed_at": datetime.now().isoformat(),
-            "responses_count": report_result["substantive_responses"],
-            "tools_executed": len(report_result["tool_executions"]),
-            "success": report_result["success"],
+            "responses_count": report_result.get("substantive_responses", 0),
+            "tools_executed": len(report_result.get("tool_executions", [])),
+            "success": report_result.get("success", False),
             "attempts": attempt + 1,
             "circuit_breaker_triggered": attempt == max_attempts - 1,
             "graceful_degradation_used": report_result.get("graceful_degradation", False)
@@ -4799,14 +4889,20 @@ This session had limited research output available. The editorial agent has proc
                 self.logger.warning(f"Final report file not found: {current_report_path}")
                 return
 
-            # CRITICAL FIX: Read and validate the current report content
+            # PHASE 1 FIX: Read and validate the current report content with OutputValidator
             with open(current_report_path, encoding='utf-8') as f:
                 report_content = f.read()
 
-            # CRITICAL FIX: Validate that content is actually a markdown report, not JSON debug data
-            if not self._validate_report_content_is_markdown(report_content):
-                self.logger.error(f"❌ CRITICAL: Report content is not valid markdown - it appears to be JSON debug data")
+            # PHASE 1 FIX: Use new OutputValidator for comprehensive validation
+            from multi_agent_research_system.core.output_validator import get_output_validator
+            validator = get_output_validator()
+            validation_result = validator.validate_final_output(report_content, session_id)
+
+            if not validation_result.is_valid:
+                self.logger.error(f"❌ CRITICAL: Final output validation FAILED (score: {validation_result.score:.2f})")
                 self.logger.error(f"   File: {current_report_path}")
+                self.logger.error(f"   Output type detected: {validation_result.output_type}")
+                self.logger.error(f"   Issues: {validation_result.issues}")
                 self.logger.error(f"   Content starts with: {report_content[:200]}...")
 
                 # Try to find actual report content in session data
@@ -4816,9 +4912,17 @@ This session had limited research output available. The editorial agent has proc
                     current_report_path = actual_report_path
                     with open(current_report_path, encoding='utf-8') as f:
                         report_content = f.read()
+                    
+                    # Re-validate the found content
+                    validation_result = validator.validate_final_output(report_content, session_id)
+                    if not validation_result.is_valid:
+                        self.logger.error(f"❌ Even found report failed validation")
+                        return None
                 else:
                     self.logger.error(f"❌ No valid markdown report found for session {session_id}")
                     return None
+            else:
+                self.logger.info(f"✅ Final output validation passed (score: {validation_result.score:.2f})")
 
             # Create report data structure for the report agent
             report_data = {

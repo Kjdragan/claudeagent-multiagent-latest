@@ -142,57 +142,50 @@ class SimpleCrawler:
             )
 
     def _get_crawl_config(self, anti_bot_level: int, use_content_filter: bool) -> CrawlerRunConfig:
-        """Get progressive crawl configuration based on anti-bot level with multimedia exclusion."""
+        """Get progressive crawl configuration based on anti-bot level."""
 
-        # Base configuration with multimedia exclusion for text-focused research
+        # Base configuration - only CrawlerRunConfig valid parameters
         base_config = {
-            # Multimedia exclusion - exclude images and media by default
-            'exclude_all_images': True,          # Remove all images for faster loading
-            'exclude_external_images': True,     # Block external domain images
-            'text_mode': True,                   # Enable text-focused mode
-            'light_mode': True,                  # Disable background features
-
-            # Speed optimizations
-            'wait_for_images': False,            # Don't wait for images to load
-            'pdf': False,                        # Don't generate PDFs
-            'capture_mhtml': False,              # Don't capture MHTML
-            'page_timeout': 30000,              # 30 second timeout
-
             # Content processing
             'word_count_threshold': 10,           # Filter very short content
             'exclude_external_links': False,     # Keep external links for reference
+            'page_timeout': 30000,              # 30 second timeout (default)
         }
 
         if anti_bot_level == 0:
-            # Level 0: Basic with multimedia exclusion (works for 6/10 sites)
+            # Level 0: Basic (works for 6/10 sites)
             config = CrawlerRunConfig(**base_config)
 
         elif anti_bot_level == 1:
-            # Level 1: Enhanced with multimedia exclusion (works for 8/10 sites)
+            # Level 1: Enhanced (works for 8/10 sites)
             config = CrawlerRunConfig(
-                **base_config,
+                word_count_threshold=base_config['word_count_threshold'],
+                exclude_external_links=base_config['exclude_external_links'],
+                page_timeout=base_config['page_timeout'],
                 simulate_user=True,
                 magic=True
             )
 
         elif anti_bot_level == 2:
-            # Level 2: Advanced with multimedia exclusion (works for 9/10 sites)
+            # Level 2: Advanced (works for 9/10 sites)
             config = CrawlerRunConfig(
-                **base_config,
+                word_count_threshold=base_config['word_count_threshold'],
+                exclude_external_links=base_config['exclude_external_links'],
+                page_timeout=45000,  # Longer timeout for tougher sites
                 simulate_user=True,
                 magic=True,
-                wait_until="domcontentloaded",
-                page_timeout=45000
+                wait_until="domcontentloaded"
             )
 
         else:
-            # Level 3: Maximum with multimedia exclusion (works for 9.5/10 sites)
+            # Level 3: Maximum (works for 9.5/10 sites)
             config = CrawlerRunConfig(
-                **base_config,
+                word_count_threshold=base_config['word_count_threshold'],
+                exclude_external_links=base_config['exclude_external_links'],
+                page_timeout=60000,  # Maximum timeout
                 simulate_user=True,
                 magic=True,
                 wait_until="domcontentloaded",
-                page_timeout=60000,
                 css_selector="main, article, .content, .article-body"
             )
 

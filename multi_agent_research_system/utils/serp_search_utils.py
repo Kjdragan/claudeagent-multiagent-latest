@@ -260,7 +260,8 @@ async def select_urls_for_crawling(
     limit: int = 50,  # Updated default to match enhanced system
     min_relevance: float = 0.3,  # Legacy parameter maintained for compatibility
     session_id: str = "default",
-    use_deduplication: bool = True
+    use_deduplication: bool = True,
+    query: str = None  # NEW: Original query for enhanced URL selection
 ) -> list[str]:
     """
     Select URLs for crawling using enhanced multi-query optimization.
@@ -278,34 +279,31 @@ async def select_urls_for_crawling(
     Returns:
         List of URLs to crawl from enhanced multi-query system
     """
-    # NOTE: This function is maintained for backward compatibility but delegates to enhanced system
-
-    # Create a representative query from search results for the enhanced system
-    if search_results and search_results[0].title:
-        # Extract keywords from titles to create a representative query
-        query_terms = []
-        for result in search_results[:5]:  # Use top 5 results for query generation
-            title_words = result.title.lower().split()
-            query_terms.extend([word for word in title_words if len(word) > 3])
-
-        # Create representative query
-        mock_query = " ".join(list(set(query_terms))[:5]) if query_terms else "research topic"
-        logger.info(f"Enhanced URL selection using representative query: '{mock_query}'")
+    # OPTIMIZATION: If we already have good search results (e.g., from Serper /news),
+    # extract URLs directly instead of running additional searches
+    if search_results and len(search_results) >= limit * 0.5:  # At least 50% of target
+        logger.info(f"Using search results directly ({len(search_results)} results available)")
+        direct_urls = extract_urls_from_search_results(
+            search_results=search_results,
+            limit=limit,
+            min_relevance=min_relevance
+        )
+        
+        if len(direct_urls) >= limit * 0.5:  # If we got at least 50% of target
+            logger.info(f"✅ Extracted {len(direct_urls)} URLs directly from search results (skipped enhanced selection)")
+            enhanced_urls = direct_urls
+        else:
+            # Not enough URLs from search results, fall back to enhanced selection
+            logger.info(f"Only {len(direct_urls)} URLs from search results, using enhanced selection")
+            enhanced_urls = await _run_enhanced_url_selection(query, session_id, limit, search_results)
     else:
-        mock_query = "research topic"
-        logger.warning("No search results available, using generic query for enhanced selection")
-
-    # MANDATORY: Use enhanced system - no fallbacks
-    enhanced_urls = await enhanced_select_urls_for_crawling(
-        query=mock_query,
-        session_id=session_id,
-        target_count=limit,
-        search_type="search",
-        use_fallback=False  # Explicitly no fallback
-    )
+        # No search results or not enough, use enhanced selection
+        logger.info(f"Search results insufficient ({len(search_results) if search_results else 0} results), using enhanced selection")
+        enhanced_urls = await _run_enhanced_url_selection(query, session_id, limit, search_results)
 
     if not enhanced_urls:
-        raise RuntimeError(f"Enhanced URL selection failed for query: '{mock_query}'")
+        logger.warning("No URLs obtained from either direct extraction or enhanced selection")
+        return []
 
     # Apply deduplication if requested
     if use_deduplication:
@@ -313,14 +311,54 @@ async def select_urls_for_crawling(
             from .url_tracker import get_url_tracker
             url_tracker = get_url_tracker()
             final_urls, skipped = url_tracker.filter_urls(enhanced_urls, session_id)
-            logger.info(f"Enhanced URL selection completed: {len(final_urls)} URLs after deduplication (skipped {len(skipped)} duplicates)")
+            logger.info(f"URL deduplication: {len(final_urls)} URLs remaining after filtering (skipped {skipped} duplicates)")
             return final_urls
-        except ImportError:
-            logger.warning("URL tracker not available, returning enhanced URLs without deduplication")
-            return enhanced_urls[:limit]
+        except Exception as e:
+            logger.warning(f"URL deduplication failed: {e}, returning unfiltered URLs")
+            return enhanced_urls
     else:
-        logger.info(f"Enhanced URL selection completed: {len(enhanced_urls)} URLs selected")
-        return enhanced_urls[:limit]
+        return enhanced_urls
+
+
+async def _run_enhanced_url_selection(
+    query: str | None,
+    session_id: str,
+    limit: int,
+    search_results: list[SearchResult]
+) -> list[str]:
+    """
+    Run enhanced URL selection with multi-query optimization.
+    
+    This is a fallback when we don't have good URLs from search results.
+    """
+    # Use the original query if provided, otherwise fallback to extracting from results
+    if query:
+        mock_query = query
+        logger.info(f"Enhanced URL selection using original query: '{mock_query}'")
+    elif search_results and search_results[0].title:
+        # Fallback: Extract keywords from titles to create a representative query
+        query_terms = []
+        for result in search_results[:5]:  # Use top 5 results for query generation
+            title_words = result.title.lower().split()
+            query_terms.extend([word for word in title_words if len(word) > 3])
+
+        # Create representative query
+        mock_query = " ".join(list(set(query_terms))[:5]) if query_terms else "research topic"
+        logger.info(f"Enhanced URL selection using extracted query: '{mock_query}'")
+    else:
+        mock_query = "research topic"
+        logger.warning("No search results available, using generic query for enhanced selection")
+
+    # Use enhanced system
+    enhanced_urls = await enhanced_select_urls_for_crawling(
+        query=mock_query,
+        session_id=session_id,
+        target_count=limit,
+        search_type="search",
+        use_fallback=False
+    )
+    
+    return enhanced_urls if enhanced_urls else []
 
 
 async def select_urls_for_crawling_enhanced(
@@ -667,12 +705,91 @@ def save_search_work_product(
         return ""
 
 
+def extract_urls_from_search_results(
+    search_results: list[SearchResult],
+    limit: int = 50,
+    min_relevance: float = 0.0
+) -> list[str]:
+    """
+    Extract URLs directly from search results without additional queries.
+    
+    Use this when search results are already high-quality (e.g., from Serper /news endpoint).
+    
+    Args:
+        search_results: List of search results
+        limit: Maximum number of URLs to extract
+        min_relevance: Minimum relevance score (0.0 = all results)
+    
+    Returns:
+        List of URLs from search results
+    """
+    urls = []
+    for result in search_results:
+        if result.relevance_score >= min_relevance:
+            urls.append(result.link)
+            if len(urls) >= limit:
+                break
+    
+    logger.info(f"Extracted {len(urls)} URLs directly from {len(search_results)} search results (min_relevance={min_relevance})")
+    return urls
+
+
+def filter_blocked_urls(urls: list[str]) -> list[str]:
+    """
+    Filter out URLs from blocked/problematic domains.
+    
+    Blocked domains include:
+    - Video platforms (youtube.com, tiktok.com)
+    - Social media (facebook.com, twitter.com, linkedin.com, instagram.com)
+    - Paywalled content (medium.com, substack.com)
+    - Sites with heavy bot protection
+    
+    Args:
+        urls: List of URLs to filter
+    
+    Returns:
+        Filtered list of URLs without blocked domains
+    """
+    BLOCKED_DOMAINS = {
+        'youtube.com', 'youtu.be',  # Video platform
+        'facebook.com', 'fb.com',  # Social media
+        'twitter.com', 'x.com',  # Social media  
+        'linkedin.com',  # Professional network
+        'instagram.com',  # Social media
+        'tiktok.com',  # Short video
+        'medium.com',  # Paywall
+        'substack.com',  # Paywall/subscription
+        'reddit.com',  # Forum (often unreliable scraping)
+    }
+    
+    filtered_urls = []
+    blocked_count = 0
+    
+    for url in urls:
+        # Extract domain from URL
+        domain_blocked = False
+        for blocked_domain in BLOCKED_DOMAINS:
+            if blocked_domain in url.lower():
+                domain_blocked = True
+                blocked_count += 1
+                break
+        
+        if not domain_blocked:
+            filtered_urls.append(url)
+    
+    if blocked_count > 0:
+        logger.info(f"🚫 Filtered out {blocked_count} URLs from blocked domains")
+    
+    return filtered_urls
+
+
 async def target_based_scraping(
     search_results: list[SearchResult],
     session_id: str,
     target_successful_scrapes: int = 15,
     crawl_threshold: float = 0.3,
-    max_concurrent: int | None = None
+    max_concurrent: int | None = None,
+    query: str = None  # NEW: Original query for URL selection
 ) -> tuple[list[str], list[str]]:
     """
     Perform target-based scraping to achieve desired number of successful extractions.
@@ -696,41 +813,65 @@ async def target_based_scraping(
     # Start with current threshold and target from config
     target_count = target_successful_scrapes or config.target_successful_scrapes
 
-    # Get ALL candidates at once for parallel processing
-    # Start with 0.3 threshold, expand to 0.2 for additional candidates
-    # Reduced multipliers to prevent excessive URL processing
+    # STEP 1: Get and crawl primary candidates (high relevance)
+    logger.info(f"Step 1: Getting primary candidates (relevance >= 0.3, target={target_count})")
     primary_candidates = await select_urls_for_crawling(
         search_results=search_results,
-        limit=int(target_count * 1.5),  # Reduced multiplier: 1.5x instead of 2x
+        limit=int(target_count * 1.5),  # Get 1.5x target for better success rate
         min_relevance=0.3,
         session_id=session_id,
-        use_deduplication=True
+        use_deduplication=True,
+        query=query  # Pass original query
     )
 
-    secondary_candidates = await select_urls_for_crawling(
-        search_results=search_results,
-        limit=target_count * 2,  # Reduced multiplier: 2x instead of 3x
-        min_relevance=0.2,
-        session_id=session_id,
-        use_deduplication=True
-    )
+    logger.info(f"Primary candidates selected: {len(primary_candidates)} URLs")
 
-    # Combine and deduplicate all candidates
-    all_candidate_urls = list(dict.fromkeys(primary_candidates + secondary_candidates))  # Preserve order, remove duplicates
-    logger.info(f"Target-based scraping: target={target_count}, total_candidates={len(all_candidate_urls)} (primary: {len(primary_candidates)}, secondary: {len(secondary_candidates)})")
-
-    # Process ALL candidates in parallel using progressive retry
+    # Crawl primary candidates
     successful_content, attempted_urls = await _crawl_urls_with_retry(
-        urls=all_candidate_urls,
+        urls=primary_candidates,
         session_id=session_id,
         max_concurrent=max_concurrent,
-        use_progressive_retry=True  # Enable progressive retry for better success rates
+        use_progressive_retry=True
     )
 
-    # Early termination: Check if target already achieved after primary crawl
+    logger.info(f"Primary crawl complete: {len(successful_content)}/{target_count} successful scrapes")
+
+    # Check if target already met
     if len(successful_content) >= target_count:
-        logger.info(f"✅ Target achieved after primary crawl: {len(successful_content)}/{target_count} successful scrapes")
-        return successful_content, attempted_urls
+        logger.info(f"✅ Target achieved with primary candidates: {len(successful_content)}/{target_count}")
+        return successful_content[:target_count], attempted_urls  # Return exactly target count
+
+    # STEP 2: If target not met, get and crawl secondary candidates (medium relevance)
+    logger.info(f"Step 2: Target not met ({len(successful_content)}/{target_count}), getting secondary candidates")
+    secondary_candidates = await select_urls_for_crawling(
+        search_results=search_results,
+        limit=target_count * 2,  # Get more URLs at lower threshold
+        min_relevance=0.2,
+        session_id=session_id,
+        use_deduplication=True,
+        query=query  # Pass original query
+    )
+
+    # Filter out already attempted URLs
+    secondary_candidates = [url for url in secondary_candidates if url not in attempted_urls]
+    logger.info(f"Secondary candidates selected: {len(secondary_candidates)} URLs")
+
+    if secondary_candidates:
+        # Crawl secondary candidates
+        secondary_content, secondary_urls = await _crawl_urls_with_retry(
+            urls=secondary_candidates,
+            session_id=session_id,
+            max_concurrent=max_concurrent,
+            use_progressive_retry=True
+        )
+        successful_content.extend(secondary_content)
+        attempted_urls.extend(secondary_urls)
+        logger.info(f"Secondary crawl complete: {len(successful_content)}/{target_count} successful scrapes")
+
+    # Check if target met after secondary crawl
+    if len(successful_content) >= target_count:
+        logger.info(f"✅ Target achieved after secondary crawl: {len(successful_content)}/{target_count}")
+        return successful_content[:target_count], attempted_urls  # Return exactly target count
 
     # If we still need more and have retry candidates, process them too
     if config.progressive_retry_enabled and len(successful_content) < target_count:
@@ -758,7 +899,8 @@ async def target_based_scraping(
             limit=target_count * 2,  # Reduced multiplier: 2x instead of 4x
             min_relevance=0.1,  # Very low threshold as last resort
             session_id=session_id,
-            use_deduplication=True
+            use_deduplication=True,
+            query=query  # Pass original query
         )
 
         # Filter out already attempted URLs
@@ -924,7 +1066,8 @@ async def serp_search_and_extract(
             session_id=session_id,
             target_successful_scrapes=config.target_successful_scrapes,
             crawl_threshold=0.3,  # Fixed at 0.3 for better success rates
-            max_concurrent=config.default_max_concurrent
+            max_concurrent=config.default_max_concurrent,
+            query=query  # Pass original query for better URL selection
         )
 
 
