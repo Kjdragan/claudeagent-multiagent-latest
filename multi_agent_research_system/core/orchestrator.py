@@ -1203,6 +1203,111 @@ class ResearchOrchestrator:
             self.logger.error(f"❌ {agent_name} query failed: {e}")
             raise
 
+    def _build_educational_context(self, session_id: str) -> str:
+        """Build formatted educational context with salient points for report agent."""
+        try:
+            import json
+            from pathlib import Path
+            
+            session_dir = Path.home() / "lrepos" / "claudeagent-multiagent-latest" / "KEVIN" / "sessions" / session_id
+            state_file = session_dir / "session_state.json"
+            
+            if not state_file.exists():
+                self.logger.warning(f"⚠️  Session state file not found: {state_file}")
+                return ""
+            
+            with open(state_file, 'r', encoding='utf-8') as f:
+                session_state = json.load(f)
+            
+            metadata = session_state.get("search_metadata", [])
+            
+            # Filter only articles with salient points
+            articles_with_context = [
+                a for a in metadata 
+                if a.get("has_full_content") and a.get("salient_points")
+            ]
+            
+            if not articles_with_context:
+                self.logger.info(f"ℹ️  No articles with salient points found in session state")
+                return ""
+            
+            # Format educational context
+            formatted_articles = []
+            for article in articles_with_context:
+                formatted_articles.append(f"""
+**Article {article['index']}: {article['title']}**
+- Source: {article['source']} | Date: {article.get('date', 'N/A')} | Relevance: {article.get('relevance_score', 0):.2f}
+- URL: {article['url']}
+
+{article['salient_points']}
+""")
+            
+            available_indices = [a['index'] for a in articles_with_context]
+            
+            context = f"""
+**RESEARCH EDUCATIONAL CONTEXT** ({len(available_indices)} articles with summaries)
+
+{chr(10).join(formatted_articles)}
+
+**Full Articles Available**: {available_indices}
+
+To read any full article, use: `mcp__workproduct__get_workproduct_article(session_id="{session_id}", index=N)`
+"""
+            
+            self.logger.info(f"✅ Built educational context: {len(formatted_articles)} articles, {len(context)} chars")
+            return context
+            
+        except Exception as e:
+            self.logger.error(f"❌ Failed to build educational context: {e}")
+            return ""
+    
+    def _should_inject_context(self, session_id: str) -> bool:
+        """Check if context has already been injected for this session."""
+        try:
+            import json
+            from pathlib import Path
+            
+            session_dir = Path.home() / "lrepos" / "claudeagent-multiagent-latest" / "KEVIN" / "sessions" / session_id
+            state_file = session_dir / "session_state.json"
+            
+            if not state_file.exists():
+                return False
+            
+            with open(state_file, 'r', encoding='utf-8') as f:
+                session_state = json.load(f)
+            
+            return session_state.get("_report_context_injected", False)
+            
+        except Exception as e:
+            self.logger.warning(f"⚠️  Error checking context injection status: {e}")
+            return False
+    
+    def _mark_context_injected(self, session_id: str):
+        """Mark that context has been injected for this session."""
+        try:
+            import json
+            from pathlib import Path
+            
+            session_dir = Path.home() / "lrepos" / "claudeagent-multiagent-latest" / "KEVIN" / "sessions" / session_id
+            state_file = session_dir / "session_state.json"
+            
+            if not state_file.exists():
+                self.logger.warning(f"⚠️  Cannot mark context injected - state file not found")
+                return
+            
+            with open(state_file, 'r', encoding='utf-8') as f:
+                session_state = json.load(f)
+            
+            session_state["_report_context_injected"] = True
+            
+            with open(state_file, 'w', encoding='utf-8') as f:
+                json.dump(session_state, f, indent=2, ensure_ascii=False)
+            
+            self.logger.info(f"✅ Marked context as injected for session {session_id}")
+            
+        except Exception as e:
+            self.logger.error(f"❌ Failed to mark context injected: {e}")
+
     async def _validate_corpus_tools_availability(self, session_id: str) -> dict[str, Any]:
         """Validate that corpus tools are available and properly registered.
 
@@ -1327,26 +1432,47 @@ class ResearchOrchestrator:
                 self.logger.info("🔄 Falling back to standard report generation without workproduct tools")
                 return await self._execute_standard_report_agent_query(prompt, session_id, timeout_seconds)
 
-            # Construct enhanced prompt that emphasizes corpus usage and hook compliance
-            enhanced_prompt = f"""You are the Enhanced Report Agent with workproduct-based tools and validation.
-
-TASK: {prompt}
+            # Phase 5: Check if we need to inject educational context
+            educational_context = self._build_educational_context(session_id)
+            context_injected = self._should_inject_context(session_id)
+            
+            # Construct enhanced prompt with optional educational context
+            base_instructions = """You are the Enhanced Report Agent with workproduct-based tools and validation.
 
 MANDATORY WORKFLOW:
-1. FIRST: Call get_all_workproduct_articles to retrieve ALL research data
-2. Review the articles and extract key information
-3. Generate comprehensive report incorporating specific facts, figures, and sources from the research
+1. FIRST: Review the research educational context provided below (if available)
+2. Use get_workproduct_article(session_id, index=N) to read specific full articles
+3. Generate comprehensive report incorporating specific facts, figures, and sources
 4. Ensure proper source attribution with specific citations
 
 REQUIREMENTS:
-- MUST call get_all_workproduct_articles - this is your PRIMARY data source
-- Use specific facts, dates, numbers from the workproduct articles
+- Use specific facts, dates, numbers from the article summaries
+- Call get_workproduct_article() for articles you want to read in full
 - Include proper source citations (outlet names, dates)
 - Avoid generic statements - use concrete details from research
 - Report should reflect current events from the research timeframe
+"""
+            
+            if educational_context and not context_injected:
+                enhanced_prompt = f"""{base_instructions}
+
+{educational_context}
+
+TASK: {prompt}
 
 Session ID: {session_id}
 """
+                self._mark_context_injected(session_id)
+                self.logger.info(f"✅ Injected educational context ({len(educational_context)} chars) for first invocation")
+            else:
+                enhanced_prompt = f"""{base_instructions}
+
+TASK: {prompt}
+
+Session ID: {session_id}
+"""
+                if context_injected:
+                    self.logger.info(f"ℹ️  Context already injected - using base instructions only")
 
             # Send enhanced query to client
             await self.client.query(enhanced_prompt)
@@ -3668,14 +3794,22 @@ Session ID: {session_id}
 
                 **STRICTLY PROHIBITED**: DO NOT execute any search or scraping tools. All necessary research has already been completed by the research_agent.
 
-                **MANDATORY FIRST STEP**: Use mcp__research_tools__get_session_data tool with data_type="research" to access ALL research work products
+                **MANDATORY FIRST STEP**: Use mcp__workproduct__read_full_workproduct with session_id="{session_id}" to get ALL research content
+
+                **WORKPRODUCT ACCESS INSTRUCTIONS**:
+                1. Call mcp__workproduct__read_full_workproduct(session_id="{session_id}") - This returns ALL research articles in one call
+                2. The response contains the complete workproduct with all scraped articles
+                3. DO NOT call get_workproduct_article with individual URLs - the full workproduct has everything
+                4. DO NOT invent or hallucinate URLs - use the actual content from read_full_workproduct
+                5. If read_full_workproduct is too large, use mcp__workproduct__get_workproduct_summary first to see article count
 
                 **RESEARCH DATA INCORPORATION REQUIREMENTS**:
-                1. **READ ALL RESEARCH FILES**: You MUST read the complete content of ALL research work products available in the session data
+                1. **READ FULL WORKPRODUCT**: Call read_full_workproduct ONCE to get all research data
                 2. **TEMPORAL ACCURACY VALIDATION**: Ensure all content reflects CURRENT events ({datetime.now().strftime('%B %Y')}), not outdated information
                 3. **SPECIFIC DATA INCORPORATION**: You MUST incorporate specific facts, figures, dates, and data points from the research sources
                 4. **SOURCE CITATION**: Reference specific sources and data points from your research materials
                 5. **GENERIC CONTENT PROHIBITED**: Do not use generic statements when specific data is available from research
+                6. **NO URL HALLUCINATION**: Use only the URLs and content actually present in the workproduct
 
                 **REPORT GENERATION PROCESS**:
                 1. Create a {report_config['scope']} report on "{session_data['topic']}"

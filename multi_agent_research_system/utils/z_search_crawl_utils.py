@@ -793,12 +793,67 @@ async def search_crawl_and_clean_direct(
 
             return result
 
-        # Launch all URLs concurrently with replacement mechanism
-        logger.info("🚀 Launching concurrent scrape+clean processing with URL replacement mechanism...")
-        tasks = [process_url_with_replacement(url) for url in urls_to_crawl]
-
-        async with timed_block("concurrent_scrape_and_clean", metadata={"url_count": len(urls_to_crawl)}):
-            all_results = await asyncio.gather(*tasks, return_exceptions=True)
+        # Launch all URLs concurrently with replacement mechanism and early cutoff
+        from ..config.settings import get_settings
+        settings = get_settings()
+        
+        early_cutoff_threshold = settings.early_cutoff_threshold
+        target_cleans = settings.target_successful_cleans
+        
+        logger.info(f"🚀 Launching concurrent scrape+clean processing with early cutoff optimization")
+        logger.info(f"   Target: {target_cleans} successful cleans | Early cutoff: {early_cutoff_threshold} successful scrapes | Max attempts: {len(urls_to_crawl)}")
+        
+        # Create all tasks but monitor completion dynamically
+        pending_tasks = {asyncio.create_task(process_url_with_replacement(url)): url for url in urls_to_crawl}
+        completed_results = []
+        successful_scrapes = 0
+        cancelled_count = 0
+        
+        async with timed_block("concurrent_scrape_and_clean", metadata={"url_count": len(urls_to_crawl), "cutoff_threshold": early_cutoff_threshold}):
+            while pending_tasks:
+                # Wait for at least one task to complete
+                done, pending = await asyncio.wait(pending_tasks, return_when=asyncio.FIRST_COMPLETED)
+                
+                # Process completed tasks
+                for task in done:
+                    url = pending_tasks[task]
+                    del pending_tasks[task]
+                    
+                    try:
+                        result = await task
+                        completed_results.append(result)
+                        
+                        # Count successful scrapes (not exceptions, and scrape succeeded)
+                        if not isinstance(result, Exception) and result.get("success"):
+                            # Check if scrape succeeded (has scrape_result with content)
+                            if result.get("scrape_result") and result["scrape_result"].success:
+                                successful_scrapes += 1
+                                logger.debug(f"✅ Successful scrape #{successful_scrapes}/{early_cutoff_threshold}: {url}")
+                    
+                    except Exception as e:
+                        completed_results.append(e)
+                        logger.error(f"Exception processing {url}: {e}")
+                
+                # Check early cutoff condition
+                if successful_scrapes >= early_cutoff_threshold and pending_tasks:
+                    logger.info(f"🎯 Early cutoff triggered: {successful_scrapes} successful scrapes >= {early_cutoff_threshold} threshold")
+                    logger.info(f"   Cancelling {len(pending_tasks)} remaining scrape tasks...")
+                    
+                    # Cancel all pending tasks immediately
+                    for pending_task in pending_tasks:
+                        pending_task.cancel()
+                    
+                    cancelled_count = len(pending_tasks)
+                    
+                    # Wait briefly for cancellations to process
+                    if pending_tasks:
+                        await asyncio.gather(*pending_tasks, return_exceptions=True)
+                    
+                    logger.info(f"✂️ Cancelled {cancelled_count} tasks | Proceeding with {len(completed_results)} results")
+                    break
+        
+        all_results = completed_results
+        logger.info(f"📊 Scraping completed: {successful_scrapes} successful scrapes, {cancelled_count} cancelled, {len(all_results)} total results")
 
         end_time = datetime.now()
         total_duration = (end_time - start_time).total_seconds()
@@ -910,6 +965,31 @@ async def search_crawl_and_clean_direct(
                 if hasattr(clean_result, 'cleaned_content'):
                     cleaned_content_list.append(clean_result.cleaned_content)
                     cleaned_urls.append(result["url"])
+
+        # Check successful_cleans against target
+        successful_cleans = len([cs for cs in cleaning_stats if not cs.get("skipped", False) and cs.get("quality_score", 0) >= context.min_quality_threshold])
+        logger.info(f"📊 Cleaning results: {successful_cleans}/{target_cleans} successful cleans (quality >= {context.min_quality_threshold})")
+        
+        if successful_cleans < target_cleans:
+            deficit = target_cleans - successful_cleans
+            additional_needed = int(deficit * settings.scrape_attempt_multiplier)
+            logger.warning(f"⚠️ Below target: need {deficit} more cleans → would attempt {additional_needed} additional scrapes")
+            logger.info(f"   (Additional scraping not implemented in this iteration - accepting {successful_cleans} cleans)")
+            # TODO: Implement additional scraping round from remaining URLs in search_results
+        else:
+            logger.info(f"✅ Target achieved: {successful_cleans} >= {target_cleans} successful cleans")
+
+        # Phase 4: Build enriched session_state.json with salient_points
+        logger.info(f"💾 Building enriched session state with salient points...")
+        session_state = _build_enriched_session_state(
+            session_id=session_id,
+            search_results=search_results,
+            all_results=all_results,
+            cleaning_stats=cleaning_stats,
+            escalation_stats=escalation_stats
+        )
+        _save_session_state(session_id, session_state)
+        logger.info(f"✅ Session state saved with {len(session_state.get('search_metadata', []))} metadata entries")
 
         if cleaned_content_list:
             # Step 5: Format results for orchestrator
@@ -1231,6 +1311,89 @@ async def search_crawl_and_clean_streaming(
         workproduct_dir=workproduct_dir,
         workproduct_prefix=workproduct_prefix,
     )
+
+
+def _build_enriched_session_state(
+    session_id: str,
+    search_results: list,
+    all_results: list,
+    cleaning_stats: list,
+    escalation_stats: list
+) -> dict:
+    """Build enriched session state with search_metadata and scraped_articles."""
+    
+    # Build search_metadata array with salient_points
+    search_metadata = []
+    scraped_articles = {}
+    
+    for idx, search_result in enumerate(search_results, start=1):
+        url = search_result.link
+        
+        # Find if this URL was scraped and cleaned
+        result_entry = next((r for r in all_results if not isinstance(r, Exception) and r.get("url") == url), None)
+        clean_stat = next((cs for cs in cleaning_stats if cs["url"] == url), None)
+        
+        # Build metadata entry
+        metadata_entry = {
+            "index": idx,
+            "title": search_result.title,
+            "url": url,
+            "source": search_result.source or "Unknown",
+            "date": search_result.date or "",
+            "snippet": search_result.snippet or "",
+            "relevance_score": search_result.relevance_score,
+            "has_full_content": False,
+            "salient_points": None
+        }
+        
+        # If successfully cleaned, add salient_points and full content
+        if result_entry and result_entry.get("success") and clean_stat and not clean_stat.get("skipped"):
+            clean_result = result_entry.get("clean_result")
+            if clean_result and hasattr(clean_result, 'salient_points'):
+                metadata_entry["has_full_content"] = True
+                metadata_entry["salient_points"] = clean_result.salient_points
+                
+                # Store full article in scraped_articles
+                scraped_articles[str(idx)] = {
+                    "cleaned_content": clean_result.cleaned_content,
+                    "word_count": clean_result.word_count,
+                    "quality_score": clean_result.quality_score,
+                    "relevance_score": clean_result.relevance_score,
+                    "cleaned_at": datetime.now().isoformat()
+                }
+        
+        search_metadata.append(metadata_entry)
+    
+    return {
+        "session_id": session_id,
+        "search_metadata": search_metadata,
+        "scraped_articles": scraped_articles,
+        "metadata": {
+            "total_articles": len(search_metadata),
+            "articles_with_full_content": len(scraped_articles),
+            "last_updated": datetime.now().isoformat()
+        }
+    }
+
+
+def _save_session_state(session_id: str, state: dict):
+    """Save session state to session_state.json."""
+    try:
+        from pathlib import Path
+        import json
+        
+        session_dir = Path.home() / "lrepos" / "claudeagent-multiagent-latest" / "KEVIN" / "sessions" / session_id
+        session_dir.mkdir(parents=True, exist_ok=True)
+        
+        state_file = session_dir / "session_state.json"
+        
+        with open(state_file, 'w', encoding='utf-8') as f:
+            json.dump(state, f, indent=2, ensure_ascii=False)
+        
+        logger.info(f"💾 Session state saved to: {state_file}")
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to save session state: {e}")
 
 
 # Export commonly used functions

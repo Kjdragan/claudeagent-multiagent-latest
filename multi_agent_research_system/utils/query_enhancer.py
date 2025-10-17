@@ -47,12 +47,12 @@ class QueryEnhancer:
     3. Orthogonal 2: Alternative angle for comprehensive coverage
     """
 
-    def __init__(self, model: str = "gpt-4o-mini"):
+    def __init__(self, model: str = "gpt-5-nano"):
         """
         Initialize the query enhancer.
 
         Args:
-            model: OpenAI model to use (default: gpt-4o-mini for speed)
+            model: OpenAI model to use (default: gpt-5-nano for speed and cost efficiency)
         """
         if not OPENAI_AVAILABLE:
             raise ImportError("OpenAI library not available. Install with: pip install openai")
@@ -314,7 +314,7 @@ Return ONLY the alternative search query, no additional text or explanation.
 # Global instance for reuse
 _query_enhancer_instance = None
 
-def get_query_enhancer(model: str = "gpt-4o-mini") -> QueryEnhancer:
+def get_query_enhancer(model: str = "gpt-5-nano") -> QueryEnhancer:
     """
     Get or create a query enhancer instance.
 

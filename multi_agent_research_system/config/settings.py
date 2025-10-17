@@ -44,12 +44,25 @@ class Settings(BaseSettings):
     crawl4ai_model: str = Field("openai:gpt-5-mini", env="CRAWL4AI_MODEL", description="Crawl4AI agent model")
 
     # Crawling Configuration (from our enhancements)
-    target_successful_scrapes: int = Field(15, env="TARGET_SUCCESSFUL_SCRAPES", description="Target number of successful scrapes")
+    target_successful_cleans: int = Field(10, env="TARGET_SUCCESSFUL_CLEANS", description="Target number of successfully cleaned articles")
+    scrape_attempt_multiplier: float = Field(2.0, env="SCRAPE_ATTEMPT_MULTIPLIER", description="Multiplier for scrape attempts (scrape_attempts = target_cleans * multiplier)")
+    early_cutoff_multiplier: float = Field(1.25, env="EARLY_CUTOFF_MULTIPLIER", description="Multiplier for early scraping cutoff (cutoff = target_cleans * multiplier)")
     max_total_urls_to_process: int = Field(50, env="MAX_TOTAL_URLS_TO_PROCESS", description="Maximum total URLs to process")
     enable_success_based_termination: bool = Field(True, env="ENABLE_SUCCESS_BASED_TERMINATION", description="Use success-based termination")
     primary_batch_size: int = Field(16, env="PRIMARY_BATCH_SIZE", description="Primary batch size for concurrent scraping")
     secondary_batch_size: int = Field(16, env="SECONDARY_BATCH_SIZE", description="Secondary batch size for concurrent scraping")
     pdf_processing_enabled: bool = Field(True, env="PDF_PROCESSING_ENABLED", description="Enable PDF processing")
+    
+    @property
+    def max_scrape_attempts(self) -> int:
+        """Calculate maximum scrape attempts based on target cleans and multiplier."""
+        return int(self.target_successful_cleans * self.scrape_attempt_multiplier)
+    
+    @property
+    def early_cutoff_threshold(self) -> int:
+        """Calculate early cutoff threshold for successful scrapes (rounded up)."""
+        import math
+        return math.ceil(self.target_successful_cleans * self.early_cutoff_multiplier)
 
     # Original z-playground1 settings
     auto_crawl_top_default: int = Field(10, env="AUTO_CRAWL_TOP_DEFAULT", description="Default number of URLs to auto-crawl per round")
@@ -229,8 +242,19 @@ except Exception as e:
         log_level = "INFO"
         debug_mode = True
         development_mode = True
-        target_successful_scrapes = 15
+        target_successful_cleans = 10
+        scrape_attempt_multiplier = 2.0
+        early_cutoff_multiplier = 1.25
         concurrent_crawl_limit = 16
+        
+        @property
+        def max_scrape_attempts(self):
+            return int(self.target_successful_cleans * self.scrape_attempt_multiplier)
+        
+        @property
+        def early_cutoff_threshold(self):
+            import math
+            return math.ceil(self.target_successful_cleans * self.early_cutoff_multiplier)
 
         def setup_logging(self):
             logging.basicConfig(level=logging.INFO)

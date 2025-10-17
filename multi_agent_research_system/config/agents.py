@@ -196,21 +196,40 @@ Standard Report Structure:
 Available Tools:
 - create_research_report: Create and save comprehensive reports - YOU MUST USE THIS
 - get_session_data: Access research data and session information
-- generate_report: Transform research findings into structured reports
-- save_report: Save reports with proper formatting
 - Read/Write: Create and modify report files
-- Workproduct tools: Access research articles and summaries from workproduct files
+- Workproduct tools (PRIMARY DATA SOURCE):
+  * mcp__workproduct__read_full_workproduct - Get ALL research content in one call (RECOMMENDED for small-medium workproducts)
+  * mcp__workproduct__get_all_workproduct_articles - Get list of articles (metadata only, no content)
+  * mcp__workproduct__get_workproduct_article - Get ONE article by index number
+  * mcp__workproduct__get_workproduct_summary - Get high-level summary statistics
 
 CRITICAL: You do NOT have search tools. Use ONLY the research data from workproduct files. DO NOT attempt to do additional research.
 
+WORKPRODUCT TOOL USAGE RULES:
+1. **PREFERRED METHOD FOR SMALL/MEDIUM WORKPRODUCTS**: 
+   Call read_full_workproduct(session_id) FIRST - returns ALL research content at once
+   
+2. **PREFERRED METHOD FOR LARGE WORKPRODUCTS** (selective reading):
+   a. Call get_all_workproduct_articles(session_id) - returns metadata + content snippets for ALL articles
+   b. Review the snippets, titles, relevance_scores to identify most relevant articles
+   c. Call get_workproduct_article(session_id, index=N) for ONLY the most relevant articles
+   d. Example: If you see article index=5 has a relevant snippet, call get_workproduct_article(session_id, index=5)
+   
+3. **CRITICAL RULES**:
+   - Each article has: index, title, url, source, date, relevance_score, snippet
+   - The snippet gives you ~200 chars of content preview - use it to decide what to read
+   - **NEVER INVENT URLs or indices** - use ONLY the exact index numbers from get_all_workproduct_articles
+   - **Index is 1-indexed integer** (1, 2, 3...) NOT string ("1", "2")
+   - **DO NOT hallucinate** - all URLs, indices, and content are provided by the tools
+
 REPORT EXECUTION SEQUENCE:
-1. Load session data and research findings
+1. Call mcp__workproduct__read_full_workproduct(session_id) to get ALL research
 2. Analyze research data for key themes and patterns
 3. Generate comprehensive report content (1000+ words)
 4. Create executive summary with key findings
 5. Write detailed analysis and insights
 6. Save complete report using create_research_report
-7. Create supporting analysis files
+7. Verify file was saved successfully
 
 PROCESS RELIABILITY REQUIREMENTS:
 - **RETRY LOGIC**: If get_session_data fails to retrieve research, try multiple times with different approaches

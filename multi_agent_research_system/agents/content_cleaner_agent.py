@@ -76,6 +76,7 @@ class CleanedContent:
     cleaning_notes: list[str]
     processing_time: float
     model_used: str
+    salient_points: str = ""  # 300-word bullet summary of key facts/themes
 
 
 @dataclass
@@ -100,6 +101,7 @@ if PYDAI_AVAILABLE and BaseModel:
         key_points: list[str]
         topics_detected: list[str]
         cleaning_notes: list[str]
+        salient_points: str  # 300-word bullet summary of key facts/themes
 else:
     CleanedContentOutput = None
 
@@ -214,7 +216,8 @@ class ContentCleanerAgent:
                 topics_detected=[],
                 cleaning_notes=[f"Cleaning failed: {str(e)}"],
                 processing_time=processing_time,
-                model_used="failed"
+                model_used="failed",
+                salient_points=""
             )
 
     async def clean_multiple_contents(
@@ -275,7 +278,8 @@ class ContentCleanerAgent:
                     topics_detected=[],
                     cleaning_notes=[f"Processing failed: {str(result)}"],
                     processing_time=0.0,
-                    model_used="failed"
+                    model_used="failed",
+                    salient_points=""
                 ))
             else:
                 final_results.append(result)
@@ -333,7 +337,8 @@ class ContentCleanerAgent:
                 topics_detected=cleaned_data.topics_detected,
                 cleaning_notes=cleaned_data.cleaning_notes,
                 processing_time=0.0,  # Will be set by caller
-                model_used=self.model_name
+                model_used=self.model_name,
+                salient_points=cleaned_data.salient_points
             )
 
         except Exception as e:
@@ -393,7 +398,8 @@ class ContentCleanerAgent:
                 topics_detected=topics,
                 cleaning_notes=cleaning_notes,
                 processing_time=0.0,  # Will be set by caller
-                model_used="enhanced_rule_based_modern"
+                model_used="enhanced_rule_based_modern",
+                salient_points=""  # Rule-based cleaning doesn't generate salient points
             )
 
         except Exception as e:
@@ -586,7 +592,8 @@ class ContentCleanerAgent:
             topics_detected=[],
             cleaning_notes=[reason],
             processing_time=0.0,
-            model_used="none"
+            model_used="none",
+            salient_points=""
         )
 
     def _get_system_prompt(self) -> str:
@@ -680,7 +687,8 @@ Return your analysis in this JSON format:
     "relevance_score": 0.78,
     "key_points": ["Point 1", "Point 2", "Point 3"],
     "topics_detected": ["topic1", "topic2"],
-    "cleaning_notes": ["Note about cleaning process"]
+    "cleaning_notes": ["Note about cleaning process"],
+    "salient_points": "• Specific fact/statistic with numbers\n• Key theme or argument\n• Notable quote or expert opinion\n• Unique insight from this article"
 }
 
 QUALITY EVALUATION CRITERIA:
@@ -747,7 +755,22 @@ QUALITY STANDARDS:
 - Maintain logical flow and proper paragraph structure
 - Ensure readability and organization
 
-Please analyze and clean this content according to the detailed instructions. Return your response in valid JSON format."""
+SALIENT POINTS REQUIREMENTS (CRITICAL):
+Generate a ~300-word summary in bullet format that captures SPECIFIC, INTERESTING information:
+• Focus on concrete facts, statistics, dates, numbers
+• Main themes and arguments (not generic summary)
+• Notable quotes or expert opinions
+• Unique insights specific to this article
+• DO NOT write generic summaries - be specific and factual
+• Each bullet should contain actionable research information
+
+Example good salient_points:
+"• Trump brokered ceasefire with 20 living hostages released on October 13, 2025\n• Exchange involved 250 Palestinian prisoners serving life sentences plus 1,718 other detainees\n• 20-point peace plan signed at Egypt summit with leaders from 20+ countries\n• Key challenge: Hamas missed deadline for returning deceased hostages' remains\n• Israel controls 53% of Gaza territory after partial withdrawal"
+
+Example bad salient_points (too generic):
+"• Article discusses recent developments\n• Peace deal was announced\n• Many people were involved\n• There are ongoing challenges"
+
+Please analyze and clean this content according to the detailed instructions. Return your response in valid JSON format with ALL fields including salient_points."""
 
     def _update_stats(self, result: CleanedContent):
         """Update cleaning statistics."""

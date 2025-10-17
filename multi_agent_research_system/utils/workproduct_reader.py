@@ -231,6 +231,24 @@ class WorkproductReader:
             if date_match:
                 article_info["date"] = date_match.group(1).strip()
             
+            # Extract relevance score
+            relevance_match = re.search(r'\*\*Relevance Score\*\*:\s*([\d.]+)', next_section)
+            if relevance_match:
+                try:
+                    article_info["relevance_score"] = float(relevance_match.group(1))
+                except ValueError:
+                    article_info["relevance_score"] = 0.0
+            
+            # Extract snippet (preview)
+            snippet_match = re.search(r'\*\*Snippet\*\*:\s*(.+?)(?=\n\n|---|\Z)', next_section, re.DOTALL)
+            if snippet_match:
+                snippet = snippet_match.group(1).strip()
+                # Clean up snippet (remove quotes, truncate if too long)
+                snippet = snippet.strip('"').strip()
+                if len(snippet) > 200:
+                    snippet = snippet[:197] + "..."
+                article_info["snippet"] = snippet
+            
             articles.append(article_info)
         
         return articles
