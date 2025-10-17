@@ -159,18 +159,54 @@ class ResearchDataStandardizer:
             if not line:
                 continue
 
-            if line.startswith(f"{len(results) + 1}."):
+            # Handle format: "### 1. Article Title"
+            if line.startswith("### ") and ". " in line:
                 # Save previous result
                 if current_result:
                     results.append(current_result)
 
-                # Start new result
+                # Extract title
+                title_start = line.find(". ") + 2
+                title = line[title_start:].strip() if title_start > 1 else line[4:].strip()
+
+                current_result = {
+                    "position": len(results) + 1,
+                    "title": title,
+                    "url": "",
+                    "source": "",
+                    "date": "",
+                    "relevance_score": 0.0,
+                    "snippet": ""
+                }
+
+            # Handle metadata fields
+            elif line.startswith("**URL**: ") and current_result:
+                current_result["url"] = line[6:].strip()
+            elif line.startswith("**Source**: ") and current_result:
+                current_result["source"] = line[9:].strip()
+            elif line.startswith("**Date**: ") and current_result:
+                current_result["date"] = line[7:].strip()
+            elif line.startswith("**Relevance Score**: ") and current_result:
+                try:
+                    score = float(line.split(':')[1].strip())
+                    current_result["relevance_score"] = score
+                except:
+                    pass
+            elif line.startswith("**Snippet**: ") and current_result:
+                current_result["snippet"] = line[11:].strip()
+
+            # Handle legacy format: "1. Title - Snippet"
+            elif line.startswith(f"{len(results) + 1}.") and not current_result:
                 title_end = line.find(' - ')
                 if title_end != -1:
                     current_result = {
                         "position": len(results) + 1,
                         "title": line[3:title_end].strip(),
-                        "snippet": line[title_end + 3:].strip()
+                        "snippet": line[title_end + 3:].strip(),
+                        "url": "",
+                        "source": "",
+                        "date": "",
+                        "relevance_score": 0.0
                     }
             elif line.startswith("URL: ") and current_result:
                 current_result["url"] = line[4:].strip()

@@ -78,6 +78,13 @@ class Settings(BaseSettings):
     development_mode: bool = Field(False, env="DEVELOPMENT_MODE", description="Enable development features")
     enable_metrics: bool = Field(True, env="ENABLE_METRICS", description="Enable performance metrics")
 
+    # LLM Gap Research Evaluator Settings
+    llm_gap_research_enabled: bool = Field(True, env="LLM_GAP_RESEARCH_ENABLED", description="Enable LLM-based gap research evaluation")
+    llm_gap_research_model: str = Field("gpt-5-nano", env="LLM_GAP_RESEARCH_MODEL", description="Model for LLM gap research evaluation")
+    llm_gap_research_strictness: str = Field("standard", env="LLM_GAP_RESEARCH_STRICTNESS", description="Gap research evaluation strictness (lenient/standard/strict)")
+    llm_gap_research_timeout: int = Field(30, env="LLM_GAP_RESEARCH_TIMEOUT", description="Timeout for LLM gap research evaluation (seconds)")
+    llm_gap_research_max_tokens: int = Field(500, env="LLM_GAP_RESEARCH_MAX_TOKENS", description="Max tokens for LLM gap research evaluation")
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

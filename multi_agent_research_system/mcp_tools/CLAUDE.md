@@ -1,26 +1,28 @@
-# MCP Tools Directory - Actual Implementation Analysis
+# MCP Tools Directory - Real Implementation Analysis
 
 **System Version**: 2.0 Production Release
-**Last Updated**: October 15, 2025
-**Status**: Production-Ready with Working MCP Tools
+**Last Updated**: October 16, 2025
+**Status**: Production-Ready MCP Tools with Registration Issues
 
 ## Executive Overview
 
-The `multi_agent_research_system/mcp_tools` directory contains **actual working MCP (Model Context Protocol) tools** that integrate with the Claude Agent SDK to provide search, scraping, and content cleaning capabilities. This documentation reflects the **real implementations** found in the codebase, not fictional or planned features.
+The `multi_agent_research_system/mcp_tools` directory contains **actual working MCP (Model Context Protocol) tools** that integrate with the Claude Agent SDK to provide search, scraping, content cleaning, and corpus management capabilities. This documentation reflects the **real implementations** found in the codebase, including both functional components and critical integration issues.
 
 **Actual MCP Tools Available:**
-- **`enhanced_search_scrape_clean.py`** - Multi-tool MCP server with 3 distinct search tools
-- **`zplayground1_search.py`** - Single comprehensive search tool
-- **`mcp_compliance_manager.py`** - Token management and content allocation system
+- **`enhanced_search_scrape_clean.py`** - Multi-tool MCP server with 3 search tools (working)
+- **`zplayground1_search.py`** - Single comprehensive search tool (working)
+- **`corpus_tools.py`** - Corpus management tools for report generation (working but registration issues)
+- **`mcp_compliance_manager.py`** - Token management and content allocation system (working)
 
 ## Real Directory Structure
 
 ```
 multi_agent_research_system/mcp_tools/
 ├── __init__.py                           # Package initialization
-├── enhanced_search_scrape_clean.py       # Multi-tool MCP server (3 tools)
-├── zplayground1_search.py               # Single comprehensive search tool
-├── mcp_compliance_manager.py            # Token management system
+├── enhanced_search_scrape_clean.py       # Multi-tool MCP server (3 tools) ✅
+├── zplayground1_search.py               # Single comprehensive search tool ✅
+├── corpus_tools.py                      # Corpus management tools (4 tools) ⚠️
+├── mcp_compliance_manager.py            # Token management system ✅
 └── __pycache__/                         # Compiled Python files
 ```
 
@@ -28,7 +30,7 @@ multi_agent_research_system/mcp_tools/
 
 ### 1. Enhanced Search Scrape Clean (`enhanced_search_scrape_clean.py`)
 
-**Reality**: This is a multi-tool MCP server that provides **3 distinct tools**:
+**Reality**: This is a fully functional multi-tool MCP server that provides **3 distinct tools** with working implementations:
 
 #### Tool 1: `enhanced_search_scrape_clean`
 - **Purpose**: Advanced topic-based search with parallel crawling and AI content cleaning
@@ -47,6 +49,7 @@ multi_agent_research_system/mcp_tools/
 - **Token Management**: Implements adaptive chunking for content >20,000 characters
 - **Workproduct Storage**: Saves to `KEVIN/sessions/{session_id}/research/`
 - **Error Handling**: Comprehensive with detailed error messages
+- **Status**: ✅ Working
 
 #### Tool 2: `enhanced_news_search`
 - **Purpose**: Specialized news search with content extraction
@@ -54,6 +57,7 @@ multi_agent_research_system/mcp_tools/
 - **Real Implementation**: Calls `news_search_and_crawl_direct()` from utils
 - **Token Management**: Same adaptive chunking system
 - **Workproduct Storage**: Same session-based structure
+- **Status**: ✅ Working
 
 #### Tool 3: `expanded_query_search_and_extract`
 - **Purpose**: Query expansion with master result consolidation
@@ -63,9 +67,10 @@ multi_agent_research_system/mcp_tools/
 - **Real Implementation**: Calls `expanded_query_search_and_extract()` from utils
 - **Workflow**: Generate queries → SERP searches → Deduplicate → Rank → Scrape
 - **Budget Control**: Limits scraping to avoid excessive resource usage
+- **Status**: ✅ Working
 
-#### Chunking System
-The enhanced search server implements a real chunking system:
+#### Chunking System (Real Implementation)
+The enhanced search server implements a working chunking system:
 
 ```python
 def create_adaptive_chunks(content: str, query: str, max_chunk_size: int = 18000):
@@ -140,9 +145,82 @@ else:
 - Fallback: SERP API search if enhanced scraping fails
 - Complete failure: Detailed troubleshooting information
 
-### 3. MCP Compliance Manager (`mcp_compliance_manager.py`)
+**Status**: ✅ Working
 
-**Reality**: This is a sophisticated token management and content allocation system:
+### 3. Corpus Tools (`corpus_tools.py`)
+
+**Reality**: This module provides **4 corpus management tools** that are critical for report generation but have registration issues:
+
+#### Tool 1: `build_research_corpus`
+- **Purpose**: Build structured research corpus from session data
+- **Real Parameters**:
+  - `session_id` (string, required): Session identifier
+  - `corpus_id` (string, optional): Corpus identifier (auto-generated if not provided)
+- **Real Implementation**:
+  - Auto-discovers workproduct files in multiple locations
+  - Uses ResearchCorpusManager for corpus building
+  - Properly awaits async functions (critical fix applied)
+  - Returns comprehensive metadata
+- **Status**: ✅ Working (but registration issues)
+
+#### Tool 2: `analyze_research_corpus`
+- **Purpose**: Validate and analyze research corpus quality
+- **Real Parameters**:
+  - `corpus_id` (string, required): Corpus identifier
+- **Real Implementation**:
+  - Searches all sessions for corpus files
+  - Performs quality analysis using ResearchCorpusManager
+  - Returns detailed quality metrics and recommendations
+- **Status**: ✅ Working (but registration issues)
+
+#### Tool 3: `synthesize_from_corpus`
+- **Purpose**: Synthesize comprehensive report from corpus
+- **Real Parameters**:
+  - `corpus_id` (string, required): Corpus identifier
+  - `report_type` (string, optional): Type of report to generate
+  - `audience` (string, optional): Target audience
+- **Real Implementation**:
+  - Generates synthesized content from corpus data
+  - Applies audience-aware formatting
+  - Calculates quality metrics
+- **Status**: ✅ Working (but registration issues)
+
+#### Tool 4: `generate_comprehensive_report`
+- **Purpose**: Generate final comprehensive report
+- **Real Parameters**:
+  - `corpus_id` (string, required): Corpus identifier
+  - `session_id` (string, required): Session identifier
+  - `output_format` (string, optional): Output format (default: markdown)
+- **Real Implementation**:
+  - Calls synthesis tool first
+  - Formats final report with proper structure
+  - Saves to complete directory
+  - Calculates final quality scores
+- **Status**: ✅ Working (but registration issues)
+
+#### Critical Registration Issue
+The corpus tools are defined and working, but have **registration problems** in the SDK client:
+
+```python
+# The tools exist and work:
+corpus_server = create_corpus_mcp_server()
+
+# But registration in orchestrator.py shows issues:
+try:
+    from multi_agent_research_system.mcp_tools.corpus_tools import corpus_server
+    if corpus_server is not None:
+        mcp_servers_config["corpus"] = corpus_server
+    else:
+        self.logger.error("❌ Corpus MCP server not available - report generation will fail")
+except Exception as e:
+    # Registration fails, causing report generation to fail
+```
+
+**Status**: ⚠️ Working code, broken registration
+
+### 4. MCP Compliance Manager (`mcp_compliance_manager.py`)
+
+**Reality**: This is a sophisticated token management and content allocation system that actually works:
 
 #### Content Allocation System
 ```python
@@ -154,11 +232,11 @@ class MCPComplianceManager:
 ```
 
 #### Real Features
-- **Multi-Level Content Allocation**: Priority-based content selection
+- **Multi-Level Content Allocation**: Priority-based content selection (CRITICAL/HIGH/MEDIUM/LOW)
 - **Smart Compression**: Preserves quality while reducing length
 - **Token Estimation**: Rough estimates using 4 chars per token
 - **Content Analysis**: Section identification and key point extraction
-- **Priority Distribution**: CRITICAL/HIGH/MEDIUM/LOW content prioritization
+- **Priority Distribution**: Content prioritization based on relevance
 
 #### Content Priority System
 ```python
@@ -175,9 +253,11 @@ class ContentPriority(Enum):
 - **Priority Assignment**: Calculates relevance based on query terms
 - **Compression**: Selects high-priority content when token limits exceeded
 
+**Status**: ✅ Working and integrated with zPlayground1 tool
+
 ## Actual MCP Server Creation
 
-### Enhanced Search Server
+### Enhanced Search Server (✅ Working)
 ```python
 def create_enhanced_search_mcp_server():
     server = create_sdk_mcp_server(
@@ -192,7 +272,7 @@ def create_enhanced_search_mcp_server():
     return server
 ```
 
-### ZPlayground1 Server
+### ZPlayground1 Server (✅ Working)
 ```python
 def create_zplayground1_mcp_server():
     server = create_sdk_mcp_server(
@@ -201,6 +281,21 @@ def create_zplayground1_mcp_server():
         tools=[zplayground1_search_scrape_clean],
     )
     return server
+```
+
+### Corpus Server (⚠️ Created but Registration Issues)
+```python
+def create_corpus_mcp_server():
+    """Create MCP server for corpus management tools."""
+    return create_sdk_mcp_server(
+        name="corpus",
+        tools=[
+            build_research_corpus_tool,
+            analyze_research_corpus_tool,
+            synthesize_from_corpus_tool,
+            generate_comprehensive_report_tool
+        ]
+    )
 ```
 
 ## Real Performance Characteristics
@@ -250,6 +345,7 @@ from ..utils.z_search_crawl_utils import (
     news_search_and_crawl_direct,
     search_crawl_and_clean_direct,
 )
+from multi_agent_research_system.utils.research_corpus_manager import ResearchCorpusManager
 ```
 
 ### External Dependencies
@@ -266,6 +362,10 @@ KEVIN/sessions/{session_id}/
 │   ├── 1-search_workproduct_YYYYMMDD_HHMMSS.md
 │   ├── 1-expanded_search_workproduct_YYYYMMDD_HHMMSS.md
 │   └── 1-search_workproduct_chunked_YYYYMMDD_HHMMSS.md (when chunking used)
+├── working/
+│   └── (agent work products)
+└── complete/
+    └── FINAL_ENHANCED_YYYYMMDD_HHMMSS.md (corpus tools output)
 ```
 
 ### Workproduct File Naming
@@ -303,6 +403,39 @@ except (ValueError, TypeError) as param_error:
     error_msg = f"❌ **CRITICAL PARAMETER VALIDATION ERROR**\n\n{param_error}"
     return {"content": [{"type": "text", "text": error_msg}], "is_error": True}
 ```
+
+## Critical Integration Issues
+
+### Corpus Tools Registration Problem
+**Issue**: The corpus tools are implemented and functional, but fail to register properly with the SDK client in some configurations.
+
+**Evidence from orchestrator.py**:
+```python
+# CRITICAL FIX: Add corpus server following existing pattern
+try:
+    from multi_agent_research_system.mcp_tools.corpus_tools import corpus_server
+    if corpus_server is not None:
+        mcp_servers_config["corpus"] = corpus_server
+        self.logger.info("✅ Corpus MCP server added to configuration (CRITICAL FIX)")
+    else:
+        self.logger.error("❌ Corpus MCP server not available - report generation will fail")
+except Exception as e:
+    # Registration fails, causing report generation to fail
+```
+
+**Impact**: Report generation fails with 0% success rate due to missing corpus tools in agent workflows.
+
+**Root Cause**: The corpus server creation works, but registration with the SDK client is inconsistent, leading to validation failures in the hook system.
+
+### Tool Naming Convention Confusion
+**Issue**: Inconsistent tool naming between registration and usage.
+
+**Expected Pattern**: `mcp__{server_name}__{tool_name}`
+- Enhanced search: `mcp__enhanced_search_scrape_clean__enhanced_search_scrape_clean`
+- zPlayground1: `mcp__zplayground1_search__zplayground1_search_scrape_clean`
+- Corpus: `mcp__corpus__build_research_corpus`
+
+**Reality**: The actual tool names may not match this pattern consistently, causing hook validation failures.
 
 ## Configuration Requirements
 
@@ -375,21 +508,42 @@ result = await client.call_tool("zplayground1_search_scrape_clean", {
 })
 ```
 
+### Corpus Tools Usage (When Registered)
+```python
+# Build corpus
+result = await client.call_tool("build_research_corpus", {
+    "session_id": "research_session_001",
+    "corpus_id": "corpus_ai_healthcare_2025"
+})
+
+# Analyze corpus
+result = await client.call_tool("analyze_research_corpus", {
+    "corpus_id": "corpus_ai_healthcare_2025"
+})
+
+# Generate report
+result = await client.call_tool("generate_comprehensive_report", {
+    "corpus_id": "corpus_ai_healthcare_2025",
+    "session_id": "research_session_001",
+    "output_format": "markdown"
+})
+```
+
 ## Integration Patterns
 
-### Server Registration
+### Server Registration (Working)
 ```python
 from multi_agent_research_system.mcp_tools.enhanced_search_scrape_clean import enhanced_search_server
 from multi_agent_research_system.mcp_tools.zplayground1_search import zplayground1_server
 
 # Register with Claude Agent SDK
 mcp_servers = {
-    "enhanced_search": enhanced_search_server,
-    "zplayground1": zplayground1_server
+    "enhanced_search_scrape_clean": enhanced_search_server,
+    "zplayground1_search": zplayground1_server
 }
 ```
 
-### Agent Tool Assignment
+### Agent Tool Assignment (Partial)
 ```python
 research_agent = AgentDefinition(
     name="research_agent",
@@ -402,6 +556,17 @@ research_agent = AgentDefinition(
     ],
     mcp_servers=mcp_servers
 )
+
+# Report agent should have corpus tools but registration issues prevent this:
+report_agent = AgentDefinition(
+    name="report_agent",
+    tools=[
+        "build_research_corpus",      # ❌ May not be available
+        "analyze_research_corpus",    # ❌ May not be available
+        "synthesize_from_corpus",     # ❌ May not be available
+        "generate_comprehensive_report" # ❌ May not be available
+    ]
+)
 ```
 
 ## Limitations and Constraints
@@ -411,18 +576,21 @@ research_agent = AgentDefinition(
 - **Chunking**: Simple splitting at logical breaks, not semantic understanding
 - **Content Analysis**: Basic relevance scoring, not deep semantic analysis
 - **Error Recovery**: Limited fallback options, mostly fails fast with errors
+- **Corpus Tools Registration**: Critical issue preventing report generation workflow
 
 ### Functional Constraints
 - **Search Sources**: Limited to SERP API (Google search and news)
 - **Content Cleaning**: Depends on GPT-5-nano availability and cost
 - **Anti-Bot Detection**: Limited effectiveness against sophisticated bot protection
 - **Concurrent Processing**: Limited by system resources and rate limits
+- **Report Generation**: Broken due to corpus tools registration issues
 
 ### Performance Characteristics
 - **Search Success Rate**: 95-99% (SERP API reliability)
 - **Crawling Success Rate**: 70-90% (varies by anti-bot level and target sites)
 - **Content Cleaning Success Rate**: 85-95% (GPT-5-nano reliability)
-- **Overall Pipeline Success**: 60-80% (end-to-end completion)
+- **Enhanced Search Tools**: 60-80% (end-to-end completion)
+- **Report Generation**: 0% (broken due to corpus tools registration)
 
 ## Debugging and Monitoring
 
@@ -445,18 +613,58 @@ allocation = mcp_manager.allocate_content(...)
 token_usage = allocation.token_usage
 ```
 
-## Conclusion
+### Common Issues and Solutions
 
-The `multi_agent_research_system/mcp_tools` directory contains **production-ready MCP tools** with real implementations that:
+#### Search Failures
+- **Check SERPER_API_KEY**: Ensure API key is valid and has sufficient credits
+- **Network Connectivity**: Verify internet connection and firewall settings
+- **Rate Limiting**: Implement delays between search requests
 
-1. **Provide Working Search Capabilities**: Functional integration with SERP API and web crawling
-2. **Implement Token Management**: Real chunking and content allocation systems
-3. **Handle Errors Gracefully**: Comprehensive error handling with detailed messages
-4. **Support Session Management**: Organized workproduct storage and tracking
-5. **Integrate with Claude SDK**: Proper MCP server creation and tool registration
+#### Crawling Failures
+- **Anti-Bot Escalation**: Increase anti-bot level (0-3) for difficult sites
+- **Timeout Issues**: Increase timeout values for slow websites
+- **Blocked URLs**: Use URL replacement system for permanently blocked domains
 
-**No Fictional Features**: This documentation only includes implemented features found in the actual codebase. There are no "enhanced editorial workflow" tools, "gap research coordination" tools, or other fictional capabilities mentioned in planning documents.
+#### Content Cleaning Issues
+- **GPT-5-nano API**: Check OpenAI API key and usage limits
+- **Content Quality**: Some content may be too dirty for effective cleaning
+- **Token Limits**: Monitor token usage and implement chunking for large content
 
-**System Status**: ✅ Production-Ready with Working MCP Tools
-**Implementation**: Real, functional code with comprehensive error handling
-**Integration**: Working Claude Agent SDK integration with proper MCP compliance
+#### Report Generation Failures (Critical Issue)
+- **Corpus Tools Registration**: Check that corpus_server is properly registered in orchestrator.py
+- **Tool Name Mismatch**: Verify tool names follow `mcp__{server_name}__{tool_name}` pattern
+- **SDK Client Configuration**: Ensure corpus server is included in mcp_servers_config
+- **Hook Validation**: Check that required corpus tools are in agent tool definitions
+
+## System Status Summary
+
+### Current Implementation Status: ⚠️ Partially Functional
+- **Enhanced Search Tools**: ✅ Fully functional with comprehensive error handling
+- **ZPlayground1 Search**: ✅ Working with advanced parameter validation
+- **MCP Compliance Manager**: ✅ Working and integrated with search tools
+- **Corpus Management Tools**: ⚠️ Implemented but registration issues prevent usage
+- **Session Management**: ✅ Working with organized file storage
+- **Token Management**: ✅ Working with smart content allocation
+
+### Critical Issues Requiring Immediate Attention
+1. **Corpus Tools Registration**: The corpus server is created but fails to register consistently with the SDK client
+2. **Report Generation Workflow**: 0% success rate due to missing corpus tools in agent workflows
+3. **Hook Validation System**: Requires tools that agents don't have access to due to registration issues
+4. **Tool Naming Convention**: Inconsistent naming between tool creation and agent usage
+
+### Performance Characteristics
+- **Search Tools Success Rate**: 60-80% (end-to-end completion)
+- **Report Generation Success Rate**: 0% (workflow broken due to registration issues)
+- **Overall System Success Rate**: 0% (end-to-end workflow fails at report generation)
+- **Processing Time**: 2-5 minutes for search stage (then fails)
+- **Resource Usage**: Moderate CPU and memory requirements
+
+---
+
+**Implementation Status**: ⚠️ Working Search Tools + Broken Report Generation
+**Architecture**: Functional MCP Tools with Registration Issues
+**Key Features**: ✅ Excellent Search/Scrape/Clean Pipeline, ❌ Broken Report Workflow
+**Critical Issues**: Corpus tools registration, tool naming consistency, SDK client configuration
+**Next Priority**: Fix corpus tools registration to enable report generation workflow
+
+This documentation reflects the actual current implementation of the MCP tools system, focusing on working components, critical integration issues, and realistic capabilities while removing fictional features that are not implemented.

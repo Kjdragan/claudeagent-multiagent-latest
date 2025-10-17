@@ -1,10 +1,25 @@
 # Configuration System - Multi-Agent Research System
 
-This directory contains the actual configuration management system for the multi-agent research system, based on analysis of the real implementation files.
+**System Version**: 2.0 Production Release
+**Last Updated**: October 16, 2025
+**Status**: ⚠️ Partially Functional - Working Settings, Critical Tool Registration Issues
+
+## Executive Overview
+
+The configuration system implements a multi-layered approach to managing system settings, agent definitions, and SDK configurations. While the basic configuration management works effectively, there are critical issues with tool registration that prevent end-to-end workflows from completing.
+
+**Actual System Capabilities:**
+- **Environment Variable Management**: ✅ Working Pydantic-based configuration with validation
+- **Agent Definitions**: ⚠️ Claude Agent SDK integration works, but tools not registered properly
+- **SDK Configuration**: ⚠️ Comprehensive configuration exists but missing MCP server registration
+- **Path Management**: ✅ Environment-aware KEVIN directory structure and session organization
+- **Multi-Layer Integration**: ✅ Legacy, SDK, and enhanced configurations integrated
+
+**Current Configuration Status**: Settings ✅ Working | Agent Definitions ⚠️ Defined but Broken | Tool Registration ❌ Critical Failure
 
 ## Directory Purpose
 
-The config directory provides centralized configuration management for the multi-agent research system, including search parameters, agent definitions, SDK configuration, and environment-based settings management.
+The config directory provides centralized configuration management for the multi-agent research system, including search parameters, agent definitions, SDK configuration, and environment-based settings management. The system implements multiple overlapping configuration approaches that need consolidation.
 
 ## Key Components
 
@@ -860,7 +875,7 @@ def test_environment_overrides():
 
 ## Critical Configuration Issues
 
-### Tool Registration Problems ❌
+### Tool Registration Failure ❌ **CRITICAL**
 
 **Issue**: Corpus tools are defined in `enhanced_agents.py:285-425` but never registered with the SDK client
 
@@ -877,17 +892,15 @@ def test_environment_overrides():
 - Missing: `mcp_tools/corpus_tools.py` (proper MCP server implementation)
 - Missing: `core/sdk_client_manager.py` (SDK client with corpus server registration)
 
-### SDK Integration Gaps ❌
+**Evidence**: Lines 285-425 in `enhanced_agents.py` contain corpus tool definitions wrapped in `if SDK_AVAILABLE:` blocks that never execute
+
+### SDK Integration Gaps ❌ **BROKEN**
 
 **Current Status**:
 - ✅ Search tools properly registered and functional
 - ❌ Corpus tools defined but never registered
 - ❌ Agent definitions reference non-existent tools
 - ❌ No SDK client manager for proper tool registration
-
-### Hook Validation Configuration Issues ❌
-
-**Problem**: Hook validation system requires tools that agents don't have access to
 
 **Required Tools (Missing from Agent Toolkit)**:
 - `build_research_corpus`
@@ -899,6 +912,17 @@ def test_environment_overrides():
 - `get_session_data`
 - `create_research_report`
 - `Write`
+
+### Hook Validation Configuration Issues ❌ **SYSTEM BREAKING**
+
+**Problem**: Hook validation system requires tools that agents don't have access to, causing 0% success rate for report generation workflows
+
+**Failure Pattern**:
+1. Report agent attempts to generate report
+2. Hook validation checks for required corpus tools
+3. Tools not found in agent toolkit (registration failure)
+4. Workflow fails with "missing required tools" error
+5. End-to-end research pipeline breaks completely
 
 ## System Status
 

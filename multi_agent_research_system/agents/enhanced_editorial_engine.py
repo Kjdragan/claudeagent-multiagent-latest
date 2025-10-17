@@ -285,16 +285,16 @@ class EnhancedEditorialDecisionEngine:
         # Initialize legacy engine if available
         self.legacy_engine = LegacyEditorialDecisionEngine() if LEGACY_ENGINE_AVAILABLE else None
 
-        # Confidence thresholds (configurable)
+        # Confidence thresholds (configurable) - UPDATED FOR HIGH THRESHOLDS per repair2.md
         self.thresholds = {
-            'gap_research_trigger': 0.70,     # Trigger gap research below this
-            'high_confidence_threshold': 0.85,   # High confidence threshold
-            'low_confidence_threshold': 0.45,    # Low confidence threshold
-            'corpus_sufficiency_threshold': 0.75, # Corpus sufficiency threshold
-            'decision_confidence_minimum': 0.60, # Minimum confidence for decisions
-            'gap_importance_threshold': 0.60,    # Importance threshold for gaps
-            'acceptance_confidence': 0.80,       # Confidence for acceptance
-            'rejection_confidence': 0.35         # Confidence for rejection
+            'gap_research_trigger': 0.90,     # INCREASED: Trigger gap research below this (was 0.70)
+            'high_confidence_threshold': 0.90,   # INCREASED: High confidence threshold (was 0.85)
+            'low_confidence_threshold': 0.30,    # DECREASED: Low confidence threshold (was 0.45)
+            'corpus_sufficiency_threshold': 0.80, # INCREASED: Corpus sufficiency threshold (was 0.75)
+            'decision_confidence_minimum': 0.75, # INCREASED: Minimum confidence for decisions (was 0.60)
+            'gap_importance_threshold': 0.75,    # INCREASED: Importance threshold for gaps (was 0.60)
+            'acceptance_confidence': 0.85,       # INCREASED: Confidence for acceptance (was 0.80)
+            'rejection_confidence': 0.25         # DECREASED: Confidence for rejection (was 0.35)
         }
 
         if confidence_thresholds:
@@ -675,12 +675,28 @@ class EnhancedEditorialDecisionEngine:
 
             elif (len(high_importance_gaps) > 0 and
                   overall_confidence >= self.thresholds['gap_research_trigger']):
-                # Check if gaps are high priority
+                # ENHANCED: More stringent gap research criteria per repair2.md
+                # Require multiple critical gaps AND very high confidence to trigger gap research
                 critical_gaps = [gap for gap in high_importance_gaps if gap.priority_level == LegacyPriorityLevel.CRITICAL]
-                if critical_gaps:
+
+                # Only trigger gap research for CRITICAL gaps with extremely high importance
+                extremely_critical_gaps = [
+                    gap for gap in critical_gaps
+                    if (gap.importance_score > 0.85 and
+                        gap.confidence_in_gap > 0.8 and
+                        gap.gap_category in [GapCategory.FACTUAL_GAPS, GapCategory.ANALYTICAL_GAPS])
+                ]
+
+                # STRONGER REQUIREMENT: Need at least 2 extremely critical gaps OR 1 with perfect scores
+                if len(extremely_critical_gaps) >= 2:
+                    return DecisionType.CONDUCT_GAP_RESEARCH_HIGH_PRIORITY
+                elif (len(extremely_critical_gaps) == 1 and
+                      extremely_critical_gaps[0].importance_score >= 0.95 and
+                      extremely_critical_gaps[0].confidence_in_gap >= 0.9):
                     return DecisionType.CONDUCT_GAP_RESEARCH_HIGH_PRIORITY
                 else:
-                    return DecisionType.CONDUCT_GAP_RESEARCH
+                    # Default to enhancement rather than gap research (per repair2.md)
+                    return DecisionType.PROGRESSIVE_ENHANCEMENT
 
             elif overall_confidence < self.thresholds['low_confidence_threshold']:
                 return DecisionType.REJECT_AND_RETRY

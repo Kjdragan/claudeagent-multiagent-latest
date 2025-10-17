@@ -84,9 +84,9 @@ class EditorialDecisionEngine:
         Args:
             custom_thresholds: Custom threshold overrides
         """
-        # Quality thresholds (as specified in requirements)
+        # Quality thresholds - UPDATED FOR HIGH THRESHOLDS per repair2.md
         self.thresholds = {
-            'gap_research_trigger': 0.7,   # Trigger gap research below this
+            'gap_research_trigger': 0.9,   # INCREASED: Trigger gap research below this (was 0.7)
             'acceptable_quality': 0.6,     # Minimum acceptable quality
             'good_quality': 0.8,           # Good quality threshold
             'excellent_quality': 0.9,      # Excellent quality threshold

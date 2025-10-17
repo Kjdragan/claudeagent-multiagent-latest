@@ -44,6 +44,59 @@ def get_corpus_manager(session_id: str) -> ResearchCorpusManager:
     return _corpus_managers[session_id]
 
 
+def find_research_workproduct(session_id: str) -> Optional[str]:
+    """
+    Find research workproduct files in multiple locations.
+
+    Priority order:
+    1. working/RESEARCH_*.md (standard format)
+    2. research/search_workproduct_*.md (search workproduct format)
+    3. working/COMPREHENSIVE_*.md (comprehensive reports)
+
+    Args:
+        session_id: The session ID to search for
+
+    Returns:
+        Path to the most recent workproduct file, or None if not found
+    """
+    session_dir = Path("KEVIN/sessions") / session_id
+
+    if not session_dir.exists():
+        logger.warning(f"Session directory not found: {session_dir}")
+        return None
+
+    # Priority 1: Standard RESEARCH files in working directory
+    working_files = list(session_dir.glob("working/RESEARCH_*.md"))
+    if working_files:
+        latest_file = max(working_files, key=lambda x: x.stat().st_mtime)
+        logger.info(f"Found standard research workproduct: {latest_file}")
+        return str(latest_file)
+
+    # Priority 2: Search workproduct files in research directory
+    research_files = list(session_dir.glob("research/search_workproduct_*.md"))
+    if research_files:
+        latest_file = max(research_files, key=lambda x: x.stat().st_mtime)
+        logger.info(f"Found search workproduct: {latest_file}")
+        return str(latest_file)
+
+    # Priority 3: Comprehensive reports in working directory
+    comprehensive_files = list(session_dir.glob("working/COMPREHENSIVE_*.md"))
+    if comprehensive_files:
+        latest_file = max(comprehensive_files, key=lambda x: x.stat().st_mtime)
+        logger.info(f"Found comprehensive report: {latest_file}")
+        return str(latest_file)
+
+    # Priority 4: Any markdown files in working directory
+    working_md_files = list(session_dir.glob("working/*.md"))
+    if working_md_files:
+        latest_file = max(working_md_files, key=lambda x: x.stat().st_mtime)
+        logger.info(f"Found fallback markdown file: {latest_file}")
+        return str(latest_file)
+
+    logger.warning(f"No research workproduct files found for session {session_id}")
+    return None
+
+
 @tool("build_research_corpus", "Build structured research corpus from session data", {
     "session_id": str,
     "corpus_id": Optional[str]
@@ -69,37 +122,58 @@ async def build_research_corpus_tool(args: Dict[str, Any]) -> Dict[str, Any]:
         if corpus_id is None:
             corpus_id = f"corpus_{uuid.uuid4().hex[:12]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
-        # Check if we can build from existing workproduct
-        session_dir = Path("KEVIN/sessions") / session_id
-        research_dir = session_dir / "research"
+        # CRITICAL FIX: Use auto-discovery to find workproduct files
+        workproduct_path = find_research_workproduct(session_id)
 
-        if research_dir.exists():
-            # Find latest research workproduct
-            workproduct_files = list(research_dir.glob("search_workproduct_*.md"))
-            if workproduct_files:
-                latest_workproduct = max(workproduct_files, key=lambda x: x.stat().st_mtime)
+        if workproduct_path:
+            logger.info(f"🔍 Using discovered workproduct: {workproduct_path}")
 
-                # CRITICAL FIX: Properly await the async function (was missing await)
-                result = await corpus_manager.build_corpus_from_workproduct(str(latest_workproduct))
+            # CRITICAL FIX: Properly await the async function (was missing await)
+            result = await corpus_manager.build_corpus_from_workproduct(str(workproduct_path), corpus_id)
 
-                if result and isinstance(result, dict):
-                    # CRITICAL FIX: Return all required fields that were missing
-                    return {
-                        "corpus_id": corpus_id,
-                        "status": "success",
-                        "corpus_path": corpus_manager.research_corpus_path,
-                        "total_sources": len(result.get("sources", [])),
-                        "total_chunks": len(result.get("content_chunks", [])),
-                        "word_count": sum(source.get("word_count", 0) for source in result.get("sources", [])),
-                        "quality_score": result.get("quality_metrics", {}).get("overall_score", 0.0),
-                        "session_id": session_id,
-                        "build_timestamp": datetime.now().isoformat()
-                    }
+            if result and isinstance(result, dict):
+                # CRITICAL FIX: Return all required fields that were missing
+                return {
+                    "corpus_id": corpus_id,
+                    "status": "success",
+                    "corpus_path": corpus_manager.research_corpus_path,
+                    "workproduct_path": workproduct_path,
+                    "total_sources": len(result.get("sources", [])),
+                    "total_chunks": len(result.get("content_chunks", [])),
+                    "word_count": sum(source.get("word_count", 0) for source in result.get("sources", [])),
+                    "quality_score": result.get("quality_metrics", {}).get("overall_score", 0.0),
+                    "session_id": session_id,
+                    "build_timestamp": datetime.now().isoformat(),
+                    "discovery_method": "auto-discovery"
+                }
+            else:
+                logger.warning(f"Corpus builder returned empty result from: {workproduct_path}")
+        else:
+            logger.warning(f"No workproduct found for session {session_id}")
 
         # Fallback: Try to build from session data if no workproduct found
         logger.warning(f"No workproduct found for session {session_id}, attempting fallback build")
 
-        # Create a basic corpus structure
+        # CRITICAL FIX: Check if corpus was built but returned empty results
+        if workproduct_path and result and isinstance(result, dict):
+            total_sources = len(result.get("sources", []))
+            total_chunks = len(result.get("content_chunks", []))
+
+            if total_sources == 0 or total_chunks == 0:
+                logger.error(f"❌ Corpus creation failed: Empty corpus with {total_sources} sources, {total_sources} chunks")
+                return {
+                    "corpus_id": corpus_id,
+                    "status": "failed",
+                    "error": f"Empty corpus created from {workproduct_path}",
+                    "total_sources": 0,
+                    "total_chunks": 0,
+                    "session_id": session_id,
+                    "build_timestamp": datetime.now().isoformat(),
+                    "workproduct_path": workproduct_path,
+                    "build_method": "failed_parsing"
+                }
+
+        # Create a basic corpus structure only if absolutely no workproduct was found
         basic_corpus = {
             "corpus_id": corpus_id,
             "session_id": session_id,
@@ -112,7 +186,8 @@ async def build_research_corpus_tool(args: Dict[str, Any]) -> Dict[str, Any]:
                 "word_count": 0,
                 "quality_score": 0.0,
                 "last_updated": datetime.now().isoformat(),
-                "build_method": "fallback"
+                "build_method": "fallback",
+                "error_reason": "no_workproduct_found"
             }
         }
 
@@ -123,7 +198,7 @@ async def build_research_corpus_tool(args: Dict[str, Any]) -> Dict[str, Any]:
 
         return {
             "corpus_id": corpus_id,
-            "status": "success",
+            "status": "fallback_success",
             "corpus_path": corpus_manager.research_corpus_path,
             "total_sources": 0,
             "total_chunks": 0,
@@ -131,7 +206,8 @@ async def build_research_corpus_tool(args: Dict[str, Any]) -> Dict[str, Any]:
             "quality_score": 0.0,
             "session_id": session_id,
             "build_timestamp": datetime.now().isoformat(),
-            "warning": "Built using fallback method - no workproduct found"
+            "warning": "Built using fallback method - no workproduct found",
+            "build_method": "fallback"
         }
 
     except Exception as e:

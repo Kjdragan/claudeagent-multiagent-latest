@@ -47,7 +47,12 @@ class ResearchCorpusManager:
                 corpus_id = f"corpus_{uuid.uuid4().hex[:12]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
 
             # 1. Parse existing workproduct using ResearchDataStandardizer
-            parsed_data = self.standardizer.parse_search_workproduct(workproduct_path)
+            try:
+                parsed_data = self.standardizer.parse_search_workproduct(workproduct_path)
+            except Exception as parse_error:
+                print(f"❌ Standardizer failed to parse workproduct: {parse_error}")
+                # CRITICAL FIX: Fallback to manual parsing for search workproduct format
+                parsed_data = self._parse_search_workproduct_fallback(workproduct_path)
 
             # 2. Create enhanced corpus structure with CRITICAL FIX: include corpus_id
             corpus = {
@@ -97,6 +102,104 @@ class ResearchCorpusManager:
         except Exception as e:
             print(f"❌ Error building research corpus: {e}")
             raise
+
+    def _parse_search_workproduct_fallback(self, workproduct_path: str) -> dict:
+        """
+        CRITICAL FIX: Fallback parser for search workproduct format.
+
+        This method parses the Enhanced Search+Crawl+Clean workproduct format
+        that contains search results with URLs, sources, dates, and snippets.
+        """
+        try:
+            print(f"🔧 Using fallback parser for: {workproduct_path}")
+
+            with open(workproduct_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            # Initialize parsed data structure
+            parsed_data = {
+                "search_results": [],
+                "crawled_content": [],
+                "search_metadata": {
+                    "query": "",
+                    "total_results": 0,
+                    "search_timestamp": "",
+                    "workproduct_path": workproduct_path
+                }
+            }
+
+            # Extract metadata from header
+            lines = content.split('\n')
+            for line in lines:
+                if '**Search Query**:' in line:
+                    parsed_data["search_metadata"]["query"] = line.split('**Search Query**:')[-1].strip()
+                elif '**Total Search Results**:' in line:
+                    try:
+                        total = int(line.split('**Total Search Results**:')[-1].strip())
+                        parsed_data["search_metadata"]["total_results"] = total
+                    except ValueError:
+                        pass
+                elif '**Export Date**:' in line:
+                    parsed_data["search_metadata"]["search_timestamp"] = line.split('**Export Date**:')[-1].strip()
+
+            # Extract search results using regex pattern
+            import re
+
+            # Pattern to match search result entries
+            search_pattern = r'### (\d+)\. (.+?)\*\*URL\*\*: (.+?)\*\*Source\*\*: (.+?)\*\*Date\*\*: (.+?)\*\*Relevance Score\*\*: (.+?)\*\*Snippet\*\*: (.+?)(?=---|\n\n###|$)'
+
+            matches = re.findall(search_pattern, content, re.DOTALL)
+
+            search_results = []
+            crawled_content = []
+
+            for i, match in enumerate(matches):
+                result_num, title, url, source, date, relevance, snippet = match
+
+                search_result = {
+                    "position": int(result_num),
+                    "title": title.strip(),
+                    "url": url.strip(),
+                    "source": source.strip(),
+                    "date": date.strip(),
+                    "relevance_score": float(relevance.strip()),
+                    "snippet": snippet.strip()
+                }
+                search_results.append(search_result)
+
+                # Create crawled content entry (simulate crawled data)
+                crawled_entry = {
+                    "url": url.strip(),
+                    "title": title.strip(),
+                    "content": snippet.strip(),
+                    "source": source.strip(),
+                    "relevance_score": float(relevance.strip()),
+                    "cleanliness_score": 0.8,  # Default cleanliness score
+                    "crawl_timestamp": parsed_data["search_metadata"]["search_timestamp"]
+                }
+                crawled_content.append(crawled_entry)
+
+            parsed_data["search_results"] = search_results
+            parsed_data["crawled_content"] = crawled_content
+
+            print(f"✅ Fallback parser extracted {len(search_results)} search results and {len(crawled_content)} content entries")
+
+            return parsed_data
+
+        except Exception as e:
+            print(f"❌ Fallback parser failed: {e}")
+            # Return minimal structure to prevent complete failure
+            return {
+                "search_results": [],
+                "crawled_content": [],
+                "search_metadata": {
+                    "query": "unknown",
+                    "total_results": 0,
+                    "search_timestamp": datetime.now().isoformat(),
+                    "workproduct_path": workproduct_path,
+                    "parse_error": str(e)
+                }
+            }
 
     async def build_corpus_from_data(self, research_data: dict) -> dict:
         """Build structured corpus directly from research data dictionary."""

@@ -1046,16 +1046,16 @@ async def search_crawl_and_clean_direct(
                     corpus_info = f"""
 ### Research Corpus Information (NEW)
 - **Corpus ID**: {corpus_data['corpus_id']}
-- **Total Content Chunks**: {corpus_data['total_chunks']}
+- **Total Content Chunks**: {corpus_data['metadata']['total_chunks']}
 - **Sources Processed**: {corpus_data['metadata']['total_sources']}
-- **Content Coverage**: {corpus_data['metadata']['content_coverage']:.2%}
-- **Average Relevance Score**: {corpus_data['metadata']['average_relevance_score']:.3f}
-- **Corpus File**: {corpus_data['corpus_file']}
-- **Ready for Enhanced Report Agent**: ✅ Yes (quality score: {corpus_data['metadata']['average_relevance_score']:.3f})
+- **Content Coverage**: {corpus_data['metadata'].get('content_coverage', 0.0):.2%}
+- **Average Relevance Score**: {corpus_data['metadata'].get('average_relevance_score', 0.0):.3f}
+- **Corpus File**: {corpus_data.get('corpus_file', 'N/A')}
+- **Ready for Enhanced Report Agent**: ✅ Yes (quality score: {corpus_data['metadata'].get('average_relevance_score', 0.0):.3f})
 
 🎯 **Enhanced Report Agent can now use corpus-based tools to generate data-driven reports with hook validation!**
 """
-                    logger.info(f"✅ Research corpus built successfully: {corpus_data['corpus_id']} ({corpus_data['total_chunks']} chunks)")
+                    logger.info(f"✅ Research corpus built successfully: {corpus_data['corpus_id']} ({corpus_data['metadata']['total_chunks']} chunks)")
                     
                 except Exception as corpus_error:
                     logger.warning(f"⚠️ Failed to build research corpus: {corpus_error}")
@@ -1106,9 +1106,9 @@ async def search_crawl_and_clean_direct(
                     corpus_info = f"""
 ### Research Corpus Information (NEW)
 - **Corpus ID**: {corpus_data['corpus_id']}
-- **Total Content Chunks**: {corpus_data['total_chunks']}
+- **Total Content Chunks**: {corpus_data['metadata']['total_chunks']}
 - **Sources Processed**: {corpus_data['metadata']['total_sources']}
-- **Content Coverage**: {corpus_data['metadata']['content_coverage']:.2%}
+- **Content Coverage**: {corpus_data['metadata'].get('content_coverage', 0.0):.2%}
 - **Ready for Enhanced Report Agent**: ✅ Limited (search results only)
 """
                 except Exception as corpus_error:
