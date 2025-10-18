@@ -800,8 +800,8 @@ async def search_crawl_and_clean_direct(
         early_cutoff_threshold = settings.early_cutoff_threshold
         target_cleans = settings.target_successful_cleans
         
-        logger.info(f"🚀 Launching concurrent scrape+clean processing with early cutoff optimization")
-        logger.info(f"   Target: {target_cleans} successful cleans | Early cutoff: {early_cutoff_threshold} successful scrapes | Max attempts: {len(urls_to_crawl)}")
+        logger.info(f"🚀 Launching concurrent scrape+clean processing (early cutoff DISABLED)")
+        logger.info(f"   Target: {target_cleans} successful cleans | Processing ALL {len(urls_to_crawl)} URLs in batch")
         
         # Create all tasks but monitor completion dynamically
         pending_tasks = {asyncio.create_task(process_url_with_replacement(url)): url for url in urls_to_crawl}
@@ -834,23 +834,24 @@ async def search_crawl_and_clean_direct(
                         completed_results.append(e)
                         logger.error(f"Exception processing {url}: {e}")
                 
-                # Check early cutoff condition
-                if successful_scrapes >= early_cutoff_threshold and pending_tasks:
-                    logger.info(f"🎯 Early cutoff triggered: {successful_scrapes} successful scrapes >= {early_cutoff_threshold} threshold")
-                    logger.info(f"   Cancelling {len(pending_tasks)} remaining scrape tasks...")
-                    
-                    # Cancel all pending tasks immediately
-                    for pending_task in pending_tasks:
-                        pending_task.cancel()
-                    
-                    cancelled_count = len(pending_tasks)
-                    
-                    # Wait briefly for cancellations to process
-                    if pending_tasks:
-                        await asyncio.gather(*pending_tasks, return_exceptions=True)
-                    
-                    logger.info(f"✂️ Cancelled {cancelled_count} tasks | Proceeding with {len(completed_results)} results")
-                    break
+                # DISABLED: Early cutoff optimization - now processing all URLs in batch
+                # This ensures we get maximum opportunities for successful cleans
+                # if successful_scrapes >= early_cutoff_threshold and pending_tasks:
+                #     logger.info(f"🎯 Early cutoff triggered: {successful_scrapes} successful scrapes >= {early_cutoff_threshold} threshold")
+                #     logger.info(f"   Cancelling {len(pending_tasks)} remaining scrape tasks...")
+                #     
+                #     # Cancel all pending tasks immediately
+                #     for pending_task in pending_tasks:
+                #         pending_task.cancel()
+                #     
+                #     cancelled_count = len(pending_tasks)
+                #     
+                #     # Wait briefly for cancellations to process
+                #     if pending_tasks:
+                #         await asyncio.gather(*pending_tasks, return_exceptions=True)
+                #     
+                #     logger.info(f"✂️ Cancelled {cancelled_count} tasks | Proceeding with {len(completed_results)} results")
+                #     break
         
         all_results = completed_results
         logger.info(f"📊 Scraping completed: {successful_scrapes} successful scrapes, {cancelled_count} cancelled, {len(all_results)} total results")
@@ -967,17 +968,125 @@ async def search_crawl_and_clean_direct(
                     cleaned_urls.append(result["url"])
 
         # Check successful_cleans against target
-        successful_cleans = len([cs for cs in cleaning_stats if not cs.get("skipped", False) and cs.get("quality_score", 0) >= context.min_quality_threshold])
-        logger.info(f"📊 Cleaning results: {successful_cleans}/{target_cleans} successful cleans (quality >= {context.min_quality_threshold})")
+        min_quality_threshold = 50  # Standard quality threshold for cleaned content
+        successful_cleans = len([cs for cs in cleaning_stats if not cs.get("skipped", False) and cs.get("quality_score", 0) >= min_quality_threshold])
+        logger.info(f"📊 Cleaning results: {successful_cleans}/{target_cleans} successful cleans (quality >= {min_quality_threshold})")
         
-        if successful_cleans < target_cleans:
+        # Quality-aware replacement: Try additional URLs if we're below target
+        replacement_round = 0
+        max_replacement_rounds = 3  # Limit to prevent infinite loops
+        
+        while successful_cleans < target_cleans and replacement_round < max_replacement_rounds:
+            replacement_round += 1
             deficit = target_cleans - successful_cleans
             additional_needed = int(deficit * settings.scrape_attempt_multiplier)
-            logger.warning(f"⚠️ Below target: need {deficit} more cleans → would attempt {additional_needed} additional scrapes")
-            logger.info(f"   (Additional scraping not implemented in this iteration - accepting {successful_cleans} cleans)")
-            # TODO: Implement additional scraping round from remaining URLs in search_results
+            
+            # Get unused replacement URLs
+            available_replacements = [
+                url for url in replacement_state["replacement_urls"] 
+                if url not in replacement_state["used_replacements"]
+            ]
+            
+            if not available_replacements:
+                logger.warning(f"⚠️ Round {replacement_round}: No more replacement URLs available (deficit: {deficit})")
+                break
+            
+            # Limit to what we need (with multiplier for safety margin)
+            urls_to_try = available_replacements[:additional_needed]
+            logger.info(f"🔄 Round {replacement_round}: Attempting {len(urls_to_try)} replacement URLs to fill {deficit} clean deficit")
+            
+            # Mark these URLs as used
+            async with replacement_state["replacement_lock"]:
+                for url in urls_to_try:
+                    replacement_state["used_replacements"].add(url)
+            
+            # Process replacement URLs with same pipeline
+            replacement_tasks = {
+                asyncio.create_task(process_url_with_replacement(url, is_replacement=True)): url 
+                for url in urls_to_try
+            }
+            replacement_results = []
+            
+            async with timed_block(f"replacement_round_{replacement_round}", metadata={"url_count": len(urls_to_try)}):
+                while replacement_tasks:
+                    done, pending = await asyncio.wait(replacement_tasks, return_when=asyncio.FIRST_COMPLETED)
+                    
+                    for task in done:
+                        url = replacement_tasks[task]
+                        del replacement_tasks[task]
+                        
+                        try:
+                            result = await task
+                            replacement_results.append(result)
+                            
+                            # Immediately process this result into our lists
+                            if not isinstance(result, Exception) and result["success"]:
+                                scrape_result = result["scrape_result"]
+                                clean_result = result.get("clean_result")
+                                
+                                # Add to escalation stats
+                                escalation_stats.append({
+                                    "url": result["url"],
+                                    "success": True,
+                                    "attempts": scrape_result.attempts_made,
+                                    "final_level": scrape_result.final_level,
+                                    "escalation_used": scrape_result.escalation_used,
+                                    "duration": scrape_result.duration,
+                                    "word_count": scrape_result.word_count,
+                                    "char_count": len(scrape_result.html),
+                                    "is_replacement": True,
+                                    "replacement_round": replacement_round
+                                })
+                                
+                                # Add to all_results for session state building
+                                all_results.append(result)
+                                
+                                # Check if cleaning succeeded with quality threshold
+                                if clean_result and hasattr(clean_result, 'quality_score'):
+                                    quality_level = "High" if clean_result.quality_score >= 90 else \
+                                                  "Good" if clean_result.quality_score >= 75 else \
+                                                  "Acceptable" if clean_result.quality_score >= 50 else \
+                                                  "Low"
+                                    
+                                    # Add to cleaning stats
+                                    cleaning_stats.append({
+                                        "url": result["url"],
+                                        "quality_score": clean_result.quality_score,
+                                        "quality_level": quality_level,
+                                        "relevance_score": getattr(clean_result, 'relevance_score', 0.0),
+                                        "word_count": getattr(clean_result, 'word_count', 0),
+                                        "salient_points": getattr(clean_result, 'salient_points', ''),
+                                        "is_replacement": True,
+                                        "replacement_round": replacement_round
+                                    })
+                                    
+                                    # If quality is good, add to cleaned content
+                                    if clean_result.quality_score >= min_quality_threshold:
+                                        cleaned_content_list.append(clean_result.cleaned_content)
+                                        cleaned_urls.append(result["url"])
+                                        logger.info(f"✅ Replacement clean #{len(cleaned_content_list)}: {result['url']} (quality: {clean_result.quality_score})")
+                                
+                        except Exception as e:
+                            replacement_results.append(e)
+                            logger.error(f"Exception processing replacement URL {url}: {e}")
+            
+            # Recount successful cleans
+            previous_count = successful_cleans
+            successful_cleans = len([cs for cs in cleaning_stats if not cs.get("skipped", False) and cs.get("quality_score", 0) >= min_quality_threshold])
+            new_cleans = successful_cleans - previous_count
+            
+            logger.info(f"📊 Round {replacement_round} complete: +{new_cleans} successful cleans → Total: {successful_cleans}/{target_cleans}")
+            
+            if new_cleans == 0:
+                logger.warning(f"⚠️ Round {replacement_round} produced 0 successful cleans, stopping replacement attempts")
+                break
+        
+        # Final status
+        if successful_cleans >= target_cleans:
+            logger.info(f"✅ Target achieved: {successful_cleans} >= {target_cleans} successful cleans (after {replacement_round} replacement rounds)")
         else:
-            logger.info(f"✅ Target achieved: {successful_cleans} >= {target_cleans} successful cleans")
+            logger.warning(f"⚠️ Target not met: {successful_cleans}/{target_cleans} successful cleans (after {replacement_round} replacement rounds)")
+            logger.info(f"   Accepting {successful_cleans} cleans (quality threshold: {min_quality_threshold})")
 
         # Phase 4: Build enriched session_state.json with salient_points
         logger.info(f"💾 Building enriched session state with salient points...")
@@ -1111,41 +1220,6 @@ async def search_crawl_and_clean_direct(
                 workproduct_prefix=workproduct_prefix,
             )
 
-            # NEW: Step 6 - Automatic corpus building with hook validation
-            corpus_info = ""
-            if auto_build_corpus and len(cleaned_content_list) > 0:
-                try:
-                    logger.info(f"🏗️ Building research corpus from {len(cleaned_content_list)} sources...")
-                    
-                    # Import and use ResearchCorpusManager
-                    from utils.research_corpus_manager import ResearchCorpusManager
-
-                    corpus_manager = ResearchCorpusManager(session_id=session_id)
-                    corpus_data = await corpus_manager.build_corpus_from_workproduct(work_product_path)
-                    
-                    corpus_info = f"""
-### Research Corpus Information (NEW)
-- **Corpus ID**: {corpus_data['corpus_id']}
-- **Total Content Chunks**: {corpus_data['metadata']['total_chunks']}
-- **Sources Processed**: {corpus_data['metadata']['total_sources']}
-- **Content Coverage**: {corpus_data['metadata'].get('content_coverage', 0.0):.2%}
-- **Average Relevance Score**: {corpus_data['metadata'].get('average_relevance_score', 0.0):.3f}
-- **Corpus File**: {corpus_data.get('corpus_file', 'N/A')}
-- **Ready for Enhanced Report Agent**: ✅ Yes (quality score: {corpus_data['metadata'].get('average_relevance_score', 0.0):.3f})
-
-🎯 **Enhanced Report Agent can now use corpus-based tools to generate data-driven reports with hook validation!**
-"""
-                    logger.info(f"✅ Research corpus built successfully: {corpus_data['corpus_id']} ({corpus_data['metadata']['total_chunks']} chunks)")
-                    
-                except Exception as corpus_error:
-                    logger.warning(f"⚠️ Failed to build research corpus: {corpus_error}")
-                    corpus_info = f"""
-### Research Corpus Information (NEW)
-- **Status**: ❌ Failed to build corpus
-- **Error**: {str(corpus_error)}
-- **Fallback**: Report agent can still use standard processing
-"""
-
             # Log final statistics including replacement information
             successful_scrapes = len([s for s in escalation_stats if s["success"]])
             replacements_made = len(replacement_stats)
@@ -1154,9 +1228,6 @@ async def search_crawl_and_clean_direct(
                 f"{successful_scrapes} successful scrapes, {replacements_made} URLs replaced - "
                 f"Work product saved to {work_product_path}"
             )
-            
-            # Add corpus information to the final output
-            orchestrator_data += corpus_info
             
             return orchestrator_data
 
@@ -1175,25 +1246,6 @@ async def search_crawl_and_clean_direct(
                 workproduct_prefix=workproduct_prefix,
             )
 
-            # Try to build corpus even with no cleaned content (for search results only)
-            corpus_info = ""
-            if auto_build_corpus:
-                try:
-                    from utils.research_corpus_manager import ResearchCorpusManager
-                    corpus_manager = ResearchCorpusManager(session_id=session_id)
-                    corpus_data = await corpus_manager.build_corpus_from_workproduct(work_product_path)
-                    
-                    corpus_info = f"""
-### Research Corpus Information (NEW)
-- **Corpus ID**: {corpus_data['corpus_id']}
-- **Total Content Chunks**: {corpus_data['metadata']['total_chunks']}
-- **Sources Processed**: {corpus_data['metadata']['total_sources']}
-- **Content Coverage**: {corpus_data['metadata'].get('content_coverage', 0.0):.2%}
-- **Ready for Enhanced Report Agent**: ✅ Limited (search results only)
-"""
-                except Exception as corpus_error:
-                    logger.warning(f"Failed to build corpus from search results only: {corpus_error}")
-
             failed_result = f"""{search_section}
 
 ---
@@ -1202,7 +1254,6 @@ async def search_crawl_and_clean_direct(
 **Anti-Bot Level**: {anti_bot_level}
 **Execution Time**: {total_duration:.2f}s
 **Work Product Saved**: {work_product_path}
-{corpus_info}
 """
 
             logger.warning(
@@ -1347,13 +1398,14 @@ def _build_enriched_session_state(
         }
         
         # If successfully cleaned, add salient_points and full content
+        # Only include articles that meet minimum quality threshold (50)
         if result_entry and result_entry.get("success") and clean_stat and not clean_stat.get("skipped"):
             clean_result = result_entry.get("clean_result")
-            if clean_result and hasattr(clean_result, 'salient_points'):
+            if clean_result and hasattr(clean_result, 'salient_points') and clean_result.quality_score >= 50:
                 metadata_entry["has_full_content"] = True
                 metadata_entry["salient_points"] = clean_result.salient_points
                 
-                # Store full article in scraped_articles
+                # Store full article in scraped_articles (only quality articles)
                 scraped_articles[str(idx)] = {
                     "cleaned_content": clean_result.cleaned_content,
                     "word_count": clean_result.word_count,
@@ -1377,7 +1429,7 @@ def _build_enriched_session_state(
 
 
 def _save_session_state(session_id: str, state: dict):
-    """Save session state to session_state.json."""
+    """Save enriched search metadata with salient points to enriched_search_metadata.json."""
     try:
         from pathlib import Path
         import json
@@ -1385,7 +1437,8 @@ def _save_session_state(session_id: str, state: dict):
         session_dir = Path.home() / "lrepos" / "claudeagent-multiagent-latest" / "KEVIN" / "sessions" / session_id
         session_dir.mkdir(parents=True, exist_ok=True)
         
-        state_file = session_dir / "session_state.json"
+        # Use separate file to avoid orchestrator overwriting our enriched metadata
+        state_file = session_dir / "enriched_search_metadata.json"
         
         with open(state_file, 'w', encoding='utf-8') as f:
             json.dump(state, f, indent=2, ensure_ascii=False)

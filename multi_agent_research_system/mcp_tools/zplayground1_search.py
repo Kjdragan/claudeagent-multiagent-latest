@@ -327,6 +327,7 @@ def create_zplayground1_mcp_server():
                         anti_bot_level=anti_bot_level,
                         workproduct_dir=workproduct_dir,
                         workproduct_prefix=workproduct_prefix,
+                        auto_build_corpus=False,  # Disabled: corpus functionality removed from architecture
                     )
             except ImportError as e:
                 logger.error(f"❌ Import error in scraping pipeline: {e}")

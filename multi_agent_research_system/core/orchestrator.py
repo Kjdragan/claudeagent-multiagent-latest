@@ -65,6 +65,8 @@ except ImportError:
 
 from .agent_logger import AgentLoggerFactory
 from .logging_config import get_logger
+from .context_injection import ContextInjectionManager
+from .debug_checkpoints import DebugCheckpoint
 
 # Import agent_logging with proper path handling
 try:
@@ -1210,7 +1212,8 @@ class ResearchOrchestrator:
             from pathlib import Path
             
             session_dir = Path.home() / "lrepos" / "claudeagent-multiagent-latest" / "KEVIN" / "sessions" / session_id
-            state_file = session_dir / "session_state.json"
+            # Read from enriched metadata file which contains salient points
+            state_file = session_dir / "enriched_search_metadata.json"
             
             if not state_file.exists():
                 self.logger.warning(f"⚠️  Session state file not found: {state_file}")
@@ -1432,15 +1435,20 @@ To read any full article, use: `mcp__workproduct__get_workproduct_article(sessio
                 self.logger.info("🔄 Falling back to standard report generation without workproduct tools")
                 return await self._execute_standard_report_agent_query(prompt, session_id, timeout_seconds)
 
-            # Phase 5: Check if we need to inject educational context
-            educational_context = self._build_educational_context(session_id)
-            context_injected = self._should_inject_context(session_id)
+            # CRITICAL FIX: Manual context injection (SDK doesn't support per-query options)
+            # Create context injection manager
+            context_manager = ContextInjectionManager(session_id)
+            checkpoint = DebugCheckpoint(session_id)
             
-            # Construct enhanced prompt with optional educational context
-            base_instructions = """You are the Enhanced Report Agent with workproduct-based tools and validation.
+            # Build educational context from enriched metadata
+            edu_context = context_manager.build_context()
+            checkpoint.save_text("educational_context", edu_context)
+            
+            # Build the base prompt
+            base_prompt = f"""You are the Enhanced Report Agent with workproduct-based tools and validation.
 
 MANDATORY WORKFLOW:
-1. FIRST: Review the research educational context provided below (if available)
+1. FIRST: Review the research educational context provided above (if available)
 2. Use get_workproduct_article(session_id, index=N) to read specific full articles
 3. Generate comprehensive report incorporating specific facts, figures, and sources
 4. Ensure proper source attribution with specific citations
@@ -1451,31 +1459,40 @@ REQUIREMENTS:
 - Include proper source citations (outlet names, dates)
 - Avoid generic statements - use concrete details from research
 - Report should reflect current events from the research timeframe
+
+TASK: {prompt}
+
+Session ID: {session_id}
 """
             
-            if educational_context and not context_injected:
-                enhanced_prompt = f"""{base_instructions}
+            # Manually prepend educational context to prompt
+            enhanced_prompt = f"""{edu_context}
 
-{educational_context}
-
-TASK: {prompt}
-
-Session ID: {session_id}
-"""
-                self._mark_context_injected(session_id)
-                self.logger.info(f"✅ Injected educational context ({len(educational_context)} chars) for first invocation")
-            else:
-                enhanced_prompt = f"""{base_instructions}
-
-TASK: {prompt}
-
-Session ID: {session_id}
-"""
-                if context_injected:
-                    self.logger.info(f"ℹ️  Context already injected - using base instructions only")
-
-            # Send enhanced query to client
-            await self.client.query(enhanced_prompt)
+{base_prompt}"""
+            
+            # Save debug checkpoints
+            checkpoint.save_text("report_agent_base_prompt", base_prompt)
+            checkpoint.save_text("enhanced_prompt_final", enhanced_prompt)
+            checkpoint.save("injection_metadata", {
+                "context_length": len(edu_context),
+                "prompt_length": len(base_prompt),
+                "enhanced_length": len(enhanced_prompt),
+                "injection_method": "manual_prepend",
+                "injection_successful": bool(edu_context),
+                "timestamp": datetime.now().isoformat()
+            })
+            
+            # Log injection
+            self.logger.info("="*80)
+            self.logger.info("EDUCATIONAL CONTEXT INJECTED (MANUAL)")
+            self.logger.info(f"Session: {session_id}")
+            self.logger.info(f"Context length: {len(edu_context)} chars")
+            self.logger.info(f"Prompt length: {len(base_prompt)} chars")
+            self.logger.info(f"Enhanced prompt length: {len(enhanced_prompt)} chars")
+            self.logger.info("="*80)
+            
+            # Send enhanced prompt (no options parameter - SDK doesn't support it)
+            await self.client.query(enhanced_prompt, session_id=session_id)
 
             # Collect responses with workproduct tracking
             workproduct_accessed = False

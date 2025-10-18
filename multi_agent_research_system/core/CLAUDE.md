@@ -404,8 +404,7 @@ KEVIN/sessions/{session_id}/
 │   ├── EDITORIAL_{timestamp}.md     # ❌ Never generated
 │   └── FINAL_{timestamp}.md         # ❌ Never generated
 ├── research/                         # Research data and sources
-│   ├── search_workproduct_*.md       # ✅ Generated successfully
-│   └── research_corpus.json          # ✅ Generated successfully
+│   └── search_workproduct_*.md       # ✅ Generated successfully
 ├── agent_logs/                       # Agent activity logs
 │   ├── orchestrator.jsonl            # ✅ Generated successfully
 │   ├── multi_agent.jsonl             # ✅ Generated successfully
@@ -431,11 +430,6 @@ working_mcp_tools = {
         "status": "✅ Working",
         "function": "Save research findings to session storage",
         "success_rate": "100%"
-    },
-    "mcp__corpus__build_research_corpus": {
-        "status": "❌ Defined but not registered",
-        "function": "Build structured research corpus",
-        "success_rate": "0% - Never called"
     }
 }
 ```
@@ -449,11 +443,10 @@ class ReportGenerationFailure:
     """Analysis of report generation failures from debug logs"""
 
     root_causes = [
-        "Corpus tools defined but never registered with SDK client",
         "Hook validation requires tools that agents don't have access to",
         "Coroutine misuse in tool wrappers (async called without await)",
-        "Missing MCP server creation for corpus tools",
-        "No error recovery when validation fails"
+        "No error recovery when validation fails",
+        "Educational context with salient points not injected into prompts"
     ]
 
     symptoms = [
