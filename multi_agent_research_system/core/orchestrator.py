@@ -1527,18 +1527,21 @@ Session ID: {session_id}
                     # Track workproduct workflow progress
                     for tool in tool_executions:
                         tool_name = tool.get("name", "")
-                        if tool_name == "get_workproduct_summary" and tool.get("success"):
+                        # Strip MCP prefix for matching (e.g., "mcp__workproduct__" → "")
+                        tool_name_normalized = tool_name.split("__")[-1] if "__" in tool_name else tool_name
+                        
+                        if tool_name_normalized == "get_workproduct_summary" and tool.get("success"):
                             workproduct_accessed = True
                             query_result["workproduct_usage"]["summary_retrieved"] = True
                             query_result["workproduct_usage"]["article_count"] = tool.get("result", {}).get("article_count", 0)
                             
-                        elif tool_name == "get_all_workproduct_articles" and tool.get("success"):
+                        elif tool_name_normalized == "get_all_workproduct_articles" and tool.get("success"):
                             all_articles_retrieved = True
                             articles = tool.get("result", {}).get("articles", [])
                             query_result["workproduct_usage"]["articles_retrieved"] = len(articles)
                             query_result["workproduct_usage"]["total_sources"] = len(set([a.get("source", "") for a in articles]))
                             
-                        elif tool_name in ["Write", "create_research_report"] and tool.get("success"):
+                        elif tool_name_normalized in ["Write", "create_research_report"] and tool.get("success"):
                             report_generated = True
                             query_result["workproduct_usage"]["report_created"] = True
 

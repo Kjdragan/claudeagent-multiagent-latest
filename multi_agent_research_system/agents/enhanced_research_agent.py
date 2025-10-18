@@ -111,6 +111,12 @@ When conducting research:
 5. Provide source attribution from actual URLs
 6. Generate structured research outputs
 
+CRITICAL: After your FIRST successful search that produces quality results:
+- Save your findings using save_research_findings
+- STOP immediately - DO NOT make additional searches
+- The research phase is complete after ONE comprehensive search
+- Multiple searches are unnecessary and wasteful
+
 Always use the real search tools and provide source attribution from actual search results."""
 
     @tool("real_web_research", "Conduct comprehensive web research using real search tools", {

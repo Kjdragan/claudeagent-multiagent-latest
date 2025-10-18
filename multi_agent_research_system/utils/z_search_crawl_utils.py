@@ -1033,7 +1033,7 @@ async def search_crawl_and_clean_direct(
                                     "escalation_used": scrape_result.escalation_used,
                                     "duration": scrape_result.duration,
                                     "word_count": scrape_result.word_count,
-                                    "char_count": len(scrape_result.html),
+                                    "char_count": scrape_result.char_count,
                                     "is_replacement": True,
                                     "replacement_round": replacement_round
                                 })

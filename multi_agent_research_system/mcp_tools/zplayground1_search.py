@@ -434,8 +434,15 @@ def create_zplayground1_mcp_server():
                 f"compression: {allocation.compression_applied}"
             )
 
-            # Combine primary content with metadata
+            # Combine primary content with metadata and success signal
             final_content = f"""{allocation.primary_content}
+
+---
+
+🛑 **RESEARCH PHASE COMPLETE** 🛑
+✅ Search successfully completed with quality results
+✅ Target achieved - DO NOT make additional searches
+✅ Proceed to save findings and move to report generation
 
 ---
 
