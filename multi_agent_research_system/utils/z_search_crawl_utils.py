@@ -708,14 +708,14 @@ async def search_crawl_and_clean_direct(
                             scrape_result.content.strip(), context
                         )
 
-                # Validate clean_result structure
+                # Validate clean_result structure (Binary LLM-only cleaning returns None on failure)
                 if not clean_result:
-                    logger.warning(f"Content cleaning returned None for {url} - treating as garbage content")
+                    logger.warning(f"🚫 LLM CLEANING FAILED for {url} - Binary rejection (no fallback)")
                     return {
                         "success": False,
                         "url": url,
                         "scrape_result": scrape_result,
-                        "error": "Content cleaning returned None - likely garbage content"
+                        "error": "LLM cleaning failed - Binary rejection"
                     }
 
             except Exception as e:
@@ -800,16 +800,16 @@ async def search_crawl_and_clean_direct(
         early_cutoff_threshold = settings.early_cutoff_threshold
         target_cleans = settings.target_successful_cleans
         
-        logger.info(f"🚀 Launching concurrent scrape+clean processing (early cutoff DISABLED)")
-        logger.info(f"   Target: {target_cleans} successful cleans | Processing ALL {len(urls_to_crawl)} URLs in batch")
+        logger.info(f"🚀 Binary LLM-only processing with EARLY EXIT enabled")
+        logger.info(f"   Target: {target_cleans} successful LLM cleans | Will exit early when target reached")
         
         # Create all tasks but monitor completion dynamically
         pending_tasks = {asyncio.create_task(process_url_with_replacement(url)): url for url in urls_to_crawl}
         completed_results = []
-        successful_scrapes = 0
+        successful_llm_cleans = 0  # Track LLM successes, not just scrapes
         cancelled_count = 0
         
-        async with timed_block("concurrent_scrape_and_clean", metadata={"url_count": len(urls_to_crawl), "cutoff_threshold": early_cutoff_threshold}):
+        async with timed_block("concurrent_scrape_and_clean", metadata={"url_count": len(urls_to_crawl), "target_cleans": target_cleans}):
             while pending_tasks:
                 # Wait for at least one task to complete
                 done, pending = await asyncio.wait(pending_tasks, return_when=asyncio.FIRST_COMPLETED)
@@ -823,38 +823,40 @@ async def search_crawl_and_clean_direct(
                         result = await task
                         completed_results.append(result)
                         
-                        # Count successful scrapes (not exceptions, and scrape succeeded)
+                        # Count successful LLM cleans (not just scrapes!)
                         if not isinstance(result, Exception) and result.get("success"):
-                            # Check if scrape succeeded (has scrape_result with content)
-                            if result.get("scrape_result") and result["scrape_result"].success:
-                                successful_scrapes += 1
-                                logger.debug(f"✅ Successful scrape #{successful_scrapes}/{early_cutoff_threshold}: {url}")
+                            # Check if LLM cleaning succeeded with quality >= 70
+                            clean_result = result.get("clean_result")
+                            if clean_result and hasattr(clean_result, 'quality_score') and clean_result.quality_score >= 70:
+                                successful_llm_cleans += 1
+                                logger.info(f"✅ LLM Clean #{successful_llm_cleans}/{target_cleans}: {url} (quality={clean_result.quality_score})")
                     
                     except Exception as e:
                         completed_results.append(e)
                         logger.error(f"Exception processing {url}: {e}")
                 
-                # DISABLED: Early cutoff optimization - now processing all URLs in batch
-                # This ensures we get maximum opportunities for successful cleans
-                # if successful_scrapes >= early_cutoff_threshold and pending_tasks:
-                #     logger.info(f"🎯 Early cutoff triggered: {successful_scrapes} successful scrapes >= {early_cutoff_threshold} threshold")
-                #     logger.info(f"   Cancelling {len(pending_tasks)} remaining scrape tasks...")
-                #     
-                #     # Cancel all pending tasks immediately
-                #     for pending_task in pending_tasks:
-                #         pending_task.cancel()
-                #     
-                #     cancelled_count = len(pending_tasks)
-                #     
-                #     # Wait briefly for cancellations to process
-                #     if pending_tasks:
-                #         await asyncio.gather(*pending_tasks, return_exceptions=True)
-                #     
-                #     logger.info(f"✂️ Cancelled {cancelled_count} tasks | Proceeding with {len(completed_results)} results")
-                #     break
+                # EARLY EXIT: Once we have enough successful LLM cleans, stop waiting
+                if successful_llm_cleans >= target_cleans and pending_tasks:
+                    logger.info(f"🎯 EARLY EXIT TRIGGERED: {successful_llm_cleans} successful LLM cleans >= {target_cleans} target")
+                    logger.info(f"   Cancelling {len(pending_tasks)} remaining tasks to save time...")
+                    
+                    # Cancel all pending tasks immediately
+                    cancelled_tasks = []
+                    for pending_task in pending_tasks:
+                        pending_task.cancel()
+                        cancelled_tasks.append(pending_task)
+                    
+                    cancelled_count = len(pending_tasks)
+                    
+                    # Wait briefly for cancellations to process
+                    if cancelled_tasks:
+                        await asyncio.gather(*cancelled_tasks, return_exceptions=True)
+                    
+                    logger.info(f"✂️ Cancelled {cancelled_count} tasks | Proceeding with {successful_llm_cleans} successful cleans")
+                    break
         
         all_results = completed_results
-        logger.info(f"📊 Scraping completed: {successful_scrapes} successful scrapes, {cancelled_count} cancelled, {len(all_results)} total results")
+        logger.info(f"📊 Processing completed: {successful_llm_cleans} successful LLM cleans, {cancelled_count} cancelled, {len(all_results)} total results")
 
         end_time = datetime.now()
         total_duration = (end_time - start_time).total_seconds()
@@ -967,10 +969,10 @@ async def search_crawl_and_clean_direct(
                     cleaned_content_list.append(clean_result.cleaned_content)
                     cleaned_urls.append(result["url"])
 
-        # Check successful_cleans against target
-        min_quality_threshold = 50  # Standard quality threshold for cleaned content
+        # Check successful_cleans against target (Binary LLM-only: all accepted cleans are quality >= 70)
+        min_quality_threshold = 70  # Binary LLM-only threshold
         successful_cleans = len([cs for cs in cleaning_stats if not cs.get("skipped", False) and cs.get("quality_score", 0) >= min_quality_threshold])
-        logger.info(f"📊 Cleaning results: {successful_cleans}/{target_cleans} successful cleans (quality >= {min_quality_threshold})")
+        logger.info(f"📊 Binary LLM Cleaning Results: {successful_cleans}/{target_cleans} successful cleans (quality >= {min_quality_threshold})")
         
         # Quality-aware replacement: Try additional URLs if we're below target
         replacement_round = 0
@@ -1169,6 +1171,12 @@ async def search_crawl_and_clean_direct(
 
 """
 
+            # Calculate binary LLM cleaning metrics
+            llm_attempts = len(all_results)
+            llm_successes = len(cleaned_content_list)
+            llm_failures = llm_attempts - llm_successes
+            success_rate = (llm_successes / llm_attempts * 100) if llm_attempts > 0 else 0
+            
             # Add processing summary
             orchestrator_data += f"""
 ## PROCESSING SUMMARY
@@ -1177,10 +1185,17 @@ async def search_crawl_and_clean_direct(
 - **Results found**: {len(search_results)} search results
 - **URLs selected for crawling**: {len(urls_to_crawl)} (threshold: {crawl_threshold})
 - **Successful scrapes**: {len([s for s in escalation_stats if s['success']])}
-- **Successful cleans**: {len(cleaned_content_list)}
+- **Binary LLM cleaning**: {llm_successes}/{llm_attempts} ({success_rate:.1f}% success rate)
 - **Total execution time**: {total_duration:.2f}s
 - **Anti-bot level used**: {anti_bot_level}
-- **Processing mode**: Immediate cleaning (no waiting between scrape and clean stages)
+- **Processing mode**: Binary LLM-only (no fallback, strict quality >= 70)
+
+### 🤖 Binary LLM Cleaning Results
+- **✅ LLM Successes**: {llm_successes} articles (quality >= 70, noise < 5, words > 100)
+- **🚫 LLM Rejections**: {llm_failures} articles (timeout/low quality/too noisy/too short)
+- **Success Rate**: {success_rate:.1f}%
+- **Early Exit**: {'Yes - target reached' if cancelled_count > 0 else 'No - processed all URLs'}
+- **Cancelled Tasks**: {cancelled_count}
 
 ### Escalation Statistics
 """
@@ -1228,6 +1243,9 @@ async def search_crawl_and_clean_direct(
                 f"{successful_scrapes} successful scrapes, {replacements_made} URLs replaced - "
                 f"Work product saved to {work_product_path}"
             )
+            
+            # Log binary LLM cleaning summary
+            content_cleaner.log_binary_cleaning_summary()
             
             return orchestrator_data
 

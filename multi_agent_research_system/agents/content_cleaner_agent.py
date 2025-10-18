@@ -155,70 +155,98 @@ class ContentCleanerAgent:
             'total_cleaned': 0,
             'avg_quality_score': 0.0,
             'avg_processing_time': 0.0,
-            'quality_distribution': {}
+            'quality_distribution': {},
+            'llm_attempts': 0,
+            'llm_successes': 0,
+            'llm_timeouts': 0,
+            'llm_exceptions': 0,
+            'llm_quality_rejections': 0,
+            'llm_noise_rejections': 0,
+            'llm_length_rejections': 0
         }
+
+    def _calculate_adaptive_timeout(self, content_size_bytes: int) -> float:
+        """
+        Calculate adaptive timeout based on content size.
+        
+        Small articles clean quickly (2 min), large articles need more time (5 min).
+        
+        Args:
+            content_size_bytes: Size of raw scraped content in bytes
+            
+        Returns:
+            Timeout in seconds (120-300)
+        """
+        size_kb = content_size_bytes / 1024
+        
+        if size_kb < 50:
+            # Small article: 2 minutes
+            return 120.0
+        elif size_kb < 200:
+            # Medium article: 3 minutes  
+            return 180.0
+        elif size_kb < 500:
+            # Large article: 4 minutes
+            return 240.0
+        else:
+            # Very large: 5 minutes (likely garbage but give it a shot)
+            return 300.0
 
     @async_timed(metadata={"category": "cleaning", "stage": "ai_processing"})
     async def clean_content(
         self,
         raw_content: str,
         context: ContentCleaningContext
-    ) -> CleanedContent:
+    ) -> CleanedContent | None:
         """
-        Clean raw content using AI-powered processing.
+        Binary LLM-only content cleaning with NO fallback.
+        
+        Either succeeds with high-quality LLM cleaning, or returns None.
+        NO fallback to rule-based cleaning - binary success/fail only.
 
         Args:
             raw_content: Raw content from web crawling
             context: Cleaning context with search query and metadata
 
         Returns:
-            CleanedContent with structured cleaning results
+            CleanedContent if successful, None if failed (timeout, error, or low quality)
         """
         start_time = datetime.now()
+        self.stats['llm_attempts'] += 1
 
         try:
             # Pre-processing and basic filtering
             if not self._should_process_content(raw_content, context):
-                return self._create_unusable_result(raw_content, context, "Content failed pre-filtering")
+                logger.error(f"🚫 PRE-FILTER REJECT: {context.url} - Content failed basic checks")
+                return None
 
-            # Use AI cleaning if available
-            if self.agent:
-                result = await self._ai_clean_content(raw_content, context)
-            else:
-                # Fallback to rule-based cleaning
-                result = await self._rule_based_clean_content(raw_content, context)
+            # Require AI agent - no fallback
+            if not self.agent:
+                logger.error(f"🚫 NO LLM AGENT: {context.url} - Cannot clean without LLM")
+                return None
 
-            # Calculate processing time
-            processing_time = (datetime.now() - start_time).total_seconds()
-            result.processing_time = processing_time
-
-            # Update statistics
-            self._update_stats(result)
-
-            logger.debug(f"Content cleaned: {result.quality_score}/100 "
-                        f"({result.quality_level.value}) in {processing_time:.2f}s")
-
+            # Binary LLM-only cleaning
+            result = await self._ai_clean_content_binary(raw_content, context)
+            
+            if result:
+                # Calculate processing time
+                processing_time = (datetime.now() - start_time).total_seconds()
+                result.processing_time = processing_time
+                
+                # Update statistics
+                self._update_stats(result)
+                self.stats['llm_successes'] += 1
+                
+                logger.info(f"✅ LLM SUCCESS: {context.url} quality={result.quality_score} "
+                           f"words={result.word_count} time={processing_time:.1f}s")
+            
             return result
 
         except Exception as e:
             processing_time = (datetime.now() - start_time).total_seconds()
-            logger.error(f"Content cleaning failed for {context.url}: {e}")
-
-            return CleanedContent(
-                original_content=raw_content,
-                cleaned_content=raw_content,
-                quality_score=0,
-                quality_level=ContentQuality.UNUSABLE,
-                relevance_score=0.0,
-                word_count=len(raw_content.split()),
-                char_count=len(raw_content),
-                key_points=[],
-                topics_detected=[],
-                cleaning_notes=[f"Cleaning failed: {str(e)}"],
-                processing_time=processing_time,
-                model_used="failed",
-                salient_points=""
-            )
+            self.stats['llm_exceptions'] += 1
+            logger.error(f"🚫 LLM EXCEPTION: {context.url} - {str(e)} - REJECTING (no fallback)")
+            return None
 
     async def clean_multiple_contents(
         self,
@@ -296,42 +324,74 @@ class ContentCleanerAgent:
 
         return final_results
 
-    async def _ai_clean_content(
+    async def _ai_clean_content_binary(
         self,
         raw_content: str,
         context: ContentCleaningContext
-    ) -> CleanedContent:
-        """Use AI to clean content via Pydantic AI agent."""
+    ) -> CleanedContent | None:
+        """
+        Binary LLM-only cleaning with NO fallback and strict validation.
+        
+        Returns CleanedContent if successful, None if failed for any reason.
+        """
         try:
+            # Calculate adaptive timeout based on content size
+            content_size = len(raw_content.encode('utf-8'))
+            adaptive_timeout = self._calculate_adaptive_timeout(content_size)
+            
+            logger.info(f"🤖 LLM CLEANING: {context.url} ({content_size/1024:.1f}KB, timeout={adaptive_timeout:.0f}s)")
+            
             # Prepare the cleaning prompt
             cleaning_prompt = self._create_cleaning_prompt(raw_content, context)
 
-            logger.debug(f"Starting AI content cleaning for {context.url} ({len(raw_content)} chars)")
-
-            # Run the AI agent with timeout protection
-            import asyncio
+            # Run the AI agent with adaptive timeout
             try:
                 result = await asyncio.wait_for(
                     self.agent.run(cleaning_prompt, deps=context),
-                    timeout=60.0  # Overall 60s timeout for the entire operation
+                    timeout=adaptive_timeout
                 )
             except asyncio.TimeoutError:
-                logger.warning(f"AI cleaning timed out for {context.url} - falling back to rule-based")
-                return await self._rule_based_clean_content(raw_content, context)
-
-            logger.debug(f"AI cleaning completed for {context.url}")
+                self.stats['llm_timeouts'] += 1
+                logger.error(f"🚫 LLM TIMEOUT: {context.url} after {adaptive_timeout:.0f}s - REJECTING (no fallback)")
+                return None
 
             # Parse the structured result from Pydantic model
-            # Pydantic AI uses 'output' attribute (previously 'data')
-            cleaned_data = result.output  # This is now a CleanedContentOutput instance
+            cleaned_data = result.output
 
+            # STRICT VALIDATION: Quality score must be >= 70
+            if cleaned_data.quality_score < 70:
+                self.stats['llm_quality_rejections'] += 1
+                logger.error(f"🚫 LOW QUALITY: {context.url} score={cleaned_data.quality_score} - REJECTING")
+                return None
+            
+            # STRICT VALIDATION: Check for noise indicators
+            noise_indicators = [
+                'sign in', 'subscribe', 'menu', 'navigation', 'accept cookies',
+                'facebook', 'twitter', 'instagram', 'linkedin', 'cookie consent',
+                'privacy policy', 'newsletter'
+            ]
+            noise_count = sum(1 for n in noise_indicators if n in cleaned_data.cleaned_content.lower())
+            
+            if noise_count > 5:
+                self.stats['llm_noise_rejections'] += 1
+                logger.error(f"🚫 TOO MUCH NOISE: {context.url} noise_indicators={noise_count} - REJECTING")
+                return None
+            
+            # STRICT VALIDATION: Minimum word count
+            word_count = len(cleaned_data.cleaned_content.split())
+            if word_count < 100:
+                self.stats['llm_length_rejections'] += 1
+                logger.error(f"🚫 TOO SHORT: {context.url} words={word_count} - REJECTING")
+                return None
+
+            # SUCCESS - All validations passed
             return CleanedContent(
                 original_content=raw_content,
                 cleaned_content=cleaned_data.cleaned_content,
                 quality_score=cleaned_data.quality_score,
                 quality_level=self._get_quality_level(cleaned_data.quality_score),
                 relevance_score=cleaned_data.relevance_score,
-                word_count=len(cleaned_data.cleaned_content.split()),
+                word_count=word_count,
                 char_count=len(cleaned_data.cleaned_content),
                 key_points=cleaned_data.key_points,
                 topics_detected=cleaned_data.topics_detected,
@@ -342,9 +402,9 @@ class ContentCleanerAgent:
             )
 
         except Exception as e:
-            logger.error(f"AI content cleaning failed: {e}")
-            # Fallback to rule-based cleaning
-            return await self._rule_based_clean_content(raw_content, context)
+            self.stats['llm_exceptions'] += 1
+            logger.error(f"🚫 LLM EXCEPTION: {context.url} - {str(e)} - REJECTING (no fallback)")
+            return None
 
     async def _rule_based_clean_content(
         self,
@@ -772,6 +832,63 @@ Example bad salient_points (too generic):
 
 Please analyze and clean this content according to the detailed instructions. Return your response in valid JSON format with ALL fields including salient_points."""
 
+    def get_binary_cleaning_stats(self) -> dict:
+        """
+        Get comprehensive binary LLM cleaning statistics.
+        
+        Returns:
+            Dictionary with detailed cleaning metrics
+        """
+        attempts = self.stats['llm_attempts']
+        successes = self.stats['llm_successes']
+        
+        if attempts == 0:
+            return {"message": "No LLM cleaning attempts yet"}
+        
+        success_rate = (successes / attempts) * 100
+        
+        return {
+            "llm_attempts": attempts,
+            "llm_successes": successes,
+            "llm_timeouts": self.stats['llm_timeouts'],
+            "llm_exceptions": self.stats['llm_exceptions'],
+            "llm_quality_rejections": self.stats['llm_quality_rejections'],
+            "llm_noise_rejections": self.stats['llm_noise_rejections'],
+            "llm_length_rejections": self.stats['llm_length_rejections'],
+            "success_rate_percent": round(success_rate, 1),
+            "total_rejections": attempts - successes,
+            "rejection_breakdown": {
+                "timeouts": self.stats['llm_timeouts'],
+                "exceptions": self.stats['llm_exceptions'],
+                "low_quality": self.stats['llm_quality_rejections'],
+                "too_noisy": self.stats['llm_noise_rejections'],
+                "too_short": self.stats['llm_length_rejections']
+            }
+        }
+    
+    def log_binary_cleaning_summary(self):
+        """Log a summary of binary LLM cleaning performance."""
+        stats = self.get_binary_cleaning_stats()
+        
+        if "message" in stats:
+            logger.info(stats["message"])
+            return
+        
+        logger.info("=" * 60)
+        logger.info("🤖 BINARY LLM CLEANING SUMMARY")
+        logger.info("=" * 60)
+        logger.info(f"Total Attempts: {stats['llm_attempts']}")
+        logger.info(f"✅ Successes: {stats['llm_successes']} ({stats['success_rate_percent']}%)")
+        logger.info(f"🚫 Rejections: {stats['total_rejections']}")
+        logger.info("")
+        logger.info("Rejection Breakdown:")
+        logger.info(f"  ⏱️  Timeouts: {stats['llm_timeouts']}")
+        logger.info(f"  ❌ Exceptions: {stats['llm_exceptions']}")
+        logger.info(f"  📊 Low Quality: {stats['llm_quality_rejections']}")
+        logger.info(f"  🔊 Too Noisy: {stats['llm_noise_rejections']}")
+        logger.info(f"  📏 Too Short: {stats['llm_length_rejections']}")
+        logger.info("=" * 60)
+    
     def _update_stats(self, result: CleanedContent):
         """Update cleaning statistics."""
         self.stats['total_cleaned'] += 1

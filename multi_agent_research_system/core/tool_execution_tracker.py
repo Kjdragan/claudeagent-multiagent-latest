@@ -394,6 +394,105 @@ class ToolExecutionTracker:
             )
         
         return "\n".join(lines)
+    
+    # VALIDATION-SPECIFIC METHODS (SDK Pattern #1: Execution Tracking)
+    
+    def get_successful_tools(self, session_id: Optional[str] = None) -> List[str]:
+        """
+        Get list of successfully executed tool names.
+        SDK Pattern: Track what actually ran, not what was attempted.
+        
+        Args:
+            session_id: Optional session filter
+        
+        Returns:
+            List of tool names that completed successfully
+        """
+        successful = [
+            execution.tool_name
+            for execution in self.execution_history
+            if execution.state == ToolExecutionState.COMPLETED
+            and (session_id is None or execution.session_id == session_id)
+        ]
+        return successful
+    
+    def get_failed_tools(self, session_id: Optional[str] = None) -> List[str]:
+        """Get list of failed tool names."""
+        failed = [
+            execution.tool_name
+            for execution in self.execution_history
+            if execution.state == ToolExecutionState.FAILED
+            and (session_id is None or execution.session_id == session_id)
+        ]
+        return failed
+    
+    def validate_required_tools(
+        self, 
+        required_tools: List[str],
+        session_id: Optional[str] = None,
+        match_substring: bool = True
+    ) -> dict:
+        """
+        Validate that required tools were executed successfully.
+        SDK Pattern: Simple membership check, no string matching bugs.
+        
+        Args:
+            required_tools: List of required tool names or substrings
+            session_id: Optional session filter
+            match_substring: If True, match tool name substrings (e.g., "workproduct" matches any workproduct tool)
+        
+        Returns:
+            Dictionary with validation results
+        """
+        successful_tools = self.get_successful_tools(session_id)
+        
+        missing_tools = []
+        found_tools = {}
+        
+        for required in required_tools:
+            if match_substring:
+                # Check if any successful tool contains this substring
+                matches = [tool for tool in successful_tools if required.lower() in tool.lower()]
+                if matches:
+                    found_tools[required] = matches
+                else:
+                    missing_tools.append(required)
+            else:
+                # Exact match required
+                if required in successful_tools:
+                    found_tools[required] = [required]
+                else:
+                    missing_tools.append(required)
+        
+        return {
+            "valid": len(missing_tools) == 0,
+            "missing_tools": missing_tools,
+            "found_tools": found_tools,
+            "successful_tool_count": len(successful_tools),
+            "required_tool_count": len(required_tools)
+        }
+    
+    def get_session_tool_summary(self, session_id: str) -> dict:
+        """
+        Get summary of all tool executions for a session.
+        Useful for debugging validation issues.
+        
+        Returns:
+            Dictionary with tool execution summary
+        """
+        session_executions = [
+            e for e in self.execution_history
+            if e.session_id == session_id
+        ]
+        
+        return {
+            "total_executions": len(session_executions),
+            "successful": len([e for e in session_executions if e.state == ToolExecutionState.COMPLETED]),
+            "failed": len([e for e in session_executions if e.state == ToolExecutionState.FAILED]),
+            "timeout": len([e for e in session_executions if e.state == ToolExecutionState.TIMEOUT]),
+            "tools_executed": list(set(e.tool_name for e in session_executions)),
+            "successful_tools": [e.tool_name for e in session_executions if e.state == ToolExecutionState.COMPLETED]
+        }
 
 
 # Global tracker instance

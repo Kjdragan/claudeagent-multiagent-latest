@@ -661,6 +661,48 @@ class ResearchOrchestrator:
         """Get the appropriate agent logger for the specified agent."""
         return self.agent_loggers.get(agent_name, self.agent_logger)
 
+    def get_message_limit(self, agent_name: str = None, stage: str = None) -> int:
+        """
+        Get appropriate message limit for agent/stage (repair10 P3 Issue #3).
+        
+        Stage-specific limits prevent premature termination during complex operations
+        like revisions while maintaining safety for simpler operations.
+        
+        Args:
+            agent_name: Agent name (optional)
+            stage: Workflow stage (optional)
+            
+        Returns:
+            Message limit for the specified context
+        """
+        # Stage-specific limits (higher priority)
+        stage_limits = {
+            "research": 50,
+            "report_generation": 50,
+            "editorial_review": 50,
+            "revisions": 75,  # Higher limit for complex revision work
+            "finalization": 30,
+            "default": 50
+        }
+        
+        if stage and stage in stage_limits:
+            return stage_limits[stage]
+        
+        # Agent-specific limits (fallback)
+        agent_limits = {
+            "enhanced_report_agent": 75,  # Used for revisions
+            "standard_report_agent": 30,
+            "research_agent": 50,
+            "editor_agent": 50,
+            "default": 50
+        }
+        
+        if agent_name and agent_name in agent_limits:
+            return agent_limits[agent_name]
+        
+        # Default limit
+        return stage_limits["default"]
+
     def get_all_agent_summaries(self) -> dict[str, Any]:
         """Get summaries from all agent loggers."""
         summaries = {}
@@ -1188,9 +1230,10 @@ class ResearchOrchestrator:
                     self.logger.debug("ResultMessage received, stopping collection")
                     break
 
-                # Safety limit to prevent infinite loops
-                if len(query_result["messages_collected"]) >= 50:
-                    self.logger.warning(f"Message limit reached for {agent_name} query")
+                # Safety limit to prevent infinite loops (repair10 P3 Issue #3)
+                message_limit = self.get_message_limit(agent_name=agent_name)
+                if len(query_result["messages_collected"]) >= message_limit:
+                    self.logger.warning(f"Message limit ({message_limit}) reached for {agent_name} query")
                     break
 
             query_result["success"] = True
@@ -1414,7 +1457,6 @@ To read any full article, use: `mcp__workproduct__get_workproduct_article(sessio
             "substantive_responses": 0,
             "tool_executions": [],
             "hook_validations": [],
-            "workproduct_usage": {},
             "errors": [],
             "query_start_time": datetime.now().isoformat(),
             "success": False,
@@ -1494,11 +1536,11 @@ Session ID: {session_id}
             # Send enhanced prompt (no options parameter - SDK doesn't support it)
             await self.client.query(enhanced_prompt, session_id=session_id)
 
-            # Collect responses with workproduct tracking
-            workproduct_accessed = False
-            all_articles_retrieved = False
-            report_generated = False
+            # NEW: Get execution tracker for SDK-pattern validation
+            from .tool_execution_tracker import get_tool_execution_tracker
+            tracker = get_tool_execution_tracker()
 
+            # Collect responses
             async for message in self.client.receive_response():
                 message_info = {
                     "message_type": type(message).__name__,
@@ -1523,31 +1565,35 @@ Session ID: {session_id}
                 if tool_executions:
                     message_info["tool_use"] = tool_executions[0]
                     query_result["tool_executions"].extend(tool_executions)
-
-                    # Track workproduct workflow progress
-                    for tool in tool_executions:
-                        tool_name = tool.get("name", "")
-                        # Strip MCP prefix for matching (e.g., "mcp__workproduct__" → "")
-                        tool_name_normalized = tool_name.split("__")[-1] if "__" in tool_name else tool_name
-                        
-                        if tool_name_normalized == "get_workproduct_summary" and tool.get("success"):
-                            workproduct_accessed = True
-                            query_result["workproduct_usage"]["summary_retrieved"] = True
-                            query_result["workproduct_usage"]["article_count"] = tool.get("result", {}).get("article_count", 0)
-                            
-                        elif tool_name_normalized == "get_all_workproduct_articles" and tool.get("success"):
-                            all_articles_retrieved = True
-                            articles = tool.get("result", {}).get("articles", [])
-                            query_result["workproduct_usage"]["articles_retrieved"] = len(articles)
-                            query_result["workproduct_usage"]["total_sources"] = len(set([a.get("source", "") for a in articles]))
-                            
-                        elif tool_name_normalized in ["Write", "create_research_report"] and tool.get("success"):
-                            report_generated = True
-                            query_result["workproduct_usage"]["report_created"] = True
+                    
+                    # NEW: Track tool execution start (SDK Pattern #1)
+                    for tool_exec in tool_executions:
+                        tracker.track_tool_start(
+                            tool_name=tool_exec["name"],
+                            tool_use_id=tool_exec["id"],
+                            session_id=session_id,
+                            input_data=tool_exec.get("input", {}),
+                            agent_context={"agent_name": "enhanced_report_agent"}
+                        )
 
                 if hook_validations:
                     message_info["hook_validations"] = hook_validations
                     query_result["hook_validations"].extend(hook_validations)
+
+                # NEW: Track tool completion when ToolResultBlock is received
+                if hasattr(message, 'content'):
+                    for block in message.content:
+                        if isinstance(block, ToolResultBlock):
+                            # Track tool completion
+                            result_data = self._parse_tool_result_content(block.content, block.tool_use_id)
+                            if result_data:
+                                is_error = result_data.get("is_error", False) if isinstance(result_data, dict) else False
+                                tracker.track_tool_completion(
+                                    tool_use_id=block.tool_use_id,
+                                    result_data=result_data,
+                                    success=not is_error,
+                                    error=result_data.get("content") if is_error else None
+                                )
 
                 query_result["messages_collected"].append(message_info)
 
@@ -1556,29 +1602,28 @@ Session ID: {session_id}
                     self.logger.debug("ResultMessage received, stopping collection")
                     break
 
-                # Safety limit to prevent infinite loops
-                if len(query_result["messages_collected"]) >= 50:
-                    self.logger.warning(f"Message limit reached for enhanced report agent query")
+                # Safety limit to prevent infinite loops (repair10 P3 Issue #3)
+                # Enhanced report agent is used for revisions - use higher limit
+                message_limit = self.get_message_limit(agent_name="enhanced_report_agent", stage="revisions")
+                if len(query_result["messages_collected"]) >= message_limit:
+                    self.logger.warning(f"Message limit ({message_limit}) reached for enhanced report agent query")
                     break
 
-            # Evaluate workflow completion
-            workflow_complete = (
-                all_articles_retrieved and report_generated
-            )
+            # Validate required tools were executed successfully (tracker initialized before loop)
+            required_tools = ["workproduct", "create_research_report"]
+            validation = tracker.validate_required_tools(required_tools, session_id, match_substring=True)
             
-            if workflow_complete:
+            if validation["valid"]:
                 query_result["success"] = True
-                self.logger.info(f"✅ Enhanced Report Agent workflow completed successfully")
-                self.logger.info(f"   Articles retrieved: {query_result['workproduct_usage'].get('articles_retrieved', 0)}")
-                self.logger.info(f"   Sources: {query_result['workproduct_usage'].get('total_sources', 0)}")
-                self.logger.info(f"   Report created: {report_generated}")
+                self.logger.info(f"✅ Enhanced Report Agent workflow completed successfully (tracker validation)")
+                self.logger.info(f"   Required tools found: {list(validation['found_tools'].keys())}")
+                self.logger.info(f"   Successful tool count: {validation['successful_tool_count']}")
             else:
                 query_result["success"] = False
-                query_result["errors"].append("Enhanced workflow incomplete")
-                self.logger.warning(f"⚠️ Enhanced Report Agent workflow incomplete:")
-                self.logger.warning(f"   Workproduct accessed: {workproduct_accessed}")
-                self.logger.warning(f"   All articles retrieved: {all_articles_retrieved}")
-                self.logger.warning(f"   Report generated: {report_generated}")
+                query_result["errors"].append(f"Enhanced workflow incomplete - missing tools: {validation['missing_tools']}")
+                self.logger.warning(f"⚠️ Enhanced Report Agent workflow incomplete (tracker validation):")
+                self.logger.warning(f"   Missing tools: {validation['missing_tools']}")
+                self.logger.warning(f"   Successful tools: {tracker.get_successful_tools(session_id)}")
 
             query_result["query_end_time"] = datetime.now().isoformat()
             return query_result
@@ -1687,9 +1732,10 @@ CRITICAL: Execute the create_research_report tool to generate and save the repor
                     self.logger.debug("ResultMessage received, stopping collection")
                     break
 
-                # Safety limit to prevent infinite loops
-                if len(query_result["messages_collected"]) >= 30:
-                    self.logger.warning(f"Message limit reached for standard report agent query")
+                # Safety limit to prevent infinite loops (repair10 P3 Issue #3)
+                message_limit = self.get_message_limit(agent_name="standard_report_agent")
+                if len(query_result["messages_collected"]) >= message_limit:
+                    self.logger.warning(f"Message limit ({message_limit}) reached for standard report agent query")
                     break
 
             # Evaluate completion
@@ -2171,6 +2217,28 @@ CRITICAL: Execute the create_research_report tool to generate and save the repor
                 count = int(match.group(1))
                 self.logger.info(f"Extracted scrape count from text pattern 3: {count}")
                 return count
+            
+            # Pattern 4 (repair10 P3 Issue #5): Binary LLM cleaning results
+            # "✅ LLM Successes: 12 articles" or "**Binary LLM cleaning**: 12/15"
+            match = re.search(r'LLM Successes[:\*\s]+(\d+)', text)
+            if match:
+                count = int(match.group(1))
+                self.logger.info(f"Extracted scrape count from LLM successes pattern: {count}")
+                return count
+            
+            # Pattern 5 (repair10 P3 Issue #5): "Binary LLM cleaning: 12/15 (80.0% success rate)"
+            match = re.search(r'Binary LLM cleaning[:\*\s]+(\d+)/\d+', text)
+            if match:
+                count = int(match.group(1))
+                self.logger.info(f"Extracted scrape count from Binary LLM pattern: {count}")
+                return count
+            
+            # Pattern 6 (repair10 P3 Issue #5): "Successful cleans: 12"
+            match = re.search(r'Successful cleans[:\*\s]+(\d+)', text)
+            if match:
+                count = int(match.group(1))
+                self.logger.info(f"Extracted scrape count from successful cleans pattern: {count}")
+                return count
 
         # Method 3: Check most recent work product file
         session_id = research_result.get("session_id")
@@ -2219,7 +2287,25 @@ CRITICAL: Execute the create_research_report tool to generate and save the repor
         if report_result.get("substantive_responses", 0) < 1:
             return False
 
-        # Check for tool executions (should save findings/create report)
+        # NEW: Use execution tracker for robust validation (SDK Pattern #1)
+        session_id = report_result.get("session_id")
+        if session_id:
+            from .tool_execution_tracker import get_tool_execution_tracker
+            tracker = get_tool_execution_tracker()
+            
+            # Validate required tools were executed successfully
+            required_tools = ["workproduct", "create_research_report"]
+            validation = tracker.validate_required_tools(required_tools, session_id, match_substring=True)
+            
+            if not validation["valid"]:
+                self.logger.warning(f"❌ Report validation failed - missing tools: {validation['missing_tools']}")
+                self.logger.info(f"   Successful tools: {tracker.get_successful_tools(session_id)}")
+                return False
+            
+            self.logger.info(f"✅ Report validation passed - all required tools executed")
+            return True
+
+        # Fallback: Check for tool executions (should save findings/create report)
         tool_executions = report_result.get("tool_executions", [])
         if len(tool_executions) < 1:
             return False
@@ -3424,6 +3510,10 @@ CRITICAL: Execute the create_research_report tool to generate and save the repor
 
         # Track pending tools awaiting results
         pending_tools: dict[str, dict] = {}
+        
+        # NEW: Get execution tracker for SDK-pattern validation
+        from .tool_execution_tracker import get_tool_execution_tracker
+        tracker = get_tool_execution_tracker()
 
         try:
             # Send the query
@@ -3461,6 +3551,16 @@ CRITICAL: Execute the create_research_report tool to generate and save the repor
                         query_result["tool_executions"].extend(tool_executions)
                         # Add to pending tools for result attachment
                         pending_tools.update(new_pending_tools)
+                        
+                        # NEW: Track tool execution start (SDK Pattern #1)
+                        for tool_exec in tool_executions:
+                            tracker.track_tool_start(
+                                tool_name=tool_exec["name"],
+                                tool_use_id=tool_exec["id"],
+                                session_id=session_id,
+                                input_data=tool_exec.get("input", {}),
+                                agent_context={"agent_name": agent_name}
+                            )
 
                     # Extract result information from ToolResultBlock
                     if hasattr(message, 'content'):
@@ -3481,6 +3581,15 @@ CRITICAL: Execute the create_research_report tool to generate and save the repor
                                                 self._update_editorial_search_stats(session_id, tool_info["name"], tool_info["input"], result_data)
 
                                         self.logger.debug(f"✅ Attached result to tool {tool_use_id}")
+                                        
+                                        # NEW: Track tool completion (SDK Pattern #1)
+                                        is_error = result_data.get("is_error", False) if isinstance(result_data, dict) else False
+                                        tracker.track_tool_completion(
+                                            tool_use_id=tool_use_id,
+                                            result_data=result_data,
+                                            success=not is_error,
+                                            error=result_data.get("content") if is_error else None
+                                        )
 
                     # Extract result information from ResultMessage
                     if isinstance(message, ResultMessage):
@@ -3506,6 +3615,16 @@ CRITICAL: Execute the create_research_report tool to generate and save the repor
                                                     self._update_editorial_search_stats(session_id, tool_info["name"], tool_info["input"], result_data)
 
                                             self.logger.debug(f"✅ Attached ResultMessage.result to tool {tool_id}")
+                                            
+                                            # NEW: Track tool completion (SDK Pattern #1)
+                                            is_error = result_data.get("is_error", False) if isinstance(result_data, dict) else False
+                                            tracker.track_tool_completion(
+                                                tool_use_id=tool_id,
+                                                result_data=result_data,
+                                                success=not is_error,
+                                                error=result_data.get("content") if is_error else None
+                                            )
+                                            
                                             break
 
                         self.logger.debug(f"{agent_name} received ResultMessage with cost: ${message_info.get('cost_usd', 'N/A')}")
@@ -4378,7 +4497,8 @@ Execute immediately without explanation."""
                 return []
 
             # Use LLM evaluator to determine if gap research is needed
-            from ..utils.llm_gap_research_evaluator import evaluate_gap_research_need
+            # FIX (repair10 P2 Issue #2): Use absolute import instead of relative import
+            from multi_agent_research_system.utils.llm_gap_research_evaluator import evaluate_gap_research_need
 
             self.logger.info(f"🤖 Using LLM evaluation for gap research decision (session: {session_id})")
             evaluation = await evaluate_gap_research_need(session_id)
@@ -4435,7 +4555,8 @@ Execute immediately without explanation."""
                 return []
 
             # Use LLM evaluator for gap assessment
-            from ..utils.llm_gap_research_evaluator import evaluate_gap_research_need
+            # FIX (repair10 P2 Issue #2): Use absolute import instead of relative import
+            from multi_agent_research_system.utils.llm_gap_research_evaluator import evaluate_gap_research_need
 
             evaluation = await evaluate_gap_research_need(session_id)
 
@@ -4646,9 +4767,162 @@ This session had limited research output available. The editorial agent has proc
 
         return content_sources
 
+    async def _execute_finalization_stage(self, session_id: str) -> dict:
+        """
+        Execute finalization stage: Create final deliverable report package.
+        
+        Steps:
+        1. Select best report from working directory
+        2. Package final report in /final directory
+        3. Generate executive summary
+        4. Create metadata file
+        
+        Based on doc #52 recommendations.
+        """
+        session_data = self.active_sessions[session_id]
+        working_dir = self._get_session_working_dir(session_id)
+        
+        if not working_dir or not working_dir.exists():
+            self.logger.error(f"Working directory not found for session {session_id}")
+            return {"success": False, "error": "Working directory not found"}
+        
+        final_dir = working_dir.parent / "final"
+        final_dir.mkdir(exist_ok=True)
+        
+        self.logger.info(f"📦 Finalizing report package for session {session_id}")
+        
+        # Step 1: Find best report (prioritize INITIAL_DRAFT > COMPREHENSIVE)
+        report_priority = [
+            "INITIAL_DRAFT",
+            "COMPREHENSIVE_RESEARCH",
+            "COMPREHENSIVE_ANALYSIS"
+        ]
+        
+        best_report = None
+        for pattern in report_priority:
+            matches = list(working_dir.glob(f"*{pattern}*.md"))
+            if matches:
+                best_report = max(matches, key=lambda x: x.stat().st_mtime)
+                self.logger.info(f"✅ Selected report: {best_report.name}")
+                break
+        
+        # Fallback: any report not editorial/minimal
+        if not best_report:
+            all_reports = [
+                f for f in working_dir.glob("*.md")
+                if "EDITORIAL" not in f.name 
+                and "MINIMAL" not in f.name
+                and "Appendix" not in f.name
+            ]
+            if all_reports:
+                best_report = max(all_reports, key=lambda x: x.stat().st_mtime)
+                self.logger.warning(f"⚠️ Using fallback report: {best_report.name}")
+        
+        if not best_report:
+            self.logger.error("❌ No report found for finalization")
+            return {"success": False, "error": "No report found"}
+        
+        # Step 2: Read report content
+        try:
+            with open(best_report, 'r', encoding='utf-8') as f:
+                report_content = f.read()
+        except Exception as e:
+            self.logger.error(f"Error reading report: {e}")
+            return {"success": False, "error": str(e)}
+        
+        # Step 3: Create final report
+        topic_slug = session_data['topic'].replace(' ', '_').replace('/', '_')[:50]
+        timestamp = datetime.now().strftime("%Y%m%d")
+        
+        final_report_path = final_dir / f"{topic_slug}_Final_Report_{timestamp}.md"
+        
+        try:
+            with open(final_report_path, 'w', encoding='utf-8') as f:
+                f.write(report_content)
+            self.logger.info(f"✅ Final report created: {final_report_path.name}")
+        except Exception as e:
+            self.logger.error(f"Error writing final report: {e}")
+            return {"success": False, "error": str(e)}
+        
+        # Step 4: Generate executive summary
+        exec_summary = self._extract_executive_summary(report_content)
+        exec_path = final_dir / "Executive_Summary.md"
+        
+        try:
+            with open(exec_path, 'w', encoding='utf-8') as f:
+                f.write(f"# Executive Summary\n\n{exec_summary}")
+            self.logger.info(f"✅ Executive summary created: {exec_path.name}")
+        except Exception as e:
+            self.logger.warning(f"Could not create executive summary: {e}")
+        
+        # Step 5: Create metadata
+        metadata = {
+            "session_id": session_id,
+            "topic": session_data['topic'],
+            "generated_at": datetime.now().isoformat(),
+            "source_report": best_report.name,
+            "user_requirements": session_data['user_requirements'],
+            "workflow_stages": [h.get("stage") for h in session_data.get('workflow_history', [])]
+        }
+        
+        metadata_path = final_dir / "Metadata.json"
+        
+        try:
+            import json
+            with open(metadata_path, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, indent=2)
+            self.logger.info(f"✅ Metadata created: {metadata_path.name}")
+        except Exception as e:
+            self.logger.warning(f"Could not create metadata: {e}")
+        
+        # Update session with final report location
+        session_data['final_report'] = str(final_report_path)
+        session_data['final_report_location'] = str(final_report_path)
+        session_data['final_report_source'] = best_report.name
+        session_data['final_report_preserved_at'] = datetime.now().isoformat()
+        
+        self.logger.info(f"📋 Finalization complete:")
+        self.logger.info(f"   Final report: {final_report_path.name}")
+        self.logger.info(f"   Executive summary: {exec_path.name}")
+        self.logger.info(f"   Metadata: {metadata_path.name}")
+        
+        return {
+            "success": True,
+            "final_report": str(final_report_path),
+            "executive_summary": str(exec_path),
+            "metadata": str(metadata_path),
+            "source_report": best_report.name
+        }
+    
+    def _extract_executive_summary(self, content: str) -> str:
+        """Extract executive summary section from report."""
+        lines = content.split('\n')
+        in_summary = False
+        summary_lines = []
+        
+        for line in lines:
+            if '## Executive Summary' in line or '# Executive Summary' in line:
+                in_summary = True
+                continue
+            elif in_summary and line.startswith('#'):
+                break
+            elif in_summary:
+                summary_lines.append(line)
+        
+        if summary_lines:
+            return '\n'.join(summary_lines).strip()
+        else:
+            # No executive summary found, use first 500 chars
+            return content[:500] + "..."
+
     async def stage_finalize(self, session_id: str):
-        """Stage 4: Finalize the report and complete the session."""
-        self.logger.info(f"Session {session_id}: Finalizing report")
+        """Stage 4: Finalize the report and complete the session.
+        
+        CRITICAL FIX (repair10): Finalization now happens AFTER revisions.
+        This ensures the final deliverables contain the improved revised report,
+        not the initial draft.
+        """
+        self.logger.info(f"Session {session_id}: Starting finalization stage")
 
         # Start Work Product 4: Finalization
         work_product_number = self.start_work_product(session_id, "finalization", "Complete final report and deliverables")
@@ -4656,14 +4930,40 @@ This session had limited research output available. The editorial agent has proc
         await self.update_session_status(session_id, "finalizing", "Completing final report")
 
         session_data = self.active_sessions[session_id]
-
-        # Check if revisions are needed based on editorial review
+        
+        # CRITICAL FIX (repair10): Check if revisions are needed FIRST
         needs_revision = await self.check_if_revision_needed(session_id)
 
         if needs_revision:
+            self.logger.info(f"Session {session_id}: Revisions needed - performing revisions BEFORE finalization")
             await self.stage_perform_revisions(session_id)
         else:
-            await self.complete_session(session_id)
+            self.logger.info(f"Session {session_id}: No revisions needed - proceeding to finalization")
+        
+        # MOVED: Execute finalization AFTER revisions (if any) are complete
+        # This ensures we package the REVISED report, not the initial draft
+        try:
+            finalization_result = await self._execute_finalization_stage(session_id)
+            self.logger.info(f"✅ Finalization packaging complete: {finalization_result.get('source_report', 'unknown')}")
+            
+            # Mark work product as completed (repair10 P4 Issue #7)
+            self.complete_work_product(session_id, work_product_number, {
+                "stage": "finalization",
+                "success": True,
+                "final_report": finalization_result.get('final_report'),
+                "source_report": finalization_result.get('source_report')
+            })
+        except Exception as e:
+            self.logger.error(f"Finalization stage failed: {e}")
+            # Mark as completed even if finalization has issues
+            self.complete_work_product(session_id, work_product_number, {
+                "stage": "finalization",
+                "success": False,
+                "error": str(e)
+            })
+        
+        # Complete the session
+        await self.complete_session(session_id)
 
     async def check_if_revision_needed(self, session_id: str) -> bool:
         """Check if the report needs revisions based on editorial feedback."""
@@ -4742,11 +5042,13 @@ This session had limited research output available. The editorial agent has proc
 
         await self.save_session_state(session_id)
 
-        # **NEW: Ensure revised document is preserved as the final report**
-        await self._preserve_revised_document_as_final(session_id)
+        # REMOVED (repair10 P4 Issue #8): _preserve_revised_document_as_final
+        # No longer needed since finalization now happens AFTER revisions complete.
+        # The finalization stage will automatically select the revised report.
 
-        # Complete the session after revisions
-        await self.complete_session(session_id)
+        # REMOVED (repair10 P1): complete_session call
+        # Session completion now happens in stage_finalize AFTER packaging final deliverables.
+        # This prevents duplicate completion and ensures proper workflow order.
 
     async def complete_session(self, session_id: str):
         """Complete the research session."""
