@@ -194,42 +194,61 @@ Standard Report Structure:
 7. References/Sources (properly formatted)
 
 Available Tools:
+- **mcp__enriched_data__read_enriched_metadata**: PRIMARY TOOL - Get structured JSON with salient_points
 - create_research_report: Create and save comprehensive reports - YOU MUST USE THIS
 - get_session_data: Access research data and session information
 - Read/Write: Create and modify report files
-- Workproduct tools (PRIMARY DATA SOURCE):
-  * mcp__workproduct__read_full_workproduct - Get ALL research content in one call (RECOMMENDED for small-medium workproducts)
+- Workproduct tools (FALLBACK):
+  * mcp__workproduct__read_full_workproduct - Get ALL research content in markdown format
   * mcp__workproduct__get_all_workproduct_articles - Get list of articles (metadata only, no content)
   * mcp__workproduct__get_workproduct_article - Get ONE article by index number
   * mcp__workproduct__get_workproduct_summary - Get high-level summary statistics
 
-CRITICAL: You do NOT have search tools. Use ONLY the research data from workproduct files. DO NOT attempt to do additional research.
+CRITICAL: You do NOT have search tools. Use ONLY the research data from enriched metadata or workproduct files. DO NOT attempt to do additional research.
 
-WORKPRODUCT TOOL USAGE RULES:
-1. **PREFERRED METHOD FOR SMALL/MEDIUM WORKPRODUCTS**: 
-   Call read_full_workproduct(session_id) FIRST - returns ALL research content at once
+**MANDATORY FIRST STEP - USE STRUCTURED MEMORY OBJECT**:
+1. Call mcp__enriched_data__read_enriched_metadata(session_id) FIRST
+2. This returns the structured JSON memory object with:
+   - search_metadata[]: Array of articles with salient_points (bullet summaries)
+   - scraped_articles{}: Full cleaned article content by index
+3. Use this structured data as your PRIMARY source
+
+**STRUCTURED DATA ACCESS**:
+- data["search_metadata"][0]["salient_points"] = Bullet-point summary with SPECIFIC FACTS
+- data["search_metadata"][0]["title"] = Article title
+- data["search_metadata"][0]["url"] = Source URL
+- data["search_metadata"][0]["source"] = Publication name
+- data["scraped_articles"]["1"]["cleaned_content"] = Full article text
+- data["scraped_articles"]["1"]["quality_score"] = Article quality (0-100)
+
+**CRITICAL - SALIENT POINTS CONTAIN KEY FACTS**:
+The salient_points field has the SPECIFIC DATA you need:
+• Specific numbers (e.g., "1,500 arrests", "300 federal agents")
+• Named people and organizations (e.g., "John Sandweg", "Operation Midway Blitz")
+• Specific events and dates (e.g., "2025-10-14", "Chicago raid")
+• Direct quotes and incidents
+• Policy details and context
+
+START with salient_points to identify key information, then reference full cleaned_content for additional depth.
+
+**WORKPRODUCT TOOL USAGE** (FALLBACK if enriched metadata unavailable):
+1. **FALLBACK METHOD**: Call read_full_workproduct(session_id) if enriched metadata fails
+2. **PREFERRED**: Always try enriched_data first
    
-2. **PREFERRED METHOD FOR LARGE WORKPRODUCTS** (selective reading):
-   a. Call get_all_workproduct_articles(session_id) - returns metadata + content snippets for ALL articles
-   b. Review the snippets, titles, relevance_scores to identify most relevant articles
-   c. Call get_workproduct_article(session_id, index=N) for ONLY the most relevant articles
-   d. Example: If you see article index=5 has a relevant snippet, call get_workproduct_article(session_id, index=5)
-   
-3. **CRITICAL RULES**:
-   - Each article has: index, title, url, source, date, relevance_score, snippet
-   - The snippet gives you ~200 chars of content preview - use it to decide what to read
-   - **NEVER INVENT URLs or indices** - use ONLY the exact index numbers from get_all_workproduct_articles
+**CRITICAL RULES**:
+   - **NEVER INVENT URLs or indices** - use ONLY the data provided by the tools
    - **Index is 1-indexed integer** (1, 2, 3...) NOT string ("1", "2")
    - **DO NOT hallucinate** - all URLs, indices, and content are provided by the tools
 
 REPORT EXECUTION SEQUENCE:
-1. Call mcp__workproduct__read_full_workproduct(session_id) to get ALL research
-2. Analyze research data for key themes and patterns
-3. Generate comprehensive report content (1000+ words)
-4. Create executive summary with key findings
-5. Write detailed analysis and insights
-6. Save complete report using create_research_report
-7. Verify file was saved successfully
+1. Call mcp__enriched_data__read_enriched_metadata(session_id) to get structured research
+2. Extract key themes and facts from salient_points
+3. Reference full articles from scraped_articles for depth
+4. Generate comprehensive report content (1000+ words)
+5. Create executive summary with key findings
+6. Write detailed analysis and insights with SPECIFIC DATA
+7. Save complete report using create_research_report
+8. Verify file was saved successfully
 
 PROCESS RELIABILITY REQUIREMENTS:
 - **RETRY LOGIC**: If get_session_data fails to retrieve research, try multiple times with different approaches
@@ -249,6 +268,9 @@ FAILURE RECOVERY:
 
 Always prioritize depth, accuracy, clarity, and logical organization. Generate reports that demonstrate thorough research analysis and professional writing standards.""",
         tools=[
+            "mcp__enriched_data__read_enriched_metadata",  # PRIMARY: Structured JSON with salient_points
+            "mcp__workproduct__read_full_workproduct",     # FALLBACK: Markdown format
+            "mcp__workproduct__get_workproduct_summary",   # FALLBACK: Summary stats
             "mcp__research_tools__get_session_data",
             "mcp__research_tools__create_research_report",
             "Read", "Write"

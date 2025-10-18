@@ -930,6 +930,19 @@ class ResearchOrchestrator:
                 self.logger.error(f"❌ Failed to import critique server: {e}")
                 self.logger.warning("⚠️ Editorial critique generation will fail due to missing critique tools")
 
+            # REPAIR11 FIX: Add enriched_data server for structured JSON access
+            try:
+                from multi_agent_research_system.mcp_tools.enriched_data_tools import enriched_data_server
+                if enriched_data_server is not None:
+                    mcp_servers_config["enriched_data"] = enriched_data_server
+                    self.logger.info("✅ Enriched data MCP server added to configuration (STRUCTURED JSON ACCESS)")
+                else:
+                    self.logger.error("❌ Enriched data MCP server not available - structured data access will fail")
+
+            except Exception as e:
+                self.logger.error(f"❌ Failed to import enriched_data server: {e}")
+                self.logger.warning("⚠️ Structured data access will not be available")
+
             # Create single options with all agents configured properly - WORKING PATTERN
             options = ClaudeAgentOptions(
                 agents=agents_config,
@@ -3933,22 +3946,33 @@ Session ID: {session_id}
 
                 **STRICTLY PROHIBITED**: DO NOT execute any search or scraping tools. All necessary research has already been completed by the research_agent.
 
-                **MANDATORY FIRST STEP**: Use mcp__workproduct__read_full_workproduct with session_id="{session_id}" to get ALL research content
+                **MANDATORY FIRST STEP**: Use mcp__enriched_data__read_enriched_metadata with session_id="{session_id}" to get structured research data
 
-                **WORKPRODUCT ACCESS INSTRUCTIONS**:
-                1. Call mcp__workproduct__read_full_workproduct(session_id="{session_id}") - This returns ALL research articles in one call
-                2. The response contains the complete workproduct with all scraped articles
-                3. DO NOT call get_workproduct_article with individual URLs - the full workproduct has everything
-                4. DO NOT invent or hallucinate URLs - use the actual content from read_full_workproduct
-                5. If read_full_workproduct is too large, use mcp__workproduct__get_workproduct_summary first to see article count
+                **STRUCTURED DATA ACCESS INSTRUCTIONS (PRIMARY)**:
+                1. Call mcp__enriched_data__read_enriched_metadata(session_id="{session_id}") FIRST
+                2. This returns structured JSON with:
+                   - search_metadata[]: Array of articles with salient_points (bullet summaries with SPECIFIC DATA)
+                   - scraped_articles{{}}: Full LLM-cleaned article content by index
+                3. The salient_points field contains KEY FACTS you need:
+                   • Specific numbers (e.g., "1,500 arrests", "300 federal agents")
+                   • Named people and organizations (e.g., "John Sandweg", "Operation Midway Blitz")
+                   • Specific events and dates (e.g., "2025-10-14", "Chicago raid")
+                   • Direct quotes and policy details
+                4. Access full articles via scraped_articles["1"]["cleaned_content"] when you need depth
+                5. **START with salient_points** to identify key information, then reference full articles
+
+                **FALLBACK - WORKPRODUCT ACCESS** (if enriched metadata unavailable):
+                1. Call mcp__workproduct__read_full_workproduct(session_id="{session_id}") as fallback
+                2. This returns markdown format (requires parsing)
+                3. DO NOT invent or hallucinate URLs - use the actual content provided
 
                 **RESEARCH DATA INCORPORATION REQUIREMENTS**:
-                1. **READ FULL WORKPRODUCT**: Call read_full_workproduct ONCE to get all research data
+                1. **READ STRUCTURED METADATA**: Call read_enriched_metadata FIRST to get salient_points
                 2. **TEMPORAL ACCURACY VALIDATION**: Ensure all content reflects CURRENT events ({datetime.now().strftime('%B %Y')}), not outdated information
-                3. **SPECIFIC DATA INCORPORATION**: You MUST incorporate specific facts, figures, dates, and data points from the research sources
+                3. **SPECIFIC DATA INCORPORATION**: You MUST incorporate specific facts, figures, dates from salient_points
                 4. **SOURCE CITATION**: Reference specific sources and data points from your research materials
-                5. **GENERIC CONTENT PROHIBITED**: Do not use generic statements when specific data is available from research
-                6. **NO URL HALLUCINATION**: Use only the URLs and content actually present in the workproduct
+                5. **GENERIC CONTENT PROHIBITED**: Do not use generic statements when specific data is available in salient_points
+                6. **NO URL HALLUCINATION**: Use only the URLs and content actually present in the metadata
 
                 **REPORT GENERATION PROCESS**:
                 1. Create a {report_config['scope']} report on "{session_data['topic']}"
